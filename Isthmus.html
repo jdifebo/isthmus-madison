@@ -1694,13 +1694,16 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           #include <begin_vertex>
           vec3 crown=instanceMatrix[3].xyz;
           crown.y+=length(instanceMatrix[1].xyz)*.70;
-          crownCoverage=smoothstep(58.,100.,length(cameraPosition-crown));
+          crownCoverage=smoothstep(92.,123.,length(cameraPosition-crown));
         `);
       shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>'+varying)
-        .replace('#include <alpha_test_fragment>',`
+        .replace('#include <alphatest_fragment>',`
           if(crownCoverage<.003) discard;
-          if(crownCoverage<.997 && fract(dot(mod(floor(gl_FragCoord.xy),4.),vec2(.5,.3125)))>crownCoverage) discard;
-          #include <alpha_test_fragment>
+          if(crownCoverage<.997) {
+            float dither=fract(52.9829189*fract(dot(floor(gl_FragCoord.xy),vec2(.06711056,.00583715))));
+            if(dither>crownCoverage) discard;
+          }
+          #include <alphatest_fragment>
         `);
     };
     const leaves=windMaterial({vertexColors:true,map:leafTexture(random),alphaTest:.36,side:T.DoubleSide},clock,.068);
