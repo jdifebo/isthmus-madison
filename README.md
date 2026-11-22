@@ -24,10 +24,13 @@ Public aerial photos cover the terrain and surrounding landscape. Procedural clo
 
 Street trees vary in height and canopy shape using the City Forestry inventory. From ground level you can see layered leaves, grass, flowerbeds around Capitol Square, and textured pavement. The field map marks the Metro Rapid corridor and can take you to the Blair, Paterson, and Baldwin center platforms. Bus-lane markings, shelter details, and signal timing are simulated.
 
+The field map also jumps to Orton Park and Breese Stevens Field. Nearby homes use mapped footprints and parcel boundaries, with generated roof shapes, siding, windows, doors, porches, paths, driveways, and planting beds. The house styles draw from the [Third Lake Ridge district](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/third-lake-ridge) and [Marquette Bungalows](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/marquette-bungalows). Breese Stevens Field has a lined soccer pitch, stands, and a stone arcade inspired by its [historic grandstand](https://www.cityofmadison.com/parks/find-a-park/breese-stevens/history).
+
 ## Data and source
 
 - [City of Madison open data](https://data-cityofmadison.opendata.arcgis.com/) and [Greater Madison MPO](https://www.cityofmadison.com/mpo/maps-data/data-resources) for parks, water, street trees and supplementary roads.
 - [City Forestry street tree inventory](https://maps.cityofmadison.com/arcgis/rest/services/Public/OPEN_DATA/MapServer/0) for tree locations, species groups, and trunk diameters.
+- [City of Madison parcel geometry](https://maps.cityofmadison.com/arcgis/rest/services/Public/OPEN_DATA2/MapServer/0) for house lot boundaries used to place paths and driveways.
 - [Greater Madison MPO transportation layers](https://maps.cityofmadison.com/arcgis/rest/services/MPO/RTP_PIM_Board/MapServer) and [Madison Metro bus-only lane guide](https://www.cityofmadison.com/metro/routes-schedules/bus-rapid-transit/bus-only-traffic-lanes) for the East Washington Avenue stations, lanes, and traffic signal locations.
 - [Dane County, City of Madison and Ayres Associates](https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/3DMadison_3D_WFL1/FeatureServer/0) for building footprints.
 - [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) for street and path centerlines and some building heights. The OpenStreetMap-derived data is available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1-0/). The processed geodata is in `data/madison.js`. The download and conversion scripts reproduce it.

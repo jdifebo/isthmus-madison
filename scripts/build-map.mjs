@@ -116,14 +116,15 @@ for (const {tags = {}, geometry} of osm?.elements ?? []) {
     const type = tags.highway;
     const name = tags.name || '';
     const lanes = Number(tags.lanes) || 0;
+    const driveway = type==='service' && tags.service==='driveway';
     const dividedEastWash = name === 'East Washington Avenue' && tags.oneway === 'yes';
-    const width = dividedEastWash ? (lanes || 3)*3.31+1.0 :
+    const width = driveway ? 2.9 : dividedEastWash ? (lanes || 3)*3.31+1.0 :
       Math.max(roadWidth[type], lanes > 2 ? lanes*3.05+1.2 : 0);
     const isPath = ['footway','cycleway','path','steps','track'].includes(type);
     const kind = type === 'pedestrian' || name === 'State Street' ? 2 : isPath ? 3 : type === 'service' ? 4 : width >= 10 ? 0 : 1;
     if (isPath && tags.footway === 'sidewalk') continue;
     const rapidLane = dividedEastWash && lanes !== 2 && geometry.some(point => point.lon > -89.3787);
-    roads.push([name,kind,width,tags.bridge && tags.bridge !== 'no' ? 1 : 0,line,rapidLane ? 1 : 0]);
+    roads.push([name,kind,width,tags.bridge && tags.bridge !== 'no' ? 1 : 0,line,rapidLane ? 1 : 0,driveway ? 1 : 0]);
     if (name) namedRoads.add(name.toLowerCase());
   }
 }
@@ -200,15 +201,31 @@ const brtCenterlines=(await features('brt-routes'))
 const trafficSignals=(await features('traffic-signals'))
   .filter(f=>f.geometry?.type==='Point' && f.properties.Status==='Current' && f.properties.IntControl==='SL')
   .map(f=>project(f.geometry.coordinates));
+const lots=[];
+const seenLots=new Set();
+for(const feature of await features('lots')) {
+  for(const polygon of polygons(feature.geometry)) {
+    const ring=polygon[0];
+    const a=Math.abs(ring.reduce((sum,[x,z],i)=>{
+      const [nx,nz]=ring[(i+1)%ring.length];
+      return sum+x*nz-z*nx;
+    },0))/2;
+    if(a<62 || a>6500) continue;
+    const signature=ring.map(([x,z])=>x+','+z).sort().join(';');
+    if(seenLots.has(signature)) continue;
+    seenLots.add(signature);
+    lots.push(polygon);
+  }
+}
 const map = {
-  origin, meters, bounds, roads, houses, water, parks, trees, brtStations, brtCenterlines, trafficSignals, osm: Boolean(osm),
+  origin, meters, bounds, roads, houses, water, parks, trees, lots, brtStations, brtCenterlines, trafficSignals, osm: Boolean(osm),
   terrain: [terrain[0], terrain[1], Buffer.from(terrain[2]).toString('base64')]
 };
 await writeFile(new URL('../data/madison.js', import.meta.url), 'window.MADISON = ' + JSON.stringify(map) + ';\n');
 console.log({
   buildings: houses.length, mappedHeights: houses.filter(h=>h[3]).length,
   roads: roads.length, parks: parks.length, water: water.length, trees: trees.length,
-  brtStations: brtStations.length, trafficSignals: trafficSignals.length,
+  lots:lots.length, brtStations: brtStations.length, trafficSignals: trafficSignals.length,
   terrainRange: [Math.min(...elevations)/16+255, Math.max(...elevations)/16+255],
   osm: Boolean(osm)
 });

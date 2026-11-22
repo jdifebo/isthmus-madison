@@ -215,14 +215,14 @@
     return {
       triangle(a,b,c,...args) { at(a,b,c).triangle(a,b,c,...args); },
       quad(a,b,c,d,...args) { at(a,b,c).quad(a,b,c,d,...args); },
-      mesh(material,cast=false) {
+      mesh(material,cast=false,range=1780) {
         const group=new T.Group();
         for(const chunk of chunks.values()) {
           const mesh=chunk.mesh(material);
           mesh.geometry.computeBoundingSphere();
           mesh.castShadow=cast;
           mesh.receiveShadow=true;
-          mesh.userData.range=1780;
+          mesh.userData.range=range;
           group.add(mesh);
         }
         return group;
@@ -369,7 +369,9 @@
         float near=1.-smoothstep(7.,82.,distance(cameraPosition,field));
         float clumps=.5+.26*sin(dot(field.xz,vec2(3.8,-3.1)))+.24*sin(dot(field.xz,vec2(7.,4.7)));
         float blades=fract(sin(dot(floor(field.xz*48.),vec2(63.2,41.3)))*19738.12);
-        diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(.84,1.04,.80)*(.80+clumps*.23+blades*.29),green*near*.75);
+        float lawnVariation=.78+clumps*.20+blades*.29;
+        vec3 lawn=mix(diffuseColor.rgb*vec3(1.27,1.11,.76),vec3(.168,.219,.077),.36);
+        diffuseColor.rgb=mix(diffuseColor.rgb,lawn*lawnVariation,green*near*.90);
         diffuseColor.rgb*=.955+grit*.084;
       `:`
         float brightness=dot(detailColor,vec3(.22,.70,.08));
@@ -534,7 +536,7 @@
       }
     }
 
-    for (const [name,kind,width,,line,busLane] of D.roads) {
+    for (const [name,kind,width,,line,busLane,driveway] of D.roads) {
       const eastWash=name==='East Washington Avenue';
       const painted=eastWash || kind===0 || kind===1 && /Carroll|Mifflin|Pinckney|Main Street|Hamilton|Wilson/.test(name);
       if(name && kind<=2) for(const index of [0,line.length-1]) {
@@ -550,7 +552,8 @@
         const dx=bx-ax,dz=bz-az,length=Math.hypot(dx,dz);
         if (length<.04) continue;
         if (kind<=2) roadBand(sidewalk,ax,az,bx,bz,width/2+(kind===2?1.5:2.05),.105,walk,true);
-        roadBand(surfaces,ax,az,bx,bz,width/2,.241-kind*.017,eastWash&&width>9?concrete:styles[kind],length>1.0);
+        roadBand(surfaces,ax,az,bx,bz,width/2,driveway?.076:.241-kind*.017,
+          driveway?concrete:eastWash&&width>9?concrete:styles[kind],length>1.0 && !driveway);
         if(busLane) {
           const lateral=width/2-1.81, ux=dx/length,uz=dz/length;
           const bx0=ax+uz*lateral,bz0=az-ux*lateral;
@@ -774,12 +777,12 @@
     'Madison Municipal Building':20, 'City-County Building':36
   };
 
-  function cityBlocks(scene,photos,evening) {
+  function cityBlocks(scene,photos,evening,homes,stadium) {
     const walls=chunkedBatch(), roofs=chunkedBatch(), foundations=chunkedBatch(), trims=chunkedBatch();
     const stone=[0xbe8164,0xc3afa2,0xe1c9aa,0xa26c53,0xcecbc3,0x8ba6ae,0xadb6a5,0x987464];
     const home=[0xc5ab89,0xaab199,0xb88767,0xdfd4bb,0xa2b3a9,0xd1c5a7,0xbfa997];
     for (const [id,name,kind,measured,poly] of D.houses) {
-      if (name==='Wisconsin State Capitol' || name==='Monona Terrace') continue;
+      if (name==='Wisconsin State Capitol' || name==='Monona Terrace' || (stadium && name==='Breese Stevens Field')) continue;
       const ring=poly[0], [x,z]=center(ring), size=area(ring);
       if (size<4 || x<west-55 || x>east+55 || z<north-55 || z>south+55) continue;
       const rng=random(id*11939);
@@ -787,6 +790,7 @@
       const estimated=kind===2 ? 3.3+rng()*1.6 : kind===1 ?
         6.2+rng()*4.6+clamp((size-300)/35,0,17)*Math.max(.42,downtown) :
         8+rng()*5+Math.min(Math.sqrt(size)*.36,19)*(downtown*.7+.33)+downtown*rng()*14;
+      if(kind===1 && !knownHeights[name] && homes.build(id,poly,measured,estimated)) continue;
       const height=knownHeights[name] || measured || estimated;
       const base=ground(x,z), top=base+height;
       const palette=kind===0?stone:home;
@@ -850,6 +854,7 @@
     scene.add(walls.mesh(facadeMaterial(evening),true));
     const buildingMaterial=surfaceMaterial();
     scene.add(roofs.mesh(surveyMaterial(photos,false),true),foundations.mesh(buildingMaterial),trims.mesh(buildingMaterial));
+    homes.complete();
   }
 
   function capitol(scene) {
@@ -1112,13 +1117,17 @@
     const layout=streetLayout();
     const stencils=asphalt(scene,layout.signals);
     const data=D;
-    const geo={data,ground,nearestRoad,inBuilding,onWater,random,clamp,batch,box,cylinder,mergeLandmark};
+    const geo={data,ground,nearestRoad,inBuilding,onWater,random,clamp,batch,box,cylinder,mergeLandmark,
+      area,center,bounds,inPolygon,indexGrid,segmentDistance,chunkedBatch,triangulate,roofLevels,pavingMaterial,fill,
+      streetCandidates:(x,z)=>roadGrid.at(x,z)};
     const stationLighting=MadisonStreetscape.create(scene,{...layout,stencils},geo,wind);
     const lightStreet=streetLights(scene);
-    cityBlocks(scene,photos,evening);
+    const homes=MadisonHomes.create(scene,geo,evening);
+    const stadium=MadisonPlaces.create(scene,geo);
+    cityBlocks(scene,photos,evening,homes,stadium);
     capitol(scene);
     terrace(scene);
-    const landscape=MadisonLandscape.create(scene,geo,photos,wind);
+    const landscape=MadisonLandscape.create(scene,geo,photos,wind,homes);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -1142,6 +1151,7 @@
       evening.value=i===2?.85:i===1?.15:0;
       lightStreet(evening.value);
       stationLighting(evening.value);
+      stadium?.(evening.value);
     }
     function resize() {
       renderer.setSize(host.clientWidth,host.clientHeight,false);

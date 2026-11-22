@@ -74,19 +74,21 @@
 
   function treeTemplate(type,geo,materials) {
     const {random,batch}=geo,profile=profiles[type],rng=random(3531+type*647);
-    const bark=batch(),croft=batch(),silhouettes=batch(),normals=[];
+    const bark=batch(),croft=batch(),silhouettes=batch(),shaped=batch(),normals=[],shapedNormals=[];
     const color=new T.Color(0xffffff);
     function branch(a,b,lower,upper) {
       const line=new T.Vector3().subVectors(b,a).normalize();
       const perp=new T.Vector3(1,0,0).cross(line).normalize();
       const up=new T.Vector3().crossVectors(line,perp).normalize();
-      const sides=6;
+      const sides=8;
       for(let side=0;side<sides;side++) {
         const angle=side*Math.PI*2/sides,next=(side+1)*Math.PI*2/sides;
         const offset=(origin,r,theta)=>origin.clone().addScaledVector(perp,Math.cos(theta)*r)
           .addScaledVector(up,Math.sin(theta)*r).toArray();
-        color.setRGB(.49+side*.033,.45+side*.028,.35+side*.026);
-        bark.quad(offset(a,lower,angle),offset(a,lower,next),offset(b,upper,next),offset(b,upper,angle),color);
+        const light=.84+Math.sin(angle+1.3)*.08;
+        color.setRGB(.67*light,.59*light,.49*light);
+        bark.quad(offset(a,lower,angle),offset(a,lower,next),offset(b,upper,next),offset(b,upper,angle),
+          color,1/sides,b.distanceTo(a),a.y,side/sides);
       }
     }
     const foot=new T.Vector3(0,-.012,0),fork=new T.Vector3(.028,.34,-.03),peak=new T.Vector3(-.07,.81,.055);
@@ -111,18 +113,22 @@
       for(let tier=0;tier<4;tier++) clusters.push([0,.46+tier*.157,0,.88-tier*.19,.129]);
     }
     const outline=new T.IcosahedronGeometry(1,0), vertices=outline.getAttribute('position');
+    const detailed=new T.IcosahedronGeometry(1,1), smooth=detailed.getAttribute('position');
+    function lobes(out,normal,points,x,y,z,r,h,tint,ruffle) {
+      function bulge(i) {
+        const vx=points.getX(i),vy=points.getY(i),vz=points.getZ(i);
+        const bumps=ruffle ? 1+.14*Math.sin(vx*13.7+vz*9.7)*Math.cos(vy*10.5-vz*6.2) : 1;
+        const nx=vx/r,ny=vy/h,nz=vz/r,scale=1/Math.hypot(nx,ny,nz);
+        normal.push(nx*scale,ny*scale,nz*scale);
+        return [x+vx*r*.84*bumps,y+vy*h*.82*bumps,z+vz*r*.84*bumps];
+      }
+      for(let i=0;i<points.count;i+=3) out.triangle(bulge(i),bulge(i+1),bulge(i+2),tint);
+    }
     for(const [index,[x,y,z,r,h]] of clusters.entries()) {
       const leafColor=new T.Color().setScalar(.57+rng()*.22);
       if(index<2 || index%2===0) {
-        for(let i=0;i<vertices.count;i+=3) {
-          const point=j=>[x+vertices.getX(j)*r*.86,y+vertices.getY(j)*h*.83,z+vertices.getZ(j)*r*.86];
-          silhouettes.triangle(point(i),point(i+1),point(i+2),leafColor);
-          for(let vertex=i;vertex<i+3;vertex++) {
-            const nx=vertices.getX(vertex)/r,ny=vertices.getY(vertex)/h,nz=vertices.getZ(vertex)/r;
-            const scale=1/Math.hypot(nx,ny,nz);
-            normals.push(nx*scale,ny*scale,nz*scale);
-          }
-        }
+        lobes(silhouettes,normals,vertices,x,y,z,r,h,leafColor,false);
+        lobes(shaped,shapedNormals,smooth,x,y,z,r,h,leafColor,true);
       }
       const tint=new T.Color().setScalar(.77+rng()*.19);
       for(let card=0;card<3;card++) {
@@ -134,12 +140,16 @@
       }
     }
     outline.dispose();
+    detailed.dispose();
     const canopy=silhouettes.mesh(materials.distant).geometry;
     canopy.setAttribute('normal',new T.Float32BufferAttribute(normals,3));
+    const texturedCanopy=shaped.mesh(materials.distant).geometry;
+    texturedCanopy.setAttribute('normal',new T.Float32BufferAttribute(shapedNormals,3));
     return {
       bark:bark.mesh(materials.bark).geometry,
       leaves:croft.mesh(materials.leaves).geometry,
-      distant:canopy
+      distant:canopy,
+      close:texturedCanopy
     };
   }
 
@@ -162,7 +172,19 @@
       plant(x,z,27+Math.round(rng()*7),rng()<.44?2:0);
     }
 
-    const bark=new T.MeshLambertMaterial({vertexColors:true,color:0x9b8b78});
+    const bark=new T.MeshLambertMaterial({vertexColors:true,color:0xb4a68c});
+    bark.onBeforeCompile=shader=>{
+      shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 barkUV;')
+        .replace('#include <begin_vertex>','#include <begin_vertex>\nbarkUV=uv;');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 barkUV;')
+        .replace('#include <color_fragment>',`
+          #include <color_fragment>
+          float grain=(barkUV.x+.005*sin(barkUV.y*41.)+.008*sin(barkUV.y*16.))*119.38;
+          float ridges=sin(grain)+.40*sin(grain*2.)+.17*sin(grain*6.);
+          float fissure=smoothstep(.65,1.20,ridges)*(.65+.35*sin(barkUV.y*94.+grain));
+          diffuseColor.rgb*=.87+.15*sin(grain*.53)*sin(barkUV.y*12.+grain)-fissure*.37;
+        `);
+    };
     const distant=new T.MeshLambertMaterial({vertexColors:true,color:0xffffff});
     distant.onBeforeCompile=shader=>{
       shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 leavesWorld;')
@@ -173,7 +195,7 @@
           float patches=.5+.28*sin(dot(leavesWorld,vec3(6.8,2.2,3.1)))+.20*cos(dot(leavesWorld,vec3(3.2,8.1,-4.4)));
           float spots=fract(sin(dot(floor(leavesWorld*8.),vec3(39.03,17.24,59.5)))*41767.52);
           float closeup=1.-smoothstep(18.,63.,distance(cameraPosition,leavesWorld));
-          diffuseColor.rgb*=1.+closeup*(-.23+patches*.27+spots*.17);
+          diffuseColor.rgb*=1.+closeup*(-.33+patches*.36+spots*.24);
         `);
     };
     const leaves=windMaterial({vertexColors:true,map:leafTexture(random),alphaTest:.36,side:T.DoubleSide},clock,.068);
@@ -186,31 +208,36 @@
       const near=new T.InstancedMesh(template.leaves,leaves,entries.length);
       const branches=new T.InstancedMesh(template.bark,bark,entries.length);
       const crowns=new T.InstancedMesh(template.distant,distant,entries.length);
+      const shaped=new T.InstancedMesh(template.close,distant,entries.length);
       crowns.castShadow=true;
+      shaped.castShadow=true;
       for(let index=0;index<entries.length;index++) {
         const [x,y,z,height,r,seed]=entries[index];
         transform.position.set(x,y,z);
         transform.scale.set(r,height,r*(.86+seed*.31));
         transform.rotation.y=seed*Math.PI*2;
         transform.updateMatrix();
-        for(const mesh of [near,branches,crowns]) mesh.setMatrixAt(index,transform.matrix);
+        for(const mesh of [near,branches,crowns,shaped]) mesh.setMatrixAt(index,transform.matrix);
         tint.set(profiles[type].leaf).offsetHSL((seed-.5)*.044,.041-seed*.098,(seed-.5)*.173);
         near.setColorAt(index,tint);
         crowns.setColorAt(index,tint.clone().multiplyScalar(.91));
+        shaped.setColorAt(index,tint.clone().multiplyScalar(.99));
       }
       crowns.computeBoundingSphere();
       crowns.userData.range=1520;
-      near.visible=branches.visible=false;
+      near.visible=branches.visible=shaped.visible=false;
       const {center,radius}=crowns.boundingSphere;
-      clusters.push({near,branches,center,radius});
-      scene.add(crowns,branches,near);
+      clusters.push({near,branches,crowns,shaped,center,radius});
+      scene.add(crowns,branches,near,shaped);
     }
     return (x,z,height,reduced)=>{
       const range=reduced?132:215;
-      for(const {near,branches,center,radius} of clusters) {
+      for(const {near,branches,crowns,shaped,center,radius} of clusters) {
         const delta=(x-center.x)**2+(z-center.z)**2;
         near.visible=height<80 && delta<(range+radius)**2;
         branches.visible=height<100 && delta<(range+radius+40)**2;
+        shaped.visible=height<35 && delta<((reduced?48:78)+radius*.77)**2;
+        if(shaped.visible) crowns.visible=false;
       }
     };
   }
@@ -241,14 +268,14 @@
     };
   }
 
-  function grass(scene,geo,photos,clock) {
+  function grass(scene,geo,photos,clock,paved) {
     const {data,nearestRoad,inBuilding,random,ground,batch}=geo;
     const green=canopyColor(photos,data.bounds);
     const material=windMaterial({vertexColors:true,side:T.DoubleSide},clock,.39);
     const blades=batch(),rng=random(68730);
-    for(let i=0;i<6;i++) {
-      const a=i*2.39,x=Math.cos(a)*rng()*.18,z=Math.sin(a)*rng()*.18;
-      const width=.011+rng()*.016, height=.09+rng()*.163;
+    for(let i=0;i<8;i++) {
+      const a=i*2.39,x=Math.cos(a)*rng()*.24,z=Math.sin(a)*rng()*.24;
+      const width=.009+rng()*.016, height=i<2?.16+rng()*.105:.067+rng()*.108;
       const sx=Math.cos(a)*width,sz=Math.sin(a)*width;
       const lean=.052+rng()*.046;
       const color=new T.Color().setScalar(.70+rng()*.29);
@@ -268,16 +295,16 @@
     function grows(x,z) {
       const capitol=Math.abs(x)<99 && Math.abs(z)<92 && Math.abs(x+4)>15 && Math.abs(z)>15;
       if(!capitol && !green(x,z)) return false;
-      if(inBuilding(x,z,.28)) return false;
+      if(paved(x,z) || inBuilding(x,z,.28)) return false;
       const road=nearestRoad(x,z);
-      return !road || road.distance>road.width*.5+(road.kind<=2?2.32:.30);
+      return !road || road.distance>road.width*.5+(road.kind<=2?2.02:.30);
     }
     function patch(i,j) {
       const key=i+','+j;
       if(memo.has(key)) return memo.get(key);
       const rng=random((i*45991)^(j*98171)^0x240133);
       const entries=[];
-      for(let b=0;b<112;b++) {
+      for(let b=0;b<152;b++) {
         const x=(i+rng())*9,z=(j+rng())*9;
         if(!grows(x,z)) continue;
         entries.push([x,ground(x,z)+.013,z,rng(),rng()]);
@@ -301,19 +328,68 @@
       for(const [a,b] of offsets) {
         for(const [px,py,pz,seed,color] of patch(i+a,j+b)) {
           const away=(px-x)**2+(pz-z)**2;
-          if(away>distance || index>=meadow.instanceMatrix.count || away>680 && seed<.28) continue;
+          if(away>distance || index>=meadow.instanceMatrix.count || away>560 && seed<.49) continue;
           object.position.set(px,py,pz);
           object.rotation.y=seed*6.283;
           object.scale.set(.66+seed*.71,.63+color*.89,.66+seed*.71);
           object.updateMatrix();
           meadow.setMatrixAt(index,object.matrix);
-          meadow.setColorAt(index++,tint.setHSL(.204+color*.055,.44+seed*.1,.25+color*.093));
+          meadow.setColorAt(index++,tint.setHSL(.182+color*.073,.37+seed*.12,.25+color*.084));
         }
       }
       meadow.count=index;
       meadow.instanceMatrix.needsUpdate=true;
       if(meadow.instanceColor) meadow.instanceColor.needsUpdate=true;
     };
+  }
+
+  function frontGardens(scene,geo,plantings,clock) {
+    const {ground,random,batch}=geo;
+    const rng=random(27333), shrub=new T.IcosahedronGeometry(1,1);
+    const positions=shrub.getAttribute('position');
+    for(let i=0;i<positions.count;i++){
+      const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);
+      const bulge=1+.14*Math.sin(x*13.8+z*6.1)*Math.cos(y*10-z*3.4);
+      positions.setXYZ(i,x*bulge,y*bulge,z*bulge);
+    }
+    const flower=batch(),leaf=new T.Color(0x558447),petal=new T.Color(0xe4c6ac);
+    for(let n=0;n<6;n++) {
+      const angle=n*2.399,x=Math.sin(angle)*.18,z=Math.cos(angle)*.18,h=.27+rng()*.27;
+      flower.triangle([0,0,0],[x,h,z],[x+.019,h-.01,z+.022],leaf);
+      const center=[x,h,z];
+      for(let k=0;k<5;k++) {
+        const a=k*Math.PI*2/5;
+        flower.triangle(center,[x+Math.cos(a)*.064,h+.032,z+Math.sin(a)*.064],
+          [x+Math.cos(a+.8)*.065,h+.019,z+Math.sin(a+.8)*.065],petal);
+      }
+    }
+    const shrubMaterial=new T.MeshLambertMaterial(),petals=windMaterial({vertexColors:true,side:T.DoubleSide},clock,.14);
+    const bloomGeometry=flower.mesh(petals).geometry;
+    const groups=new Map();
+    for(const detail of plantings) {
+      const [x,z,,seed]=detail,kind=seed>.54?'shrubs':'flowers';
+      const key=Math.floor(x/140)+','+Math.floor(z/140)+','+kind;
+      if(!groups.has(key)) groups.set(key,{kind,items:[]});
+      groups.get(key).items.push(detail);
+    }
+    const dummy=new T.Object3D(), color=new T.Color();
+    for(const {kind,items} of groups.values()) {
+      const isShrub=kind==='shrubs';
+      const mesh=new T.InstancedMesh(isShrub?shrub:bloomGeometry,isShrub?shrubMaterial:petals,items.length);
+      for(let i=0;i<items.length;i++) {
+        const [x,z,r,seed]=items[i];
+        dummy.position.set(x,ground(x,z)+(isShrub?r*.51:.12),z);
+        dummy.rotation.y=seed*11.7;
+        dummy.scale.set(isShrub?r:1.25,isShrub?r*.68:1.18,isShrub?r*.82:1.29);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i,dummy.matrix);
+        mesh.setColorAt(i,isShrub?color.set(0x4f7137).offsetHSL((seed-.72)*.22,0,(seed-.72)*.24):
+          color.set([0xf5c98f,0xe3a97f,0xddd5f1,0xe1adb7][Math.floor(seed*7)]));
+      }
+      mesh.computeBoundingSphere();
+      mesh.userData.range=310;
+      scene.add(mesh);
+    }
   }
 
   function gardenBeds(scene,geo) {
@@ -374,9 +450,10 @@
     scene.add(furnishings);
   }
 
-  function create(scene,geo,photos,clock) {
+  function create(scene,geo,photos,clock,homes) {
     const updateTrees=treeGroves(scene,geo,clock);
-    const updateGrass=grass(scene,geo,photos,clock);
+    const updateGrass=grass(scene,geo,photos,clock,homes.paved);
+    frontGardens(scene,geo,homes.plantings,clock);
     gardenBeds(scene,geo);
     return (player,camera,reduced)=>{
       const [x,z,altitude]=player || [camera.position.x,camera.position.z,camera.position.y];

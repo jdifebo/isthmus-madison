@@ -10,7 +10,9 @@
     {name:'Memorial Union', x:-1234, z:-157, yaw:-.75},
     {name:'Monona Terrace', x:238, z:229, yaw:2.35},
     {name:'James Madison Park', x:135, z:-777, yaw:-.65},
-    {name:'East Washington Avenue', x:806, z:-775, yaw:-2.35}
+    {name:'East Washington Avenue', x:806, z:-775, yaw:-2.35},
+    {name:'Orton Park', x:1718, z:-644, yaw:1.95, pitch:-.035, above:55, marker:[1711,-701]},
+    {name:'Breese Stevens Field', x:839, z:-886, yaw:.73, above:78, flyPitch:-.56, marker:[899,-967]}
   ];
   const stationPoints=(data.brtStations || []).map(([name,x,z])=>({
     name:name+' BRT',x:x+2.6,z:z+16.9,yaw:-.23,above:43,transit:true,marker:[x,z]
@@ -204,7 +206,7 @@
       const destination=next==='fly'?point:(safeDrop(point) || points[0]);
       ({x,z,yaw}=destination);
       pitch=point.pitch ?? -.026;
-      if(next==='fly') pitch=point===flyover?point.pitch:-.34;
+      if(next==='fly') pitch=point===flyover?point.pitch:point.flyPitch ?? -.34;
     } else if(previousMode==='fly' && next!=='intro') {
       const landing=safeDrop({x,z,yaw},34);
       landedAway=!landing;

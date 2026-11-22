@@ -78,13 +78,15 @@ const terrainZoom = 13;
 const tile = 2 ** terrainZoom;
 const tileX = lon => Math.floor((lon + 180) / 360 * tile);
 const tileY = lat => Math.floor((1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) * tile / 2);
-const jobs = [
+const lotsOnly = process.argv.includes('--lots-only');
+const jobs = [collection('lots', city + '/Public/OPEN_DATA2/MapServer/0', 'OBJECTID')];
+if (!lotsOnly) jobs.push(
   collection('tree-inventory', open + '/0', 'OBJECTID,SPP_COM,DIAMETER,STATUS'),
   collection('brt-stations', transportation + '/52', 'NAME,Type,Notes,LPA'),
   collection('brt-routes', transportation + '/51', '*'),
   collection('traffic-signals', transportation + '/29', '*')
-];
-const streetscapeOnly = process.argv.includes('--streetscape-only');
+);
+const streetscapeOnly = lotsOnly || process.argv.includes('--streetscape-only');
 if (!streetscapeOnly) jobs.push(
   collection('buildings', buildings, 'FID,Name,BuildingUs,BuildingCl'),
   collection('water', open + '/8', '*', [-89.44, 43.01, -89.30, 43.14]),
