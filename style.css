@@ -1,14 +1,14 @@
 :root {
   color-scheme: dark;
-  --ink: #faf1db;
-  --dim: #cbd4cd;
-  --accent: #ffaf79;
-  --glass: rgba(20, 36, 34, .86);
-  --line: rgba(244, 240, 218, .24);
+  --ink: #fff3de;
+  --dim: #d1d5dc;
+  --accent: #ffc18c;
+  --glass: rgba(21, 30, 42, .88);
+  --line: rgba(248, 227, 200, .25);
   --serif: Georgia, 'Times New Roman', serif;
-  font: 16px/1.4 'Trebuchet MS', system-ui, sans-serif;
+  font: 16px/1.4 'Segoe UI', system-ui, sans-serif;
   color: var(--ink);
-  background: #293e43;
+  background: #17232d;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -29,11 +29,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 #game.playing #scene:active { cursor: grabbing; }
 #wash {
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(14,28,27,.88) 0%, rgba(18,32,27,.73) 20%, rgba(16,29,26,.34) 42%, transparent 71%),
-    linear-gradient(0deg, rgba(12,26,23,.55), transparent 29%),
-    linear-gradient(180deg, rgba(13,27,28,.46), transparent 19%);
+  background: linear-gradient(90deg, rgba(14,20,29,.88) 0%, rgba(17,24,34,.68) 20%, rgba(19,25,35,.28) 44%, transparent 74%),
+    linear-gradient(0deg, rgba(13,22,30,.58), transparent 36%),
+    linear-gradient(180deg, rgba(17,24,35,.52), transparent 18%);
 }
-.playing #wash { background: linear-gradient(180deg, rgba(15,28,27,.5), transparent 23%), linear-gradient(0deg, rgba(15,28,27,.44), transparent 21%); }
+.playing #wash { background: linear-gradient(180deg, rgba(15,24,34,.61), transparent 25%), linear-gradient(0deg, rgba(14,23,34,.48), transparent 25%); }
 .rail {
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -53,7 +53,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .mark i:nth-child(3) { width: 12px; justify-self: end; }
 .rail-actions { display: flex; gap: 8px; }
 .glass { background: var(--glass); border: 1px solid var(--line); border-radius: 9px; }
-button.glass:hover, .control-bar button:hover { background: #354c44; }
+button.glass:hover, .control-bar button:hover, .travel button:hover { background: #394658; }
 .small { padding: 8px 12px; white-space: nowrap; font-size: 14px; }
 .small > span:first-child { margin-right: 4px; color: var(--accent); font-size: 16px; }
 button kbd { margin-left: 3px; }
@@ -65,12 +65,12 @@ button kbd { margin-left: 3px; }
 .eyebrow { font-weight: 700; letter-spacing: .21em; font-size: 12px; margin: 0; color: var(--accent); }
 .eyebrow > span:empty { display: inline-block; width: 26px; height: 1px; vertical-align: middle; margin-right: 9px; background: currentColor; }
 h1, h2, p { margin: 0; }
-.intro h1 { font: 400 clamp(52px, 8.1vw, 130px)/.86 var(--serif); letter-spacing: -.079em; margin: 24px 0; text-shadow: 0 4px 32px #16373383; }
-.intro h1 em { color: #ffe0ac; font-weight: inherit; padding-right: .13em; }
-.lede { color: #e6e6d8; font-size: clamp(16px, 1.35vw, 21px); max-width: 360px; margin-bottom: 29px; }
+.intro h1 { font: 400 clamp(52px, 8.1vw, 130px)/.86 var(--serif); letter-spacing: -.079em; margin: 24px 0; text-shadow: 0 4px 34px #0d162ab0; }
+.intro h1 em { color: #ffe2b6; font-weight: inherit; padding-right: .13em; }
+.lede { color: #f1e9db; font-size: clamp(16px, 1.35vw, 21px); max-width: 350px; margin-bottom: 29px; }
 .start-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .start-actions button { min-height: 50px; font-weight: 700; padding: 12px 17px; }
-.primary { border-radius: 8px; background: var(--accent); color: #242a22; }
+.primary { border-radius: 8px; background: linear-gradient(145deg,#ffe0ae,var(--accent)); color: #2c2221; }
 .primary:hover { background: #ffd2a8; }
 #loading { color: var(--dim); margin-top: 14px; font-size: 14px; }
 .map-card {
@@ -78,8 +78,8 @@ h1, h2, p { margin: 0; }
   bottom: 48px; right: clamp(18px, 3.3vw, 55px);
   width: clamp(220px, 22vw, 342px);
   overflow: hidden;
-  background: #172d2c;
-  box-shadow: 0 12px 42px #0c211d4f;
+  background: #1a2b39;
+  box-shadow: 0 12px 38px #10162281;
 }
 .map-heading, .map-caption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 13px; }
 .map-heading .eyebrow { font-size: 11px; letter-spacing: .16em; }
@@ -91,15 +91,17 @@ h1, h2, p { margin: 0; }
 .map-caption button { font-weight: 700; color: var(--ink); }
 .map-caption button:hover, .credits button:hover { text-decoration: underline; }
 .map-card.expanded { width: min(600px, calc(100% - 36px)); max-height: calc(100% - 105px); overflow-y: auto; bottom: 46px; z-index: 4; }
+.map-card.expanded .map-heading { position: sticky; top: 0; background: #1a2b39; z-index: 1; }
+.map-card.expanded #map { max-height: 44vh; object-fit: contain; }
 .map-card.expanded #north, .map-card.expanded #map-expand { display: none; }
 #map-details { border-top: 1px solid var(--line); padding: 12px 13px 15px; }
 #coordinates { margin: 0 0 9px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
 #landmarks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
 #landmarks button { text-align: left; font-size: 14px; border: 1px solid var(--line); border-radius: 5px; padding: 8px; }
-#landmarks button:hover { background: #344c42; }
+#landmarks button:hover { background: #34475a; }
 .credits { position: absolute; bottom: 15px; right: clamp(18px, 3.3vw, 55px); font-size: 12px; color: #edf3e7; }
 .credits-popup { position: absolute; bottom: 26px; right: 0; padding: 12px; display: grid; gap: 6px; width: min(320px, 85vw); z-index: 6; }
-.place { position: absolute; left: clamp(18px, 3.3vw, 55px); top: 94px; text-shadow: 0 2px 8px #203323; pointer-events: none; }
+.place { position: absolute; left: clamp(18px, 3.3vw, 55px); top: 94px; text-shadow: 0 2px 9px #101620; pointer-events: none; }
 .place h2 { font: 400 clamp(26px, 3.7vw, 49px)/1.1 var(--serif); letter-spacing: -.035em; margin: 6px 0 4px; }
 #location-name { font-size: 14px; color: #f2ecdd; }
 .reticle { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; background: #fff3dc; border-radius: 50%; box-shadow: 0 0 3px #152a25; pointer-events: none; opacity: .8; }
@@ -111,10 +113,21 @@ h1, h2, p { margin: 0; }
 .control-bar > span, .control-bar > button { display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
 .control-bar > button { padding: 3px 4px; border-radius: 4px; }
 .control-bar kbd { margin: 0; }
+.control-bar .flight-hint { display: none; }
+.flying .control-bar .flight-hint { display: inline-flex; }
+.travel {
+  display: flex; gap: 4px; align-items: center; padding: 4px;
+  position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
+}
+.travel button { border-radius: 5px; padding: 6px 9px; font-size: 14px; white-space: nowrap; }
+.travel button[aria-pressed="true"] { background: #ffc18c29; color: var(--accent); }
+.travel kbd { margin: 0 2px 0 0; }
+.hud-free :is(.rail,.hud,.map-card,.credits,#wash) { display: none; }
 kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px solid var(--line); border-radius: 3px; }
 .speedometer { position: absolute; left: clamp(18px, 3.3vw, 55px); bottom: 88px; padding: 8px 14px; display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
 .speedometer strong { font: 400 42px/1 var(--serif); }
 .speedometer span { font-size: 11px; letter-spacing: .12em; color: var(--accent); }
+#altimeter { align-items: center; }
 .help { position: absolute; left: clamp(18px, 3.3vw, 55px); bottom: 85px; padding: 17px 20px; font-size: 14px; z-index: 3; }
 .help h2 { font: 24px var(--serif); }
 .help dl { margin: 9px 0 0; }
@@ -122,14 +135,18 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
 .help dd { margin: 0; color: var(--dim); }
 .toast { position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); padding: 8px 12px; font-size: 14px; text-align: center; z-index: 5; }
 .touch-controls { display: none; }
+.touch-controls .touch-elevation { display: none; }
+.flying .touch-controls .touch-elevation { display: flex; }
 @media (pointer: coarse) {
-  .touch-controls { position: absolute; bottom: 78px; left: 18px; display: grid; grid-template-columns: 1fr; gap: 5px; justify-items: center; }
+  .touch-controls { position: absolute; bottom: 130px; left: 18px; display: grid; grid-template-columns: 1fr; gap: 5px; justify-items: center; }
   .touch-controls div { display: flex; gap: 5px; }
   .touch-controls button { width: 39px; height: 36px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass); touch-action: none; }
-  .speedometer { bottom: 165px; left: 18px; }
+  .speedometer { bottom: 215px; left: 18px; }
+  #altimeter { bottom: 255px; }
 }
 @media (max-width: 755px) {
   .rail { padding-top: 15px; }
+  .travel { top: auto; bottom: 69px; left: 18px; transform: none; }
   .intro { top: 43%; max-width: calc(100% - 48px); }
   .map-card { width: 178px; bottom: 39px; }
   .map-heading { padding: 7px 9px; }
@@ -137,6 +154,8 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .map-caption { font-size: 11px; padding: 5px 8px; }
   .playing .map-card:not(.expanded) { bottom: 81px; }
   .control-bar { bottom: 22px; gap: 5px; }
+  .speedometer { bottom: 123px; }
+  .help { bottom: 122px; }
   .credits { bottom: 9px; }
 }
 @media (max-height: 535px) {
@@ -148,8 +167,17 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
 @media (max-width: 470px) {
   .wordmark { font-size: 12px; gap: 7px; }
   .rail-actions kbd, #look-tip { display: none; }
+  .travel kbd { display: none; }
   .start-actions button { font-size: 14px; }
   .map-card:not(.expanded) { width: 152px; }
   .playing .map-card:not(.expanded) { bottom: 63px; }
   .place { top: 75px; }
+}
+@media (max-width: 570px) and (max-height: 650px) {
+  .map-card:not(.expanded) { display: none; }
+}
+@media (pointer: coarse) and (max-width: 755px) {
+  .speedometer { bottom: 215px; }
+  #altimeter { bottom: 255px; }
+  .flying .control-bar .flight-hint { display: none; }
 }

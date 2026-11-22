@@ -70,10 +70,26 @@
   }
 
   const buildings = indexGrid(50);
+  const roofLevels = new Map();
   for (const [,,,,polygon] of D.houses) buildings.add(bounds(polygon[0]),polygon,3);
   const waterAreas = indexGrid(200);
   for (const polygon of D.water) waterAreas.add(bounds(polygon[0]),polygon);
   const onWater = (x,z) => waterAreas.at(x,z).some(polygon=>inPolygon(x,z,polygon));
+  const waters = D.water.map(poly=>{
+    if(inPolygon(-1080,-680,poly)) return {poly,name:'Lake Mendota',level:3.35};
+    if(inPolygon(660,800,poly)) return {poly,name:'Lake Monona',level:2.33};
+    return {poly,name:'',level:2.06};
+  });
+  const majorLakes=waters.filter(water=>water.name);
+  const lakeName=(x,z)=>majorLakes.find(water=>inPolygon(x,z,water.poly))?.name || '';
+  function flightFloor(x,z) {
+    let floor=Math.max(3.35,ground(x,z))+4.7;
+    for(const polygon of buildings.at(x,z)) {
+      const roof=roofLevels.get(polygon);
+      if(roof && roof+3.5>floor && inPolygon(x,z,polygon)) floor=roof+3.5;
+    }
+    return floor;
+  }
   const roadGrid = indexGrid(62);
   for (const [name,kind,width,bridge,line] of D.roads) {
     for (let i=1; i<line.length; i++) {
@@ -128,9 +144,9 @@
         uv.push(...xy);
       }
     }
-    function quad(a,b,c,d,color,width=1,height=1) {
-      triangle(a,b,c,color,[[0,0],[width,0],[width,height]]);
-      triangle(a,c,d,color,[[0,0],[width,height],[0,height]]);
+    function quad(a,b,c,d,color,width=1,height=1,v=0) {
+      triangle(a,b,c,color,[[0,v],[width,v],[width,v+height]]);
+      triangle(a,c,d,color,[[0,v],[width,v+height],[0,v+height]]);
     }
     function mesh(material) {
       const geometry=new T.BufferGeometry();
@@ -233,40 +249,119 @@
     return new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide,...options});
   }
 
-  function worldSurface(scene) {
-    const land=new T.PlaneGeometry(east-west,south-north,columns,rows);
+  async function aerialTextures() {
+    const fallback=new T.DataTexture(new Uint8Array([165,171,146,255]),1,1,T.RGBAFormat);
+    fallback.needsUpdate=true;
+    const load=async name=>{
+      const src=document.querySelector('meta[name="madison-'+name+'"]')?.content;
+      if(!src || location.protocol==='file:' && !src.startsWith('data:')) return fallback;
+      try {
+        const texture=await new T.TextureLoader().loadAsync(src);
+        texture.colorSpace=T.SRGBColorSpace;
+        texture.anisotropy=6;
+        return texture;
+      } catch(error) {
+        console.warn('Aerial imagery unavailable for '+name,error);
+        return fallback;
+      }
+    };
+    const [detail,region]=await Promise.all([load('aerial'),load('region')]);
+    const mask=document.createElement('canvas');
+    mask.width=1536;
+    mask.height=972;
+    const shape=mask.getContext('2d');
+    shape.fillStyle='#fff';
+    for(const {poly} of waters) {
+      shape.beginPath();
+      for(const ring of poly) {
+        ring.forEach(([x,z],index)=>shape[index?'lineTo':'moveTo'](
+          (x-west)/(east-west)*mask.width,(z-north)/(south-north)*mask.height));
+        shape.closePath();
+      }
+      shape.fill('evenodd');
+    }
+    const waterMask=new T.CanvasTexture(mask);
+    return {detail,region,waterMask,available:detail!==fallback,regional:region!==fallback};
+  }
+
+  function surveyMaterial(photos,terrainMaterial) {
+    const material=surfaceMaterial();
+    material.customProgramCacheKey=()=>terrainMaterial?'survey terrain':'survey rooftops';
+    material.onBeforeCompile=shader=>{
+      Object.assign(shader.uniforms,{
+        aerial:{value:photos.detail}, region:{value:photos.region},
+        waterMask:{value:photos.waterMask},
+        imagery:{value:photos.available?1:0}, regional:{value:photos.regional?1:0},
+        aerialBounds:{value:new T.Vector4(west,north,east,south)}
+      });
+      shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 field;')
+        .replace('#include <begin_vertex>','#include <begin_vertex>\nfield=position;');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`
+        #include <common>
+        varying vec3 field;
+        uniform sampler2D aerial,region,waterMask;
+        uniform float imagery,regional;
+        uniform vec4 aerialBounds;
+      `).replace('#include <color_fragment>',`
+        #include <color_fragment>
+        vec2 tex=(field.xz-aerialBounds.xy)/(aerialBounds.zw-aerialBounds.xy);
+        vec2 broad=field.xz/vec2(12600.,9400.)+.5;
+        vec2 edge=min(tex,1.-tex);
+        vec2 broadEdge=min(broad,1.-broad);
+        float blend=smoothstep(-.003,.017,min(edge.x,edge.y))*imagery;
+        float extended=smoothstep(0.,.09,min(broadEdge.x,broadEdge.y))*regional;
+        vec3 detailColor=texture2D(aerial,vec2(tex.x,1.-tex.y)).rgb;
+        vec3 broadColor=texture2D(region,vec2(broad.x,1.-broad.y)).rgb;
+        float altitude=smoothstep(12.,138.,cameraPosition.y-field.y);
+        float grit=fract(sin(dot(floor(field.xz*17.),vec2(15.61,113.23)))*35727.32);
+      `+(terrainMaterial?`
+        if(field.y<9.5 && min(edge.x,edge.y)>0. && texture2D(waterMask,vec2(tex.x,1.-tex.y)).a>.63) discard;
+        vec3 terrainTint=mix(diffuseColor.rgb,broadColor*1.18,extended*.82);
+        float brightness=dot(detailColor,vec3(.27,.64,.09));
+        vec3 corrected=mix(vec3(brightness),detailColor,1.12)*1.14;
+        diffuseColor.rgb=mix(terrainTint,corrected,blend*(.59+altitude*.34));
+        diffuseColor.rgb*=.955+grit*.084;
+      `:`
+        float brightness=dot(detailColor,vec3(.22,.70,.08));
+        vec3 roofTexture=mix(vec3(brightness),detailColor,.49);
+        diffuseColor.rgb=mix(diffuseColor.rgb,roofTexture,blend*(.14+altitude*.34));
+        diffuseColor.rgb*=.945+grit*.083;
+      `));
+    };
+    return material;
+  }
+
+  function worldSurface(scene,photos) {
+    const axis=(start,end,cells,limit)=>[-limit,-limit*.67,start-610,start-300,start-110,start-37,
+      ...Array.from({length:cells+1},(_,i)=>mix(start,end,i/cells)),end+37,end+110,end+300,end+610,limit*.67,limit];
+    const xs=axis(west,east,columns,6300), zs=axis(north,south,rows,4700);
+    const land=new T.PlaneGeometry(12600,9400,xs.length-1,zs.length-1);
     land.rotateX(-Math.PI/2);
-    land.translate((west+east)/2,0,(north+south)/2);
     const points=land.getAttribute('position');
     const colors=[];
-    const color=new T.Color();
+    const color=new T.Color(), city=new T.Color(0xa9a294);
     for (let i=0;i<points.count;i++) {
-      const x=points.getX(i), z=points.getZ(i), y=terrain[i]/16;
-      points.setY(i,y);
-      const dense=clamp(1-Math.min(Math.abs(z),Math.hypot(x,z)*.35)/590,0,1)*.78;
-      color.set(0x81936a).lerp(new T.Color(0xaaa18a),dense);
-      color.multiplyScalar(.95+.06*Math.sin(x*.021+z*.012)+.025*Math.sin(z*.049));
-      if (Math.abs(x)<97 && Math.abs(z)<90) color.set(0x7a915d).multiplyScalar(.96+.05*Math.sin(x*.055+z*.038));
+      const x=xs[i%xs.length],z=zs[Math.floor(i/xs.length)];
+      const outside=Math.max(west-x,x-east,north-z,z-south,0);
+      const y=outside?mix(ground(x,z),-2.35,1-Math.exp(-outside/167)):ground(x,z);
+      points.setXYZ(i,x,y,z);
+      const dense=clamp(1-Math.min(Math.abs(z),Math.hypot(x,z)*.35)/590,0,1)*.55;
+      color.set(0x728a5a).lerp(city,dense);
+      color.multiplyScalar(.96+.062*Math.sin(x*.021+z*.012)+.028*Math.sin(z*.049));
+      if (Math.abs(x)<100 && Math.abs(z)<94) color.set(0x627f42).multiplyScalar(.98+.09*Math.sin(x*.055+z*.038));
       colors.push(color.r,color.g,color.b);
     }
     land.computeVertexNormals();
     land.setAttribute('color',new T.Float32BufferAttribute(colors,3));
-    const material=surfaceMaterial();
-    material.onBeforeCompile = shader => {
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 field;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nfield = position.xz;');
-      shader.fragmentShader=shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 field;')
-        .replace('#include <color_fragment>',
-          '#include <color_fragment>\nfloat textureNoise = fract(sin(dot(floor(field*10.0),vec2(139.45,29.17)))*43758.53); diffuseColor.rgb *= .94+.10*textureNoise;');
-    };
-    const landMesh=new T.Mesh(land,material);
+    const landMesh=new T.Mesh(land,surveyMaterial(photos,true));
     landMesh.receiveShadow=true;
     scene.add(landMesh);
-    const surround = new T.Mesh(new T.PlaneGeometry(52000,52000),new T.MeshLambertMaterial({color:0x778868}));
+    const surround = new T.Mesh(new T.PlaneGeometry(52000,52000),new T.MeshLambertMaterial({color:0x72845f}));
     surround.rotation.x=-Math.PI/2;
     surround.position.y=-3;
     scene.add(surround);
 
+    if(photos.available) return;
     const turf=batch();
     for (const [name,poly] of D.parks) {
       if (name === 'State Street/Mall Concourse') continue;
@@ -278,8 +373,8 @@
 
   function asphalt(scene) {
     const sidewalk=chunkedBatch(), surfaces=chunkedBatch(), paint=chunkedBatch(), junctions=new Map();
-    const walk=new T.Color(0xc8bda6), white=new T.Color(0xecddbe), yellow=new T.Color(0xe9ad46);
-    const styles=[0x3f4749,0x525856,0xa38b74,0xb5a78a,0x777870].map(c=>new T.Color(c));
+    const walk=new T.Color(0xb8b2a8), white=new T.Color(0xf7e9d5), yellow=new T.Color(0xe9ad46);
+    const styles=[0x4c5055,0x55575b,0x9a8f7f,0x9a9080,0x777573].map(c=>new T.Color(c));
 
     function roadBand(target,ax,az,bx,bz,half,lift,color,ends=false) {
       const dx=bx-ax, dz=bz-az, length=Math.hypot(dx,dz);
@@ -316,7 +411,7 @@
         const dx=bx-ax,dz=bz-az,length=Math.hypot(dx,dz);
         if (length<.04) continue;
         if (kind<=2) roadBand(sidewalk,ax,az,bx,bz,width/2+(kind===2?1.5:2.05),.105,walk,true);
-        roadBand(surfaces,ax,az,bx,bz,width/2,.2,styles[kind],true);
+        roadBand(surfaces,ax,az,bx,bz,width/2,.241-kind*.017,styles[kind],length>1.0);
         if (!painted || length<7) continue;
         const start=i===1?5:1;
         const end=length-(i===line.length-1?5:1);
@@ -324,7 +419,7 @@
           const ox=-dz/length*offset,oz=dx/length*offset;
           for (let m=start;m<end-size;m+=spacing) {
             roadBand(paint,ax+dx*m/length+ox,az+dz*m/length+oz,
-              ax+dx*(m+size)/length+ox,az+dz*(m+size)/length+oz,size>5?.085:.065,.236,color);
+              ax+dx*(m+size)/length+ox,az+dz*(m+size)/length+oz,size>5?.085:.065,.285,color);
           }
         };
         marks(0,kind===0?yellow:white,kind===0?5:2.6,kind===0?8.4:8.7);
@@ -343,12 +438,26 @@
         const cx=x+dx*6.1,cz=z+dz*6.1;
         for(let across=-width*.4;across<=width*.4;across+=.78) {
           const px=cx-dz*across,pz=cz+dx*across;
-          roadBand(paint,px,pz,px+dx*1.9,pz+dz*1.9,.19,.254,white);
+          roadBand(paint,px,pz,px+dx*1.9,pz+dz*1.9,.19,.305,white);
         }
       }
     }
-    const pavingMaterial=surfaceMaterial();
-    for(const sink of [sidewalk,surfaces,paint]) scene.add(sink.mesh(pavingMaterial));
+    const paving=surfaceMaterial();
+    paving.onBeforeCompile=shader=>{
+      shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 pavingPosition;')
+        .replace('#include <begin_vertex>','#include <begin_vertex>\npavingPosition=position;');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 pavingPosition;')
+        .replace('#include <color_fragment>',`
+          #include <color_fragment>
+          vec2 point=pavingPosition.xz;
+          float pixelFade=1.-smoothstep(12.,65.,distance(cameraPosition,pavingPosition));
+          float aggregate=fract(sin(dot(floor(point*29.),vec2(99.83,47.17)))*46763.21);
+          float mottled=.5+.23*sin(point.x*.66+point.y*.91)+.27*sin(point.y*.29-point.x*.42);
+          float weathering=.5+.27*sin(point.y*1.9+point.x*4.1)+.23*sin(point.x*8.2-point.y*3.41);
+          diffuseColor.rgb*=.876+.115*mottled+pixelFade*(aggregate*.083+weathering*.067);
+        `);
+    };
+    scene.add(sidewalk.mesh(paving),surfaces.mesh(paving),paint.mesh(surfaceMaterial()));
   }
 
   function streetLights(scene) {
@@ -373,7 +482,7 @@
       }
     }
     const post=new T.MeshLambertMaterial({color:0x3d4841});
-    const cap=new T.MeshLambertMaterial({color:0xe1d6ac,emissive:0x675138,emissiveIntensity:.36});
+    const cap=new T.MeshLambertMaterial({color:0xe1d6ac,emissive:0xffa13b,emissiveIntensity:.10});
     const poles=new T.InstancedMesh(new T.CylinderGeometry(.072,.11,1,7),post,locations.size);
     const lamps=new T.InstancedMesh(new T.SphereGeometry(.25,8,6),cap,locations.size);
     const dummy=new T.Object3D();
@@ -390,46 +499,111 @@
       lamps.setMatrixAt(index++,dummy.matrix);
     }
     scene.add(poles,lamps);
+    return evening=>{ cap.emissiveIntensity=.10+evening*1.75; };
   }
 
-  function facadeTexture() {
+  function facadeMaterial(evening) {
     const tile=document.createElement('canvas');
-    tile.width=128;
+    tile.width=1024;
     tile.height=128;
     const ctx=tile.getContext('2d');
-    const noise=random(821);
-    ctx.fillStyle='#f5efe2';
-    ctx.fillRect(0,0,128,128);
-    for (let i=0;i<800;i++) {
-      const light=noise()>.5?255:92;
-      ctx.fillStyle='rgba('+[light,light,light,noise()*.18].join(',')+')';
-      ctx.fillRect(noise()*128,noise()*128,1+noise()*10,1+noise()*2);
+    const rng=random(8321);
+    const widths=[67,59,97,49,108];
+    const vertical=[[26,82],[22,85],[5,105],[18,86],[18,110]];
+    const stone=['#f2ded0','#eee8d9','#c7ccc8','#ece6dc','#d3c8b9'];
+    for(let style=0;style<widths.length;style++) {
+      ctx.save();
+      ctx.translate(128*style,0);
+      ctx.fillStyle=stone[style];
+      ctx.fillRect(0,0,128,128);
+
+      if(style===0 || style===1 || style===3) {
+        const course=style===0?9:style===1?17:5;
+        const courseWidth=style===0?28:style===1?51:128;
+        for(let row=0;row*course<128;row++) {
+          const y=row*course;
+          for(let x=-courseWidth+(row%2)*courseWidth/2;x<128;x+=courseWidth) {
+            const alpha=rng()*.14;
+            ctx.fillStyle='rgba(47,30,26,'+alpha+')';
+            ctx.fillRect(x,y,courseWidth-1,course-1);
+            ctx.fillStyle='#ffffff55';
+            ctx.fillRect(x,y,courseWidth-1,1);
+          }
+        }
+      }
+      for(let i=0;i<180;i++) {
+        ctx.fillStyle=rng()<.5?'#64544619':'#fff3dc26';
+        ctx.fillRect(rng()*128,rng()*128,1+rng()*7,1+rng()*2);
+      }
+      const width=widths[style],l=(128-width)/2,[top,bottom]=vertical[style];
+      ctx.fillStyle='#413a3677';
+      ctx.fillRect(l-3,top-2,width+8,bottom-top+12);
+      ctx.fillStyle=style===2?'#839499':'#d5ccbb';
+      ctx.fillRect(l-3,top-4,width+6,bottom-top+8);
+      ctx.fillStyle='#443e37';
+      ctx.fillRect(l,top,width,bottom-top);
+      const glass=ctx.createLinearGradient(l,top,l+width*.35,bottom);
+      glass.addColorStop(0,style===2?'#83aac0':'#7091a0');
+      glass.addColorStop(.29,style===2?'#56798c':'#4c6b7b');
+      glass.addColorStop(.59,'#38536a');
+      glass.addColorStop(1,'#243e51');
+      ctx.fillStyle=glass;
+      ctx.fillRect(l+2,top+2,width-4,bottom-top-4);
+      ctx.fillStyle='#dceafa31';
+      ctx.beginPath();
+      ctx.moveTo(l+3,top+3);
+      ctx.lineTo(l+width*.7,top+3);
+      ctx.lineTo(l+3,top+(bottom-top)*.84);
+      ctx.fill();
+      ctx.fillStyle=style===4?'#50554f':style===2?'#7c8c8d':'#ded8c8';
+      const segments=style===4?3:style===2?2:1;
+      for(let i=1;i<=segments;i++) {
+        ctx.fillRect(l+width*i/(segments+1)-1,top+1,3,bottom-top-2);
+      }
+      ctx.fillRect(l+1,top+(bottom-top)*(style===4?.27:.57),width-2,style===2?1.7:3);
+      ctx.fillStyle=style===2?'#9eaaa7':'#ece2d1';
+      ctx.fillRect(l-6,bottom+1,width+12,4);
+      ctx.fillStyle='#55534566';
+      ctx.fillRect(0,119,128,6);
+      ctx.fillStyle='#fff2de77';
+      ctx.fillRect(0,116,128,3);
+      if(style===4) {
+        ctx.fillStyle='#5d5148';
+        ctx.fillRect(0,5,128,10);
+        ctx.fillStyle='#e0c897';
+        ctx.fillRect(12,8,99,2);
+      }
+      ctx.restore();
     }
-    ctx.fillStyle='#d0c5b7';
-    ctx.fillRect(0,7,128,3);
-    ctx.fillRect(0,114,128,4);
-    ctx.fillStyle='#f9f2e0';
-    ctx.fillRect(0,118,128,3);
-    ctx.fillStyle='#a49d91';
-    ctx.fillRect(27,24,74,67);
-    ctx.fillStyle='#6f726b';
-    ctx.fillRect(32,27,64,59);
-    const glass=ctx.createLinearGradient(0,28,8,86);
-    glass.addColorStop(0,'#87999c');
-    glass.addColorStop(.38,'#637a7e');
-    glass.addColorStop(1,'#33474c');
-    ctx.fillStyle=glass;
-    ctx.fillRect(36,31,56,51);
-    ctx.fillStyle='#9ea8a3';
-    ctx.fillRect(62,30,3,52);
-    ctx.fillRect(35,50,58,2);
-    ctx.fillStyle='#e6ded0';
-    ctx.fillRect(25,88,78,4);
-    const texture=new T.CanvasTexture(tile);
-    texture.colorSpace=T.SRGBColorSpace;
-    texture.wrapS=texture.wrapT=T.RepeatWrapping;
-    texture.anisotropy=4;
-    return texture;
+    const map=new T.CanvasTexture(tile);
+    map.colorSpace=T.SRGBColorSpace;
+    map.flipY=false;
+    map.anisotropy=5;
+    const material=surfaceMaterial({map});
+    material.onBeforeCompile=shader=>{
+      shader.uniforms.evening=evening;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform float evening;')
+        .replace('#include <map_fragment>',`
+          vec2 repeatUV=vMapUv;
+          float profile=floor((repeatUV.y+.00002)/128.);
+          vec2 cell=fract(repeatUV);
+          vec2 atlasUV=vec2((profile*128.+1.+cell.x*126.)/1024.,(1.+(1.-cell.y)*126.)/128.);
+          #if __VERSION__ >= 300
+            vec4 panel=textureGrad(map,atlasUV,dFdx(repeatUV)*vec2(.123,-.984),dFdy(repeatUV)*vec2(.123,-.984));
+          #else
+            vec4 panel=texture2D(map,atlasUV);
+          #endif
+          float glazing=smoothstep(.018,.115,panel.b-panel.r);
+          vec3 tint=mix(diffuseColor.rgb,vec3(.72,.83,.93),glazing*.62);
+          diffuseColor.rgb=tint*panel.rgb;
+          vec2 windowId=floor(repeatUV)+floor(vMapUv.yx*.37);
+          float occupancy=fract(sin(dot(windowId,vec2(78.23,13.71)))*43758.5453);
+        `).replace('#include <emissivemap_fragment>',`
+          #include <emissivemap_fragment>
+          totalEmissiveRadiance+=vec3(.79,.34,.105)*glazing*evening*smoothstep(.70,.89,occupancy);
+        `);
+    };
+    return material;
   }
 
   const knownHeights={
@@ -438,10 +612,10 @@
     'Madison Municipal Building':20, 'City-County Building':36
   };
 
-  function cityBlocks(scene) {
+  function cityBlocks(scene,photos,evening) {
     const walls=chunkedBatch(), roofs=chunkedBatch(), foundations=chunkedBatch(), trims=chunkedBatch();
-    const stone=[0xb4937d,0xb4a48e,0xcebd9e,0xa98470,0xcfc7b4,0x8eaaa8,0xa7b3a1,0x9a786b];
-    const home=[0xc5ab89,0xaaa998,0xb7876b,0xc2bd9f,0x9aa897,0xd1c5a7,0xbfa997];
+    const stone=[0xbe8164,0xc3afa2,0xe1c9aa,0xa26c53,0xcecbc3,0x8ba6ae,0xadb6a5,0x987464];
+    const home=[0xc5ab89,0xaab199,0xb88767,0xdfd4bb,0xa2b3a9,0xd1c5a7,0xbfa997];
     for (const [id,name,kind,measured,poly] of D.houses) {
       if (name==='Wisconsin State Capitol' || name==='Monona Terrace') continue;
       const ring=poly[0], [x,z]=center(ring), size=area(ring);
@@ -455,8 +629,14 @@
       const base=ground(x,z), top=base+height;
       const palette=kind===0?stone:home;
       const wall=new T.Color(palette[Math.floor(rng()*palette.length)]);
-      const roof=wall.clone().lerp(new T.Color(kind===0?0x635e55:0x665c4d),.52);
+      const roof=wall.clone().lerp(new T.Color(kind===0?0x63696b:0x645953),.68);
       const brick=wall.clone().multiplyScalar(.73);
+      const style=kind===1?3:height>24&&rng()>.46?2:rng()>.50?1:0;
+      const simpleHome=kind===1 && size<250 && ring.length<=10 && poly.length===1 && rng()<.67;
+      const retail=kind===0 && (downtown>.32 || name==='Overture Center') && size>210;
+      const equipment=kind===0 && size>420 && size<5800 && rng()<.72 && inPolygon(x,z,poly);
+      const roofLift=simpleHome?Math.min(2.6,Math.sqrt(size)*.19):equipment?1.65:.44;
+      roofLevels.set(poly,top+roofLift);
 
       for (const outline of poly) {
         for (let i=0;i<outline.length;i++) {
@@ -469,18 +649,22 @@
           const floor=base+.7;
           foundations.quad([ax,low,az],[bx,low,bz],[bx,floor,bz],[ax,floor,az],brick);
           const target=kind===2 || length<1.7 ? foundations : walls;
-          target.quad([ax,floor,az],[bx,floor,bz],[bx,top,bz],[ax,top,az],face,
-            Math.max(1,Math.round(length/(kind===1?3.1:3.7))),Math.max(1,Math.round(height/3.25)));
+          const groundStory=retail && length>4.75 && height>7;
+          const storiesStart=groundStory?floor+3.6:floor;
+          const bays=Math.max(1,Math.round(length/(style===2?2.4:kind===1?3.1:3.65)));
+          if(groundStory) target.quad([ax,floor,az],[bx,floor,bz],[bx,storiesStart,bz],[ax,storiesStart,az],face,
+            bays,1,4*128);
+          target.quad([ax,storiesStart,az],[bx,storiesStart,bz],[bx,top,bz],[ax,top,az],face,
+            bays,Math.max(1,Math.round((top-storiesStart)/(style===2?3.4:3.15))),style*128);
           if (kind===0 && height>8) trims.quad([ax,top-.25,az],[bx,top-.25,bz],[bx,top+.4,bz],[ax,top+.4,az],face.clone().multiplyScalar(1.08));
         }
       }
-      const simpleHome=kind===1 && size<250 && ring.length<=10 && poly.length===1 && rng()<.67;
       if (simpleHome) {
         const [points,faces]=triangulate(poly);
         for (const face of faces) {
           const vertices=face.map(i=>[points[i].x,top,points[i].y]);
           const [a,b,c]=vertices;
-          const peak=[(a[0]+b[0]+c[0])/3,top+Math.min(2.6,Math.sqrt(size)*.19),(a[2]+b[2]+c[2])/3];
+          const peak=[(a[0]+b[0]+c[0])/3,top+roofLift,(a[2]+b[2]+c[2])/3];
           roofs.triangle(a,peak,b,roof);
           roofs.triangle(b,peak,c,roof);
           roofs.triangle(c,peak,a,roof);
@@ -488,16 +672,31 @@
       } else {
         fill(roofs,poly,()=>top,roof);
       }
+      if(equipment) {
+        const sizeX=Math.min(3.2,Math.sqrt(size)*.135), sizeZ=sizeX*.58;
+        const outline=[[x-sizeX,z-sizeZ],[x+sizeX,z-sizeZ],[x+sizeX,z+sizeZ],[x-sizeX,z+sizeZ]];
+        if(outline.every(([px,pz])=>inPolygon(px,pz,poly))) {
+          const tint=new T.Color(0xa8ada4);
+          fill(trims,[outline],()=>top+roofLift,tint);
+          outline.forEach(([ax,az],i)=>{
+            const [bx,bz]=outline[(i+1)%4];
+            trims.quad([ax,top,az],[bx,top,bz],[bx,top+roofLift,bz],[ax,top+roofLift,az],tint);
+          });
+        }
+      }
     }
-    scene.add(walls.mesh(surfaceMaterial({map:facadeTexture()}),true));
+    scene.add(walls.mesh(facadeMaterial(evening),true));
     const buildingMaterial=surfaceMaterial();
-    for (const sink of [roofs,foundations,trims]) scene.add(sink.mesh(buildingMaterial,sink===roofs));
+    scene.add(roofs.mesh(surveyMaterial(photos,false),true),foundations.mesh(buildingMaterial),trims.mesh(buildingMaterial));
   }
 
   function capitol(scene) {
-    const [, , , ,poly]=D.houses.find(h=>h[1]==='Wisconsin State Capitol');
+    const record=D.houses.find(h=>h[1]==='Wisconsin State Capitol');
+    if(!record) return;
+    const poly=record[4];
     const [x,z]=center(poly[0]);
     const y=ground(x,z);
+    roofLevels.set(poly,y+87);
     const stone=new T.MeshLambertMaterial({color:0xded7c6});
     const highlight=new T.MeshLambertMaterial({color:0xf1e8d2});
     const shade=new T.MeshLambertMaterial({color:0xb9b09e});
@@ -592,7 +791,10 @@
   }
 
   function terrace(scene) {
-    const [,,,,poly]=D.houses.find(h=>h[1]==='Monona Terrace');
+    const record=D.houses.find(h=>h[1]==='Monona Terrace');
+    if(!record) return;
+    const poly=record[4];
+    roofLevels.set(poly,27);
     const mass=batch(), roof=batch(), trim=batch();
     const limestone=new T.Color(0xd8c7ac), band=new T.Color(0xf2dfbf);
     const blue=new T.Color(0x718e8a), glass=new T.Color(0x365b60);
@@ -617,7 +819,7 @@
     }
   }
 
-  function foliage(scene) {
+  function foliage(scene,wind) {
     const chunks = new Map();
     const rng=random(5399);
     function plant(x,z,h,r) {
@@ -634,14 +836,53 @@
     for (const [x,z] of [[-76,32],[-71,-35],[-33,77],[36,70],[72,28],[75,-37],[34,-77],[-32,-79]]) {
       plant(x,z,8+rng()*2.5,2.8+rng());
     }
-    const base=new T.MeshLambertMaterial({color:0xffffff,flatShading:true});
+    const bark=new T.MeshLambertMaterial({color:0xffffff,flatShading:true});
+    const leaves=new T.MeshLambertMaterial({color:0xffffff});
+    leaves.onBeforeCompile=shader=>{
+      shader.uniforms.wind=wind;
+      shader.vertexShader=shader.vertexShader.replace('#include <common>',`
+        #include <common>
+        uniform float wind;
+        varying vec3 leafPosition;
+        varying float crownHeight;
+      `).replace('#include <begin_vertex>',`
+        #include <begin_vertex>
+        vec3 tree=(instanceMatrix*vec4(position,1.)).xyz;
+        leafPosition=tree;
+        crownHeight=position.y;
+        float drift=sin(tree.z*.047+tree.x*.012+wind*.80)*.047;
+        transformed.x+=drift*(position.y+.85);
+        transformed.z+=drift*position.x*.49;
+      `);
+      shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`
+        #include <common>
+        varying vec3 leafPosition;
+        varying float crownHeight;
+      `).replace('#include <color_fragment>',`
+        #include <color_fragment>
+        float bits=fract(sin(dot(floor(leafPosition*8.),vec3(59.,77.,33.)))*23957.);
+        float patches=.5+.44*sin(dot(leafPosition,vec3(17.,9.,12.)));
+        float closeup=1.-smoothstep(38.,95.,distance(cameraPosition,leafPosition));
+        diffuseColor.rgb*=.84+crownHeight*.14+(bits*.25+patches*.13)*closeup;
+      `);
+    };
     const trunkShape=new T.CylinderGeometry(.13,.23,1,5);
-    const crownShape=new T.IcosahedronGeometry(1,1), distantShape=new T.IcosahedronGeometry(1,0);
+    function crown(detail) {
+      const shape=new T.IcosahedronGeometry(1,detail), positions=shape.getAttribute('position');
+      for(let i=0;i<positions.count;i++) {
+        const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);
+        const clump=1+.11*Math.sin(x*13.+z*8.)*Math.cos(y*9.-z*12.)+.08*Math.sin(y*7.+x*3.);
+        positions.setXYZ(i,x*clump,y*clump,z*clump);
+      }
+      return shape;
+    }
+    const crownShape=crown(1), distantShape=crown(0);
     const dummy=new T.Object3D(), color=new T.Color();
     for(const entries of chunks.values()) {
-      const trunks=new T.InstancedMesh(trunkShape,base,entries.length);
-      const crowns=new T.InstancedMesh(crownShape,base,entries.length);
-      const second=new T.InstancedMesh(distantShape,base,entries.length);
+      const trunks=new T.InstancedMesh(trunkShape,bark,entries.length);
+      const crowns=new T.InstancedMesh(crownShape,leaves,entries.length);
+      const second=new T.InstancedMesh(distantShape,leaves,entries.length);
+      crowns.castShadow=true;
       for (let i=0;i<entries.length;i++) {
         const [x,y,z,h,r,shade]=entries[i];
         dummy.position.set(x,y+h*.31,z);
@@ -654,12 +895,12 @@
         dummy.scale.set(r*.88,h*.33,r);
         dummy.updateMatrix();
         crowns.setMatrixAt(i,dummy.matrix);
-        crowns.setColorAt(i,color.setHSL(.23+shade*.07,.28+shade*.13,.28+shade*.12));
+        crowns.setColorAt(i,color.setHSL(.19+shade*.115,.29+shade*.18,.24+shade*.14));
         dummy.position.set(x+r*.48,y+h*.64,z-r*.19);
         dummy.scale.set(r*.63,h*.24,r*.68);
         dummy.updateMatrix();
         second.setMatrixAt(i,dummy.matrix);
-        second.setColorAt(i,color.offsetHSL(-.03,0,.048));
+        second.setColorAt(i,color.offsetHSL(-.021,.02,.044));
       }
       for (const [mesh,range] of [[trunks,470],[crowns,1250],[second,780]]) {
         mesh.computeBoundingSphere();
@@ -669,112 +910,106 @@
     }
   }
 
-  function lake(scene) {
-    const water = batch();
-    for (const poly of D.water) {
-      const isMendota=inPolygon(-1080,-680,poly);
-      const isMonona=inPolygon(660,800,poly);
-      const level=isMendota?3.35:isMonona?2.33:2.05;
-      fill(water,poly,()=>level,new T.Color(0xffffff));
-    }
-    const uniforms=T.UniformsUtils.merge([T.UniformsLib.fog,{
-      time:{value:0}, deep:{value:new T.Color(0x346c76)}, shallow:{value:new T.Color(0x86a3a1)},
-      sun:{value:new T.Vector3(-.7,.4,.25)}
-    }]);
-    const material=new T.ShaderMaterial({
-      uniforms, fog:true,side:T.DoubleSide,
-      vertexShader:[
-        'varying vec3 surface;', '#include <fog_pars_vertex>',
-        'void main(){surface=position; vec4 mvPosition=modelViewMatrix*vec4(position,1.);',
-        'gl_Position=projectionMatrix*mvPosition;', '#include <fog_vertex>', '}'
-      ].join('\n'),
-      fragmentShader:[
-        'uniform float time; uniform vec3 deep, shallow, sun; varying vec3 surface;', '#include <fog_pars_fragment>',
-        'void main(){ vec2 p=surface.xz;',
-        'float swell=sin(p.x*.071+p.y*.054-time*.54);',
-        'float wave=sin(p.x*.39+p.y*.32+time*1.17+swell) + .51*sin(p.x*.14-p.y*.59-time*.94+swell*1.6) + .21*sin(p.x*.63+p.y*.81+time*1.71);',
-        'vec3 eye=normalize(cameraPosition-surface); float horizon=pow(1.-max(0.,eye.y),2.7);',
-        'vec3 color=mix(deep,shallow,horizon*.63+.11+wave*.035+swell*.018);',
-        'vec3 normal=normalize(vec3(.047*sin(p.x*.36+p.y*.12+time),1.,.04*sin(p.y*.59-time*1.3)));',
-        'float shine=pow(max(0.,dot(reflect(-sun,normal),eye)),115.);',
-        'color += (shine*.52 + max(0.,wave-.95)*.042)*vec3(1.,.87,.67);',
-        'gl_FragColor=vec4(color,1.);', '#include <fog_fragment>', '#include <tonemapping_fragment>',
-        '#include <colorspace_fragment>', '}'
-      ].join('\n')
-    });
-    scene.add(water.mesh(material));
-    return uniforms;
-  }
-
-  function sky(scene) {
-    const uniforms={
-      top:{value:new T.Color(0x62aabd)}, haze:{value:new T.Color(0xe1dbbe)},
-      sun:{value:new T.Vector3()}, cloud:{value:new T.Color(0xfff3e0)}, time:{value:0}
-    };
-    const material=new T.ShaderMaterial({
-      uniforms,side:T.BackSide,depthWrite:false,
-      vertexShader:'varying vec3 ray; void main(){ray=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader:[
-        'uniform vec3 top,haze,sun,cloud; uniform float time; varying vec3 ray;',
-        'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
-        'float noise(vec2 p){vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}',
-        'void main(){vec3 d=normalize(ray); float h=max(d.y,0.);',
-        'vec3 color=mix(haze,top,1.-exp(-3.9*h)); float glow=max(0.,dot(d,sun));',
-        'color+=pow(glow,11.)*vec3(.24,.14,.045) + smoothstep(.99958,.99991,glow)*vec3(.92,.73,.41);',
-        'vec2 uv=d.xz*(1.4/max(.05,h))+vec2(time*.001,0.); uv.x *= 1.9;',
-        'float f=noise(uv)*.56+noise(uv*2.1)*.25+noise(uv*4.4)*.13+noise(uv*8.5)*.06;',
-        'float clouds=smoothstep(.48,.73,f)*smoothstep(.035,.15,h)*.65;',
-        'color=mix(color,cloud,clouds); gl_FragColor=vec4(color,1.);',
-        '#include <tonemapping_fragment>', '#include <colorspace_fragment>', '}'
-      ].join('\n')
-    });
-    const mesh=new T.Mesh(new T.SphereGeometry(7200,26,16),material);
-    mesh.renderOrder=-10;
-    scene.add(mesh);
-    return {mesh,uniforms};
+  function waterscape(scene) {
+    const water=batch();
+    const color=new T.Color(0xffffff);
+    for(const {poly,level} of waters) fill(water,poly,()=>level,color);
+    return MadisonAtmosphere.create(scene,water,D.bounds,D.water);
   }
 
   function carModel(scene) {
     const group=new T.Group();
-    const body=new T.MeshLambertMaterial({color:0xe6ae57});
-    const roof=new T.MeshLambertMaterial({color:0xf1c471});
-    const black=new T.MeshLambertMaterial({color:0x232827});
-    const glass=new T.MeshLambertMaterial({color:0x536e71});
-    const silver=new T.MeshLambertMaterial({color:0xb4ae98});
-    const red=new T.MeshBasicMaterial({color:0xde6250});
-    const cream=new T.MeshBasicMaterial({color:0xffedca});
-    box(group,1.92,.54,4.24,0,.65,0,body);
-    box(group,1.78,.28,4.4,0,.43,0,black);
-    box(group,1.72,.56,1.96,0,1.09,.20,glass);
-    box(group,1.79,.11,1.97,0,1.4,.20,roof);
-    box(group,1.84,.22,1.1,0,.81,-1.41,roof);
-    box(group,1.82,.14,.72,0,.89,1.61,body);
-    for (const x of [-.99,.99]) {
-      for (const z of [-1.36,1.30]) {
-        cylinder(group,.32,.32,.22,x,.34,z,black,14).rotation.z=Math.PI/2;
-        cylinder(group,.17,.17,.229,x,.34,z,silver,12).rotation.z=Math.PI/2;
+    const finish=new T.MeshPhysicalMaterial({color:0xa44733,metalness:.38,roughness:.36,clearcoat:.71,
+      clearcoatRoughness:.28,side:T.DoubleSide});
+    const glass=new T.MeshStandardMaterial({color:0x365365,metalness:.24,roughness:.26,side:T.DoubleSide});
+    const rubber=new T.MeshStandardMaterial({color:0x262725,roughness:.93});
+    const silver=new T.MeshStandardMaterial({color:0xb6bdc3,roughness:.3,metalness:.47});
+    const red=new T.MeshStandardMaterial({color:0xff482f,emissive:0xda1d0b,emissiveIntensity:.50,roughness:.24});
+    const cream=new T.MeshStandardMaterial({color:0xffefcf,emissive:0xffd18c,emissiveIntensity:.24});
+
+    function shell(sections,material) {
+      const vertices=[], indices=[];
+      for(const [z,w,low,high] of sections) {
+        const blend=high-low;
+        vertices.push(-w*.86,low,z, -w,low+blend*.25,z, -w*.94,high-blend*.21,z,
+          -w*.76,high,z, w*.76,high,z, w*.94,high-blend*.21,z, w,low+blend*.25,z, w*.86,low,z);
       }
-      box(group,.33,.15,.05,x*.72,.72,2.135,red);
-      box(group,.33,.16,.05,x*.72,.72,-2.145,cream);
-      box(group,.14,.12,.22,x,1.04,-.55,black);
-      box(group,.043,.49,.095,x*.88,1.12,.28,body);
+      for(let row=0;row<sections.length-1;row++) for(let column=0;column<8;column++) {
+        const a=row*8+column,b=row*8+(column+1)%8;
+        indices.push(a,b,b+8,a,b+8,a+8);
+      }
+      const end=(sections.length-1)*8;
+      for(let i=1;i<7;i++) indices.push(0,i+1,i,end,end+i,end+i+1);
+      const geometry=new T.BufferGeometry();
+      geometry.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      group.add(new T.Mesh(geometry,material));
     }
-    box(group,.55,.12,.06,0,.53,2.22,cream);
-    const contact=new T.Mesh(new T.PlaneGeometry(2.15,4.6),new T.MeshBasicMaterial({color:0x17201c,transparent:true,opacity:.34,depthWrite:false}));
+
+    shell([[-2.18,.76,.43,.63],[-2.02,.90,.39,.76],[-1.58,.96,.36,.82],[-.86,.94,.37,.87],
+      [.48,.94,.36,.89],[1.43,.97,.37,.89],[2.06,.88,.43,.80],[2.16,.73,.47,.73]],finish);
+    shell([[-.95,.79,.76,.86],[-.34,.74,.83,1.35],[.04,.70,.87,1.44],[.63,.69,.87,1.41],
+      [.93,.74,.85,1.29],[1.51,.76,.84,.91]],glass);
+    shell([[-.34,.56,1.33,1.36],[.04,.58,1.41,1.46],[.63,.57,1.39,1.43],[.92,.57,1.26,1.29]],finish);
+    box(group,1.51,.12,4.19,0,.38,0,rubber);
+    box(group,1.45,.11,.09,0,.50,2.155,rubber);
+    box(group,1.36,.09,.08,0,.49,-2.14,rubber);
+    for(const sign of [-1,1]) {
+      const x=sign*.97;
+      for(const z of [-1.34,1.30]) {
+        cylinder(group,.335,.335,.21,x,.335,z,rubber,21).rotation.z=Math.PI/2;
+        cylinder(group,.184,.184,.222,x,.335,z,silver,19).rotation.z=Math.PI/2;
+        cylinder(group,.071,.071,.233,x,.335,z,rubber,12).rotation.z=Math.PI/2;
+      }
+      box(group,.47,.095,.045,x*.58,.695,2.137,red).rotation.y=sign*.12;
+      box(group,.38,.10,.055,x*.64,.64,-2.139,cream).rotation.y=sign*-.15;
+      box(group,.18,.083,.25,x*.92,1.01,-.50,finish).rotation.y=sign*.21;
+      box(group,.055,.31,.075,x*.74,1.17,.42,finish).rotation.z=-sign*.20;
+      cylinder(group,.056,.060,.17,x*.58,.423,2.155,silver,12).rotation.x=Math.PI/2;
+    }
+    const plaque=document.createElement('canvas');
+    plaque.width=128;
+    plaque.height=64;
+    const plate=plaque.getContext('2d');
+    plate.fillStyle='#e7dabc'; plate.fillRect(0,0,128,64);
+    plate.strokeStyle='#3c433d'; plate.strokeRect(4,4,120,56);
+    plate.textAlign='center'; plate.fillStyle='#933d31'; plate.font='bold 12px sans-serif';
+    plate.fillText('WISCONSIN',64,16);
+    plate.fillStyle='#23354f'; plate.font='bold 29px monospace'; plate.fillText('ISTHMUS',64,47);
+    const plateMap=new T.CanvasTexture(plaque);
+    plateMap.colorSpace=T.SRGBColorSpace;
+    const tag=new T.Mesh(new T.PlaneGeometry(.405,.198),new T.MeshLambertMaterial({map:plateMap}));
+    tag.position.set(0,.644,2.19);
+    group.add(tag);
+
+    const soft=document.createElement('canvas');
+    soft.width=soft.height=64;
+    const shadow=soft.getContext('2d');
+    const fade=shadow.createRadialGradient(32,32,11,32,32,31);
+    fade.addColorStop(0,'#10151bc2');
+    fade.addColorStop(.65,'#10151b72');
+    fade.addColorStop(1,'#10151b00');
+    shadow.fillStyle=fade;
+    shadow.fillRect(0,0,64,64);
+    const contact=new T.Mesh(new T.PlaneGeometry(2.95,5.5),new T.MeshBasicMaterial({
+      map:new T.CanvasTexture(soft),transparent:true,depthWrite:false
+    }));
     contact.rotation.x=-Math.PI/2;
-    contact.position.y=.035;
+    contact.position.y=.047;
     group.add(contact);
     group.visible=false;
     scene.add(group);
     return group;
   }
 
-  function create(host) {
+  async function create(host) {
+    const photos=await aerialTextures();
     const renderer=new T.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
     const gl=renderer.getContext();
     const gpu=gl.getExtension('WEBGL_debug_renderer_info');
     const software=gpu && /swiftshader|llvmpipe|software/i.test(gl.getParameter(gpu.UNMASKED_RENDERER_WEBGL));
-    let resolution=software?.63:Math.min(window.devicePixelRatio || 1,1.55);
+    let resolution=software ? .68 : Math.min(window.devicePixelRatio || 1,1.35);
     renderer.setPixelRatio(resolution);
     renderer.outputColorSpace=T.SRGBColorSpace;
     renderer.toneMapping=T.ACESFilmicToneMapping;
@@ -785,68 +1020,67 @@
     host.append(renderer.domElement);
     const scene=new T.Scene();
     scene.fog=new T.FogExp2(0xc1c7b8,.00043);
-    const camera=new T.PerspectiveCamera(57,1,.17,8400);
+    const camera=new T.PerspectiveCamera(57,1,.26,10800);
     const hemisphere=new T.HemisphereLight(0xe4ece6,0x7e7157,1.63);
     const sun=new T.DirectionalLight(0xffe4bd,2.13);
+    const fillLight=new T.DirectionalLight(0xc1d6ed,.51);
+    fillLight.position.set(.63,.54,.95);
     sun.castShadow=true;
     sun.shadow.mapSize.setScalar(software?1024:2048);
-    sun.shadow.camera.left=sun.shadow.camera.bottom=-240;
-    sun.shadow.camera.right=sun.shadow.camera.top=240;
-    sun.shadow.camera.far=1100;
-    sun.shadow.bias=-.00031;
-    sun.shadow.normalBias=.21;
+    sun.shadow.camera.left=sun.shadow.camera.bottom=-380;
+    sun.shadow.camera.right=sun.shadow.camera.top=380;
+    sun.shadow.camera.far=1530;
+    sun.shadow.bias=-.00016;
+    sun.shadow.normalBias=.16;
     sun.shadow.camera.updateProjectionMatrix();
-    scene.add(hemisphere,sun,sun.target);
-    const skyline=sky(scene);
-    worldSurface(scene);
-    const waves=lake(scene);
+    scene.add(hemisphere,sun,sun.target,fillLight);
+    const atmosphere=waterscape(scene);
+    const evening={value:0};
+    const wind={value:0};
+    worldSurface(scene,photos);
     asphalt(scene);
-    streetLights(scene);
-    cityBlocks(scene);
+    const lightStreet=streetLights(scene);
+    cityBlocks(scene,photos,evening);
     capitol(scene);
     terrace(scene);
-    foliage(scene);
+    foliage(scene,wind);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
       if(mesh.userData.range) detail.push([mesh,mesh.boundingSphere || mesh.geometry.boundingSphere,mesh.userData.range]);
     });
 
-    const themes=[
-      [0x4293bc,0xe0dcc4,0xc2caca,0xffe9cd,[-.63,.66,.44],2.05,1.43,0x316879,0x8fb6b6],
-      [0x718ca5,0xffc68b,0xccad91,0xffc085,[-.85,.26,.28],2.28,1.25,0x415b71,0xa69a85],
-      [0x29416c,0x92889b,0x777f91,0xb0bddc,[-.55,.43,-.69],1.05,1.13,0x263c56,0x657b95]
-    ];
+    let mood;
     let shadowX=Infinity, shadowZ=Infinity;
     function setLight(i) {
-      const [top,haze,fog,color,direction,direct,ambient,deep,shallow]=themes[i];
-      skyline.uniforms.top.value.set(top);
-      skyline.uniforms.haze.value.set(haze);
-      skyline.uniforms.cloud.value.set(i===2?0x8e9db5:0xfff2d8);
-      skyline.uniforms.sun.value.set(...direction).normalize();
-      waves.sun.value.copy(skyline.uniforms.sun.value);
-      waves.deep.value.set(deep);
-      waves.shallow.value.set(shallow);
-      sun.color.set(color);
+      mood=atmosphere.setLight(i);
+      sun.color.set(mood.warmth);
       shadowX=shadowZ=Infinity;
-      sun.intensity=direct;
-      hemisphere.intensity=ambient;
-      hemisphere.color.set(i===2?0xb7c6e6:0xe5ece4);
-      scene.fog.color.set(fog);
+      sun.intensity=mood.sun;
+      hemisphere.intensity=mood.fill;
+      hemisphere.color.set(mood.ambient);
+      hemisphere.groundColor.set(mood.bounce);
+      fillLight.intensity=i===1?.64:i===2?.37:.22;
+      scene.fog.color.set(mood.fog);
+      scene.fog.density=mood.density;
+      renderer.toneMappingExposure=mood.exposure;
+      evening.value=i===2?.85:i===1?.15:0;
+      lightStreet(evening.value);
     }
     function resize() {
       renderer.setSize(host.clientWidth,host.clientHeight,false);
       camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);
       camera.updateProjectionMatrix();
     }
-    setLight(0);
+    setLight(1);
     resize();
     window.addEventListener('resize',resize);
-    let frameTime=1/60, lastFrame=0, resolutionCheck=0;
+    let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
+    const viewDirection=new T.Vector3();
     return {camera,car,canvas:renderer.domElement,setLight,render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
-      if(elapsed>0 && elapsed<.8) frameTime=mix(frameTime,elapsed,.09);
+      if(elapsed>0) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
       if(player && seconds>resolutionCheck) {
         resolutionCheck=seconds+3;
         if(frameTime>.065 && resolution>.58) {
@@ -855,23 +1089,35 @@
           resize();
         }
       }
-      skyline.mesh.position.copy(camera.position);
-      skyline.uniforms.time.value=waves.time.value=seconds;
-      const [x,z]=player || [90,35];
+      const [x,z,height]=player || [90,35,180];
+      const near=height>20?clamp((height-6)*.026,.44,5.6):.22;
+      if(Math.abs(near-camera.near)>.14) {
+        camera.near=near;
+        camera.updateProjectionMatrix();
+      }
       for(const [mesh,sphere,range] of detail) {
-        const drawDistance=range*(software?.65:1)+sphere.radius;
+        const drawDistance=range*(software?.7:1)+sphere.radius+
+          Math.max(0,height-65)*(range>=1000?2.95:.47);
         mesh.visible=!player || (sphere.center.x-x)**2+(sphere.center.z-z)**2<drawDistance**2;
       }
-      if(Math.hypot(x-shadowX,z-shadowZ)>56) {
-        shadowX=x;
-        shadowZ=z;
-        sun.target.position.set(x,0,z);
-        sun.position.copy(skyline.uniforms.sun.value).multiplyScalar(600).add(sun.target.position);
+      const direction=camera.getWorldDirection(viewDirection);
+      const ahead=Math.max(0,height-65)*.61;
+      const sx=clamp(x+direction.x*ahead,west,east), sz=clamp(z+direction.z*ahead,north,south);
+      if(Math.hypot(sx-shadowX,sz-shadowZ)>71) {
+        shadowX=sx;
+        shadowZ=sz;
+        sun.target.position.set(sx,11,sz);
+        sun.position.copy(mood.sunDirection).multiplyScalar(850).add(sun.target.position);
         renderer.shadowMap.needsUpdate=true;
       }
+      const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
+      wind.value=seconds;
+      if(frameTime>.073) reflectionQuality=false;
+      if(!software && frameTime<.034) reflectionQuality=true;
+      atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));
       renderer.render(scene,camera);
     }};
   }
 
-  window.MadisonWorld={create,ground,blocked,nearestRoad,inPolygon,center,area,onWater};
+  window.MadisonWorld={create,ground,blocked,nearestRoad,inPolygon,center,area,onWater,flightFloor,lakeName};
 })();

@@ -1,20 +1,26 @@
 # Isthmus
 
-An offline 3D exploration game of downtown Madison, Wisconsin. Open `Isthmus.html` in a desktop browser with WebGL enabled. Everything the game needs is inside that file.
+Walk, drive, or fly through downtown Madison, Wisconsin. [Play on GitHub Pages](https://jdifebo.github.io/isthmus-madison/) or open the standalone `Isthmus.html` in a WebGL-enabled desktop browser.
 
 ## Controls
 
 | Action | Input |
 | --- | --- |
-| Walk, accelerate, reverse or steer | WASD or arrow keys |
-| Look around on foot | Drag the scene |
-| Sprint on foot / brake in the car | Shift / Space |
-| Switch between walking and driving | E |
+| Walk, fly, or steer | WASD or arrow keys |
+| Look around on foot or in flight | Drag the scene |
+| Ascend / descend | Space / C |
+| Sprint or boost in flight | Shift |
+| Brake in the car | Space |
+| Walk / drive / fly | 1 / 2 / 3 |
+| Take off / land | F |
 | Open the map and jump to a landmark | M |
+| Hide or restore the HUD | H |
 | Return to your current starting point | R |
 | Close a panel or return to the title screen | Esc |
 
-The map covers about 4.1 by 2.6 km, from the downtown edge of the UW campus to the near east side. The elevation, street and path alignments, shorelines and building footprints come from public geodata. Most building heights are estimated. Materials, interiors, traffic, lane markings and street furniture are simplified or omitted. The Capitol and Monona Terrace use custom exterior geometry.
+The playable map covers about 4.1 by 2.6 km, from the downtown edge of the UW campus to the near east side. Take flight over Lake Monona or jump to a landmark from the field map. Flight keeps the camera clear of terrain and rooftops. Switching to a ground mode over open water returns you to your last ground position.
+
+Public aerial photos cover the terrain and surrounding landscape. Procedural clouds, water, façade materials and swaying tree crowns respond to daylight, golden hour, and blue hour. Most building heights are estimated, and the Capitol and Monona Terrace have custom exteriors. The procedural atmosphere takes inspiration from [Abyssal Garden](https://github.com/Noniv/abyssal-garden).
 
 ## Data and source
 
@@ -22,6 +28,7 @@ The map covers about 4.1 by 2.6 km, from the downtown edge of the UW campus to t
 - [Dane County, City of Madison and Ayres Associates](https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/3DMadison_3D_WFL1/FeatureServer/0) for building footprints.
 - [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) for street and path centerlines and some building heights. The OpenStreetMap-derived data is available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1-0/). The processed geodata is in `data/madison.js`. The download and conversion scripts reproduce it.
 - [Mapzen / AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) for elevation.
+- [USGS / USDA NAIP](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip) for the downtown and regional aerial textures.
 - [Wisconsin Department of Administration](https://doa.wi.gov/Pages/CapitolTours/Wisconsin-State-Capitol-Exterior.aspx) and [Monona Terrace](https://www.mononaterrace.com/about-us/) for landmark references.
 - [Three.js](https://threejs.org/) for the WebGL renderer. Its license is included in `assets/THREE-LICENSE.txt` and in the standalone HTML.
 
