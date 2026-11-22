@@ -2,6 +2,9 @@
   'use strict';
 
   const T=THREE;
+  const leafCutoff=.36;
+  const crownTransition=[68,100];
+  const maxCrownScale=1.22;
   const profiles=[
     {height:18,radius:6.4,spread:1,shape:.42,leaf:0x789647},
     {height:17,radius:5.3,spread:.89,shape:.44,leaf:0x8caa55},
@@ -9,6 +12,36 @@
     {height:19,radius:4.2,spread:.68,shape:.48,leaf:0x426750},
     {height:10,radius:4.7,spread:.94,shape:.37,leaf:0x739452}
   ];
+
+  function leafMipmaps(canvas) {
+    const levels=[canvas];
+    const cutoff=Math.ceil(leafCutoff*255);
+    const base=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+    let opaque=0;
+    for(let i=3;i<base.length;i+=4) if(base[i]>=cutoff) opaque++;
+    const coverage=opaque/(canvas.width*canvas.height);
+    for(let size=canvas.width/2;size>=1;size/=2) {
+      const mip=document.createElement('canvas');
+      mip.width=mip.height=size;
+      const ink=mip.getContext('2d');
+      ink.imageSmoothingQuality='high';
+      ink.drawImage(canvas,0,0,size,size);
+      const image=ink.getImageData(0,0,size,size),pixels=image.data;
+      const histogram=new Uint32Array(256);
+      for(let i=3;i<pixels.length;i+=4) histogram[pixels[i]]++;
+      // Keep the same filled area after minification averages leaf edges with transparent texels.
+      const target=Math.max(1,Math.round(coverage*size*size));
+      let quantile=255,count=histogram[255];
+      while(quantile>0 && count<target) count+=histogram[--quantile];
+      const gain=Math.min(2.5,Math.max(1,(cutoff+2)/Math.max(1,quantile)));
+      if(gain>1) {
+        for(let i=3;i<pixels.length;i+=4) pixels[i]*=gain;
+        ink.putImageData(image,0,0);
+      }
+      levels.push(mip);
+    }
+    return levels;
+  }
 
   function leafTexture(random) {
     const canvas=document.createElement('canvas');
@@ -46,6 +79,8 @@
       }
     }
     const texture=new T.CanvasTexture(canvas);
+    texture.mipmaps=leafMipmaps(canvas);
+    texture.generateMipmaps=false;
     texture.colorSpace=T.SRGBColorSpace;
     texture.anisotropy=4;
     return texture;
@@ -229,7 +264,8 @@
           #include <begin_vertex>
           vec3 crown=instanceMatrix[3].xyz;
           crown.y+=length(instanceMatrix[1].xyz)*.70;
-          crownCoverage=smoothstep(92.,123.,length(cameraPosition-crown));
+          float size=clamp(sqrt(length(instanceMatrix[0].xyz)/4.6),.60,${maxCrownScale});
+          crownCoverage=smoothstep(${crownTransition[0]}.0,${crownTransition[1]}.0,length(cameraPosition-crown)/size);
         `);
       shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>'+varying)
         .replace('#include <alphatest_fragment>',`
@@ -241,7 +277,7 @@
           #include <alphatest_fragment>
         `);
     };
-    const leaves=windMaterial({vertexColors:true,map:leafTexture(random),alphaTest:.36,side:T.DoubleSide},clock,.068);
+    const leaves=windMaterial({vertexColors:true,map:leafTexture(random),alphaTest:leafCutoff,side:T.DoubleSide},clock,.068);
     const individual=windMaterial({vertexColors:true,side:T.DoubleSide},clock,.068,.0051);
     const materials={bark,distant,leaves,individual};
     const templates=profiles.map((_,type)=>treeTemplate(type,geo,materials));
@@ -282,14 +318,15 @@
       scene.add(crowns,branches,near);
     }
     let lastX=Infinity,lastZ=Infinity,lastHeight=Infinity,lastQuality;
-    return (x,z,height,reduced)=>{
-      const range=reduced?121:198;
+    return (position,height,reduced)=>{
+      const {x,z}=position;
+      const range=reduced?crownTransition[1]*maxCrownScale+8:198;
       const detailRange=reduced?20:32;
       const refresh=Math.hypot(x-lastX,z-lastZ)>4 || Math.abs(height-lastHeight)>5 || lastQuality!==reduced;
       const candidates=[];
       for(const {near,branches,center,radius,type,entries} of clusters) {
         const delta=(x-center.x)**2+(z-center.z)**2;
-        near.visible=height<80 && delta<(range+radius)**2;
+        near.visible=position.distanceToSquared(center)<(range+radius)**2;
         branches.visible=height<100 && delta<(range+radius+40)**2;
         if(!refresh || height>42 || delta>(detailRange+radius)**2) continue;
         for(const entry of entries) {
@@ -559,7 +596,7 @@
     return (player,camera,reduced)=>{
       const [x,z,altitude]=player || [camera.position.x,camera.position.z,camera.position.y];
       const height=altitude?altitude-geo.ground(x,z):0;
-      updateTrees(x,z,height,reduced);
+      updateTrees(camera.position,height,reduced);
       updateGrass(x,z,height,reduced);
     };
   }
