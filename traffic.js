@@ -61,7 +61,7 @@
       }
       return nearest;
     }
-    return {sample,project,length};
+    return {sample,project,length,points};
   }
 
   function runningLane(chain,kind,stops) {
@@ -104,13 +104,39 @@
     return path(aligned);
   }
 
-  function trafficRoutes(roads,layout) {
-    const routes=[];
+  function extendBusLane(highway,guide,direction) {
+    if(!guide?.length) return {line:highway,downtown:0};
+    const center=path(guide),pieces=Math.ceil(center.length/2.6),points=[];
+    const joint=highway.sample(direction>0?0:highway.length);
+    for(let i=0;i<=pieces;i++) {
+      const s=i*center.length/pieces;
+      const [x,z]=center.sample(s);
+      const [ax,az]=center.sample(s-3.7),[bx,bz]=center.sample(s+3.7);
+      const dx=bx-ax,dz=bz-az,span=Math.hypot(dx,dz);
+      const offset=x<-640 && z>22?3.34:2.08;
+      points.push([x-dz*offset/span,z+dx*offset/span]);
+    }
+    const join=direction>0?points.at(-1):points[0];
+    const delta=[joint[0]-join[0],joint[1]-join[1]];
+    for(let step=0;step<Math.min(11,points.length);step++) {
+      const point=points[direction>0?points.length-step-1:step],weight=(1-step/11)**2;
+      point[0]+=delta[0]*weight;
+      point[1]+=delta[1]*weight;
+    }
+    const line=path(direction>0?[...points,...highway.points]:[...highway.points,...points]);
+    return {line,downtown:line.length-highway.length};
+  }
+
+  function network(data,layout) {
+    const routes=[],curbs=[];
     for(const direction of [1,-1]) {
-      const chain=corridor(roads,direction);
+      const chain=corridor(data.roads,direction);
       if(!chain.length) continue;
       for(const kind of ['bus','center','outer']) {
-        const line=runningLane(chain,kind,layout.stops);
+        const bus=kind==='bus';
+        const highway=runningLane(chain,kind,layout.stops);
+        const guide=bus && (data.rapidDowntown || []).find(part=>part[0]===direction)?.[1];
+        const {line,downtown}=extendBusLane(highway,guide,direction);
         const signals=[];
         for(const signal of layout.signals) {
           const {s,distance,dx,dz}=line.project(signal.x,signal.z);
@@ -120,15 +146,24 @@
           if(scores[axis]<.80) continue;
           signals.push({s:s-signal.axes[1-axis].extent-3.8,signal,axis});
         }
-        const stations=kind==='bus'?layout.stops.flatMap(([name,x,z,dx,dz])=>{
+        const stations=bus?layout.stops.flatMap(([name,x,z,dx,dz])=>{
           const stop=line.project(x,z);
           if(stop.distance>7 || stop.s<22 || stop.s>line.length-15) return [];
-          return [{name,x,z,dx,dz,s:stop.s+7.4}];
-        }).sort((a,b)=>a.s-b.s):[];
-        routes.push({kind,direction,line,signals:signals.sort((a,b)=>a.s-b.s),stations,vehicles:[]});
+          return [{id:name.toLowerCase(),name,x,z,dx,dz,s:stop.s+7.4}];
+        }):[];
+        if(guide) for(const [id,name,side,location] of data.brtCurbStops || []) {
+          if(side!==direction) continue;
+          const projection=line.project(...location);
+          const [x,z,dx,dz]=line.sample(projection.s);
+          const a=x-dz*3.02,b=z+dx*3.02;
+          curbs.push([name,a,b,dx,dz,{id,direction,curb:true}]);
+          stations.push({id,name,x:a,z:b,dx,dz,s:projection.s+7.4,curb:true});
+        }
+        stations.sort((a,b)=>a.s-b.s);
+        routes.push({kind,direction,line,downtown,signals:signals.sort((a,b)=>a.s-b.s),stations,vehicles:[]});
       }
     }
-    return routes;
+    return {routes,curbs};
   }
 
   function updateRoute(route,dt,time,playerOnLane) {
@@ -164,7 +199,12 @@
         barrier=Math.min(barrier,playerOnLane.s-3.7);
       }
       const space=Math.max(0,barrier-car.s);
-      const goal=Math.min(car.cruise,Math.sqrt(space*(car.bus?4.1:5.6)));
+      let limit=car.cruise;
+      if(route.downtown && (route.direction>0?car.s<route.downtown+10:car.s>line.length-route.downtown-27)) {
+        const [,,dx,dz]=line.sample(car.s-8),[,,ex,ez]=line.sample(car.s+15);
+        limit=Math.min(8.8,4.25+5.1*Math.max(0,dx*ex+dz*ez));
+      }
+      const goal=Math.min(limit,Math.sqrt(space*(car.bus?4.1:5.6)));
       const previous=car.speed;
       const acceleration=goal<previous?(car.bus?4.0:5.6):(car.bus?1.32:2.37);
       car.speed=previous+Math.sign(goal-previous)*Math.min(Math.abs(goal-previous),dt*acceleration);
@@ -465,20 +505,21 @@
     return {bus,car};
   }
 
-  function create(scene,geo,layout) {
-    const routes=trafficRoutes(geo.data.roads,layout);
+  function create(scene,geo,layout,routes) {
     const models=vehicleModels(scene,geo);
     const rng=geo.random(421433);
     let model=0,lastTime,passenger=null;
     for(const route of routes) {
       const bus=route.kind==='bus';
       const paterson=route.stations.find(stop=>stop.name==='Paterson');
-      const offsets=bus?(route.direction>0?[.16,.48,.84]:[.13,.54,.89]):
+      const stateStreet=route.stations.find(stop=>stop.name==='State Street');
+      const offsets=bus?(route.direction>0?[.08,.28,.46,.70,.86,.94]:[.08,.24,.37,.57,.77,.91]):
         route.kind==='outer'?[.07,.20,.31,.43,.55,.65,.77,.87,.94]:[.11,.262,.38,.49,.58,.73,.80,.96];
       for(let slot=0;slot<offsets.length;slot++) {
         const actor=bus?models.bus(route.direction):models.car(model++);
-        const docked=bus && slot===1 && route.direction>0 && paterson;
-        const target=bus && slot===1 && paterson?paterson.s-(docked?0:56):route.line.length*offsets[slot];
+        const startingStop=bus && (slot===3 && route.direction>0?paterson:slot===(route.direction>0?1:4)?stateStreet:null);
+        const docked=Boolean(startingStop);
+        const target=startingStop?startingStop.s:route.line.length*offsets[slot];
         const stop=route.stations.findIndex(marker=>marker.s>=target-.015);
         const cruise=bus?11.7+rng()*2.5:12.2+rng()*3.7;
         const dwellTime=docked?10.4:6.3+rng()*2.7;
@@ -550,7 +591,7 @@
     function render(camera) {
       blockers.length=0;
       let shadowCount=0;
-      for(const {line,vehicles} of routes) {
+      for(const {line,vehicles,stations} of routes) {
         for(const actor of vehicles) {
           const [x,z]=line.sample(actor.s-(actor.bus?8:0));
           const within=Math.hypot(x-camera.position.x,z-camera.position.z)<(actor.bus?680:490);
@@ -565,7 +606,10 @@
             actor.bellows.position.set(jx,geo.ground(jx,jz)+.248,jz);
             actor.bellows.rotation.y=Math.atan2(jdx,jdz);
             const open=doorsOpen(actor);
-            for(const {leaf,platform,position,slide} of actor.doors) leaf.position.z=position+(platform?slide*.58*open:0);
+            const median=!stations[actor.stop]?.curb;
+            for(const {leaf,platform,position,slide} of actor.doors) {
+              leaf.position.z=position+(platform===median?slide*.58*open:0);
+            }
           } else {
             place(actor.body,line,actor.s-actor.length*.5,1.88,actor.length,shadowCount++);
           }
@@ -586,25 +630,28 @@
     }
 
     function platformAt(x,z) {
-      for(const [name,sx,sz,dx,dz] of layout.stops) {
+      for(const [name,sx,sz,dx,dz,info] of layout.stops) {
         const px=x-sx,pz=z-sz,along=Math.abs(px*dx+pz*dz),across=Math.abs(-px*dz+pz*dx);
-        if(across<=2.16 && along<=14.3) return {name,height:.44*geo.clamp((14.3-along)/3.7,0,1)};
+        const curb=info?.curb,limit=curb?11.2:14.3;
+        if(across<=(curb?1.5:2.16) && along<=limit) return {name,id:info?.id || name.toLowerCase(),
+          height:.44*geo.clamp((limit-along)/(curb?1.6:3.7),0,1)};
       }
       return null;
     }
 
     function platformPosition(station,direction,offset=5.75,towardBus=true) {
-      const {x,z,dx,dz,name}=station;
-      const rx=-dz*direction,rz=dx*direction;
-      return {name,x:x+direction*dx*offset+rx*1.54,z:z+direction*dz*offset+rz*1.54,
-        yaw:Math.atan2(rx,-rz)+(towardBus?0:Math.PI)};
+      const {x,z,dx,dz,name,id,curb}=station;
+      const along=curb?1:direction,side=curb?-1:direction;
+      const rx=-dz*side,rz=dx*side,across=curb?.25:1.54;
+      return {name,id,x:x+along*dx*offset+rx*across,z:z+along*dz*offset+rz*across,
+        yaw:Math.atan2(rx,-rz)+(towardBus?(curb?.62:0):Math.PI)};
     }
 
-    function platformStart(name) {
-      const stop=layout.stops.find(row=>row[0]===name);
+    function platformStart(id) {
+      const stop=layout.stops.find(([name,,,,,info])=>(info?.id || name.toLowerCase())===id);
       if(!stop) return null;
-      const [label,x,z,dx,dz]=stop;
-      return platformPosition({name:label,x,z,dx,dz},1);
+      const [name,x,z,dx,dz,info]=stop;
+      return platformPosition({name,id,x,z,dx,dz,curb:info?.curb},1,info?.curb?2.40:5.75);
     }
 
     function boardingAt(x,z) {
@@ -614,10 +661,12 @@
       for(const route of routes) {
         if(route.kind!=='bus') continue;
         for(const actor of route.vehicles) {
-          if(doorsOpen(actor)<.74 || route.stations[actor.stop]?.name!==platform.name || !route.stations[actor.stop+1]) continue;
+          const station=route.stations[actor.stop];
+          if(doorsOpen(actor)<.74 || station?.id!==platform.id || !route.stations[actor.stop+1]) continue;
           const head=pose(route.line,actor.s-5.02);
+          const across=station.curb?-1.26:1.26;
           for(const door of [-2.65,3.67]) {
-            const sx=head.x+head.dx*door+head.dz*1.26,sz=head.z+head.dz*door-head.dx*1.26;
+            const sx=head.x+head.dx*door+head.dz*across,sz=head.z+head.dz*door-head.dx*across;
             const distance=Math.hypot(sx-x,sz-z);
             if(distance>=best) continue;
             nearest={actor,route,station:platform.name};
@@ -675,11 +724,13 @@
       const platform=platformAt(x,z);
       if(!platform) return null;
       const offer=boardingAt(x,z);
-      return {name:platform.name,direction:offer?offer.route.direction>0?'Eastbound':'Westbound':null};
+      const info=layout.stops.find(stop=>stop[5]?.id===platform.id)?.[5];
+      const direction=offer?.route.direction || info?.direction;
+      return {name:platform.name,boarding:Boolean(offer),direction:direction?direction>0?'Eastbound':'Westbound':null};
     }
 
     return {advance,render,blocked,buses,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release}};
   }
 
-  window.MadisonTraffic={cycle,green,yellow,create};
+  window.MadisonTraffic={cycle,green,yellow,signalPhase,network,create};
 })();

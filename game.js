@@ -14,14 +14,10 @@
     {name:'Orton Park', x:1718, z:-644, yaw:1.95, pitch:-.035, above:55, marker:[1711,-701]},
     {name:'Breese Stevens Field', x:839, z:-886, yaw:.73, above:78, flyPitch:-.56, marker:[899,-967]}
   ];
-  const stationPoints=(data.brtStations || []).map(([name,x,z])=>({
-    name:name+' BRT',station:name,x:x+4.25,z:z+18.25,yaw:-.23,above:43,transit:true,marker:[x,z]
-  }));
+  const stationPoints=[];
   const query=new URLSearchParams(window.location.search);
   const stopQuery=query.get('stop')?.toLowerCase();
-  const openingStop=stationPoints.find(point=>point.station.toLowerCase()===stopQuery);
-  const firstRide=stationPoints.find(point=>point.station==='Paterson') || stationPoints[0];
-  points.push(...stationPoints);
+  let openingStop,firstRide;
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
   const modeNames={walk:'WALKING',drive:'DRIVING',fly:'FLYING',ride:'RIDING'};
   const travelModes=['walk','drive','fly'];
@@ -45,6 +41,20 @@
   const scale=.116;
   const mapX=x=>map.width*.505+x*scale, mapY=z=>map.height*.543+z*scale;
   const roadText=road=>road.name.replace(/\b(North|South|East|West)\b/g,word=>word[0]+'.');
+
+  function loadStationPoints() {
+    for(const [name,x,z,,,info] of engine.platforms) {
+      const stationId=info?.id || name.toLowerCase();
+      const direction=info?.direction>0?'Eastbound':'Westbound';
+      const nameWithDirection=name+' BRT'+(info?.curb?' · '+direction:'');
+      const platform=engine.transit.platformStart(stationId);
+      const view=info?.curb?platform:{x:x+4.25,z:z+18.25,yaw:-.23};
+      stationPoints.push({...view,name:nameWithDirection,stationId,above:43,transit:true,marker:[x,z]});
+    }
+    points.push(...stationPoints);
+    openingStop=stationPoints.find(point=>point.stationId===stopQuery);
+    firstRide=stationPoints.find(point=>point.stationId==='state-east') || stationPoints.find(point=>point.stationId==='paterson') || stationPoints[0];
+  }
 
   function trace(context,line) {
     for (let i=0;i<line.length;i++) {
@@ -94,7 +104,11 @@
     chart.strokeStyle='#e48c74';
     chart.lineWidth=1.75;
     chart.beginPath();
-    for(const [,,,,line,bus] of data.roads) if(bus) trace(chart,line);
+    if(engine?.rapidLines.length) {
+      for(const line of engine.rapidLines) trace(chart,line);
+    } else {
+      for(const [,,,,line,bus] of data.roads) if(bus) trace(chart,line);
+    }
     chart.stroke();
     chart.globalAlpha=1;
     chart.font='italic 19px Georgia';
@@ -277,14 +291,14 @@
   }
 
   function visitPlatform(point) {
-    const platform=engine.transit.platformStart(point.station);
+    const platform=engine.transit.platformStart(point.stationId);
     changeMode('walk',platform?{...point,...platform,name:point.name}:point);
   }
 
   function stepOff() {
     const platform=engine.transit.exit();
     if(!platform) return;
-    const station=stationPoints.find(point=>point.station===platform.name);
+    const station=stationPoints.find(point=>point.stationId===platform.id);
     changeMode('walk',{...station,...platform,name:station?.name || platform.name});
     toast('Stepped off at '+platform.name+'.');
   }
@@ -323,8 +337,8 @@
       else if(riding.station) status='At '+riding.station;
       else status='Next stop · '+riding.next;
     } else {
-      action=direction?'Board bus':'';
-      status=direction?'Doors open at '+waiting.name:'Waiting at '+waiting.name;
+      action=waiting.boarding?'Board bus':'';
+      status=waiting.boarding?'Doors open at '+waiting.name:'Waiting at '+waiting.name;
     }
     const labels={'transit-status':status,'transit-route':direction?'Route A · '+direction:'Route A','transit-action-label':action};
     for(const [id,label] of Object.entries(labels)) {
@@ -448,7 +462,7 @@
     const lake=state==='fly'?world.lakeName(x,z):'';
     const name=lake || (distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
     $('place-name').textContent=rideView?'Metro Rapid':name;
-    $('location-name').textContent=rideView?'East Washington Avenue':
+    $('location-name').textContent=rideView?(road?.distance<40?roadText(road):'Madison, Wisconsin'):
       road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
     $('map-status').textContent=state==='intro'?'Capitol Square':rideView?'Route A · '+(rideView.station || rideView.direction):name;
     const [lon,lat]=data.origin,[mx,mz]=data.meters;
@@ -611,6 +625,8 @@
       drawMapBase();
       drawMap();
       engine=await world.create($('scene'));
+      loadStationPoints();
+      drawMapBase();
       engine.setLight(light);
       engine.advanceTraffic(0,null);
       setCamera(0,0);

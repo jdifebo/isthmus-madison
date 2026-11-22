@@ -112,7 +112,7 @@
   function streetLayout() {
     const signals=(D.trafficSignals || []).flatMap(([x,z])=>{
       const near=roadGrid.at(x,z).flatMap(road=>{
-        if(!road.name || road.kind>1) return [];
+        if(!road.name || road.kind>1 && road.name!=='State Street') return [];
         const distance=segmentDistance(x,z,road.ax,road.az,road.bx,road.bz);
         if(distance>289) return [];
         const dx=road.bx-road.ax,dz=road.bz-road.az,norm=Math.hypot(dx,dz);
@@ -1104,6 +1104,8 @@
     const wind={value:0};
     worldSurface(scene,photos);
     const layout=streetLayout();
+    const rapid=MadisonTraffic.network(D,layout);
+    layout.stops.push(...rapid.curbs);
     const stencils=asphalt(scene,layout.signals);
     const data=D;
     const geo={data,ground,nearestRoad,inBuilding,onWater,random,clamp,batch,box,cylinder,mergeLandmark,
@@ -1117,7 +1119,8 @@
     capitol(scene);
     terrace(scene);
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,homes);
-    const traffic=MadisonTraffic.create(scene,geo,layout);
+    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes);
+    const pedestrians=MadisonPedestrians.create(scene,geo,layout);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -1154,7 +1157,8 @@
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
     return {camera,car,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
-      transit:traffic.transit,advanceTraffic:traffic.advance,render(seconds,player=null) {
+      transit:traffic.transit,advanceTraffic:traffic.advance,platforms:layout.stops,
+      rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
       if(elapsed>0) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
@@ -1199,6 +1203,7 @@
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
       traffic.render(camera);
+      pedestrians(seconds,camera,software || frameTime>.063);
       if(frameTime>.073) reflectionQuality=false;
       if(!software && frameTime<.034) reflectionQuality=true;
       atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));

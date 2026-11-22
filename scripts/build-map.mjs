@@ -188,16 +188,35 @@ const trees = (inventory.length ? inventory : await features('trees')).flatMap((
   const diameter=Math.min(65,Math.max(0,Number(properties.DIAMETER)||0));
   return [[...project(geometry.coordinates),Math.round(diameter),treeGroup(species)]];
 });
-const brtStations=(await features('brt-stations'))
+const stationFeatures=await features('brt-stations');
+const brtStations=stationFeatures
   .filter(f=>f.geometry?.type==='Point' && f.properties.Type==='center' &&
     ['Blair','Paterson','Baldwin'].includes(f.properties.NAME))
   .map(f=>[f.properties.NAME,...project(f.geometry.coordinates)])
   .sort((a,b)=>a[1]-b[1]);
-const brtCenterlines=(await features('brt-routes'))
+const brtFeatures=await features('brt-routes');
+const brtCenterlines=brtFeatures
   .filter(f=>f.geometry?.type==='LineString' && f.properties.LPA===3 &&
     ['C','E'].includes(f.properties.Corridor) &&
     f.geometry.coordinates.some(([lon,lat])=>lon> -89.379 && lat>43.078))
   .map(f=>path(f.geometry.coordinates));
+const downtownSections=new Map(brtFeatures.filter(f=>f.properties.LPA===3 && f.properties.Corridor==='C')
+  .map(f=>[f.properties.OBJECTID,path(f.geometry.coordinates)]));
+// The MPO pieces follow the normal Route A approaches via Main eastbound and Mifflin westbound.
+const southSquare=downtownSections.get(9);
+const rapidDowntown=southSquare && [10,11,12,17,18].every(id=>downtownSections.has(id))?[
+  [1,[18,11,9].flatMap(id=>downtownSections.get(id))],
+  [-1,[...southSquare.slice(-3).reverse(),...[10,12,17].flatMap(id=>downtownSections.get(id))]]
+]:[];
+const curbPoint=name=>stationFeatures.filter(f=>f.geometry?.type==='Point' && f.properties.NAME===name)
+  .map(f=>project(f.geometry.coordinates));
+const campus=curbPoint('East Campus').sort((a,b)=>b[1]-a[1]);
+const brtCurbStops=[
+  ['campus-east','East Campus',1,campus[0]],['campus-west','East Campus',-1,campus[1]],
+  ['state-east','State Street',1,[-420,-9]],['state-west','State Street',-1,[-585,-14]],
+  ['square-east','Capitol Square',1,curbPoint('Main and Carroll')[0]],
+  ['square-west','Capitol Square',-1,curbPoint('Mifflin and Pinckney')[0]]
+].filter(([, , ,point])=>point);
 const trafficSignals=(await features('traffic-signals'))
   .filter(f=>f.geometry?.type==='Point' && f.properties.Status==='Current' && f.properties.IntControl==='SL')
   .map(f=>project(f.geometry.coordinates));
@@ -218,7 +237,8 @@ for(const feature of await features('lots')) {
   }
 }
 const map = {
-  origin, meters, bounds, roads, houses, water, parks, trees, lots, brtStations, brtCenterlines, trafficSignals, osm: Boolean(osm),
+  origin, meters, bounds, roads, houses, water, parks, trees, lots, brtStations, brtCenterlines, rapidDowntown, brtCurbStops,
+  trafficSignals, osm: Boolean(osm),
   terrain: [terrain[0], terrain[1], Buffer.from(terrain[2]).toString('base64')]
 };
 await writeFile(new URL('../data/madison.js', import.meta.url), 'window.MADISON = ' + JSON.stringify(map) + ';\n');

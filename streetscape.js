@@ -36,7 +36,7 @@
     scene.add(letters);
   }
 
-  function stationSign(name) {
+  function stationSign(name,direction) {
     const canvas=document.createElement('canvas');
     canvas.width=256;
     canvas.height=128;
@@ -51,7 +51,7 @@
     ink.font='700 41px sans-serif';
     ink.fillText(name,14,89,226);
     ink.font='600 15px sans-serif';
-    ink.fillText('EAST WASHINGTON AVENUE',15,114);
+    ink.fillText(direction?(direction>0?'EASTBOUND':'WESTBOUND'):'EAST WASHINGTON AVENUE',15,114);
     const map=new T.CanvasTexture(canvas);
     map.colorSpace=T.SRGBColorSpace;
     map.anisotropy=5;
@@ -68,7 +68,7 @@
     const tactile=new T.MeshLambertMaterial({color:0xaa4b37});
     const stripe=new T.MeshLambertMaterial({color:0xe6b950});
     const lamp=new T.MeshLambertMaterial({color:0xf2e8ce,emissive:0xf9bf8e,emissiveIntensity:.16});
-    for(const [name,x,z,dx,dz] of layout) {
+    for(const [name,x,z,dx,dz,info] of layout) {
       const station=new T.Group();
       station.position.set(x,ground(x,z)+.10,z);
       const grade=ground(x+dx*9,z+dz*9)-ground(x-dx*9,z-dz*9);
@@ -76,6 +76,25 @@
       scene.add(station);
       const structures=new T.Group();
       station.add(structures);
+      if(info?.curb) {
+        box(structures,3.03,.30,19.5,0,.19,0,stone);
+        box(structures,.38,.048,19.4,1.26,.363,0,tactile);
+        box(structures,.128,.041,19.35,1.44,.364,0,stripe);
+        for(const p of [-5.6,-1.4,2.75]) box(structures,.112,2.64,.112,-1.02,1.65,p,charcoal);
+        box(structures,2.45,.15,9.28,-.26,3.09,-1.45,charcoal);
+        box(structures,2.24,.044,9.09,-.26,3.006,-1.45,timber);
+        box(structures,.118,.058,7.82,-.25,2.97,-1.45,lamp);
+        box(structures,.53,.09,3.27,-.62,.78,-2.25,timber);
+        for(const p of [-3.47,-1.01]) box(structures,.47,.40,.095,-.63,.54,p,charcoal);
+        box(structures,.20,2.64,1.11,-.67,1.51,6.13,charcoal);
+        mergeLandmark(structures);
+        box(station,.038,1.82,7.98,-1.00,1.66,-1.43,glass);
+        const sign=new T.Mesh(new T.PlaneGeometry(1.69,.84),stationSign(name,info.direction));
+        sign.rotation.y=Math.PI/2;
+        sign.position.set(-.55,2.34,6.13);
+        station.add(sign);
+        continue;
+      }
       // The center island is long enough for an articulated bus, with ramps at both ends.
       box(structures,4.35,.32,21.2,0,.18,0,stone);
       for(const side of [-1,1]) {
