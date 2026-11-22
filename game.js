@@ -12,6 +12,10 @@
     {name:'James Madison Park', x:135, z:-777, yaw:-.65},
     {name:'East Washington Avenue', x:806, z:-775, yaw:-2.35}
   ];
+  const stationPoints=(data.brtStations || []).map(([name,x,z])=>({
+    name:name+' BRT',x:x+2.6,z:z+16.9,yaw:-.23,above:43,transit:true,marker:[x,z]
+  }));
+  points.push(...stationPoints);
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
   const modeNames={walk:'WALKING',drive:'DRIVING',fly:'FLYING'};
   const modeKeys={Digit1:'walk',Digit2:'drive',Digit3:'fly'};
@@ -78,6 +82,12 @@
       trace(chart,line);
       chart.stroke();
     }
+    chart.globalAlpha=.94;
+    chart.strokeStyle='#e48c74';
+    chart.lineWidth=1.75;
+    chart.beginPath();
+    for(const [,,,,line,bus] of data.roads) if(bus) trace(chart,line);
+    chart.stroke();
     chart.globalAlpha=1;
     chart.font='italic 19px Georgia';
     chart.fillStyle='#9cbeba';
@@ -91,9 +101,16 @@
     chart.fillText('500 m',18,307);
     chart.fillStyle='#e6c291';
     for (const p of points) {
+      const [x,z]=p.marker || [p.x,p.z];
       chart.beginPath();
-      chart.arc(mapX(p.x),mapY(p.z),2.25,0,Math.PI*2);
+      chart.fillStyle=p.transit?'#ffbc9c':'#e6c291';
+      chart.arc(mapX(x),mapY(z),p.transit?3.1:2.25,0,Math.PI*2);
       chart.fill();
+      if(p.transit) {
+        chart.strokeStyle='#263c44';
+        chart.lineWidth=1;
+        chart.stroke();
+      }
     }
   }
 
@@ -334,7 +351,7 @@
     const nearby=points.reduce((best,p)=>Math.hypot(x-p.x,z-p.z)<Math.hypot(x-best.x,z-best.z)?p:best,points[0]);
     const distance=Math.hypot(x-nearby.x,z-nearby.z);
     const lake=state==='fly'?world.lakeName(x,z):'';
-    const name=lake || (distance<165?nearby.name:road?.distance<42?road.name:'Downtown Madison');
+    const name=lake || (distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
     $('place-name').textContent=name;
     $('location-name').textContent=road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
     $('map-status').textContent=state==='intro'?'Capitol Square':name;
@@ -405,9 +422,11 @@
       const button=document.createElement('button');
       button.type='button';
       button.textContent=point.name;
+      if(point.transit) button.classList.add('transit-stop');
       button.addEventListener('click',()=>changeMode(state==='intro'?'walk':state,point));
       $('landmarks').append(button);
     }
+    $('transit-legend').hidden=!stationPoints.length;
     $('osm-credit').hidden=!data.osm;
     if(data.osm) $('credits-toggle').textContent='© OpenStreetMap · Map credits';
     window.addEventListener('keydown',event=>{

@@ -8,7 +8,7 @@
   <meta name="madison-aerial" content="assets/madison-aerial.jpg">
   <meta name="madison-region" content="assets/madison-region.jpg">
   <title>Isthmus · Downtown Madison</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <main id="game" aria-label="Downtown Madison open world">
@@ -68,6 +68,7 @@
       <div class="map-caption"><span><i></i> <span id="map-status">Capitol Square</span></span><button id="map-expand" type="button">Open map</button></div>
       <div id="map-details" hidden>
         <p id="coordinates"></p>
+        <p id="transit-legend" class="map-legend" hidden><span></span> Metro Rapid on East Washington</p>
         <p class="eyebrow">JUMP TO A LANDMARK</p>
         <div id="landmarks"></div>
       </div>
@@ -94,14 +95,17 @@
         <p><a href="https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/3DMadison_3D_WFL1/FeatureServer/0" target="_blank" rel="noreferrer">Dane County, City of Madison and Ayres Associates</a> · building footprints</p>
         <p><a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Mapzen / AWS Terrain Tiles</a> · elevation</p>
         <p><a href="https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip" target="_blank" rel="noreferrer">USGS / USDA NAIP</a> · aerial imagery</p>
+        <p><a href="https://maps.cityofmadison.com/arcgis/rest/services/MPO/RTP_PIM_Board/MapServer" target="_blank" rel="noreferrer">Greater Madison MPO</a> · BRT stations and traffic signals</p>
         <p id="osm-credit" hidden><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · paths, streets and some building heights</p>
       </div>
     </footer>
   </main>
   <script src="assets/three.min.js"></script>
-  <script src="data/madison.js"></script>
+  <script src="data/madison.js?v=3"></script>
   <script src="atmosphere.js"></script>
-  <script src="world.js?v=2"></script>
-  <script src="game.js?v=2"></script>
+  <script src="landscape.js"></script>
+  <script src="streetscape.js"></script>
+  <script src="world.js?v=3"></script>
+  <script src="game.js?v=3"></script>
 </body>
 </html>

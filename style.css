@@ -96,9 +96,12 @@ h1, h2, p { margin: 0; }
 .map-card.expanded #north, .map-card.expanded #map-expand { display: none; }
 #map-details { border-top: 1px solid var(--line); padding: 12px 13px 15px; }
 #coordinates { margin: 0 0 9px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+.map-legend { margin: 0 0 10px; color: var(--dim); font-size: 13px; }
+.map-legend span { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: #e48c74; margin: 0 5px 3px 0; }
 #landmarks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
 #landmarks button { text-align: left; font-size: 14px; border: 1px solid var(--line); border-radius: 5px; padding: 8px; }
 #landmarks button:hover { background: #34475a; }
+#landmarks .transit-stop { border-left: 2px solid #e48c74; }
 .credits { position: absolute; bottom: 15px; right: clamp(18px, 3.3vw, 55px); font-size: 12px; color: #edf3e7; }
 .credits-popup { position: absolute; bottom: 26px; right: 0; padding: 12px; display: grid; gap: 6px; width: min(320px, 85vw); z-index: 6; }
 .place { position: absolute; left: clamp(18px, 3.3vw, 55px); top: 94px; text-shadow: 0 2px 9px #101620; pointer-events: none; }

@@ -109,6 +109,51 @@
     return road && {...road, distance:Math.sqrt(distance)};
   }
 
+  function streetLayout() {
+    const signals=(D.trafficSignals || []).flatMap(([x,z])=>{
+      const near=roadGrid.at(x,z).flatMap(road=>{
+        if(!road.name || road.kind>1) return [];
+        const distance=segmentDistance(x,z,road.ax,road.az,road.bx,road.bz);
+        if(distance>289) return [];
+        const dx=road.bx-road.ax,dz=road.bz-road.az,norm=Math.hypot(dx,dz);
+        return [{...road,dx:dx/norm,dz:dz/norm,distance}];
+      });
+      if(!near.length) return [];
+      near.sort((a,b)=>a.distance-b.distance+(b.width-a.width)*2.3);
+      const main=near[0];
+      const other=near.find(road=>road.name!==main.name && Math.abs(road.dx*main.dx+road.dz*main.dz)<.67);
+      const axis=(road,fallback)=>{
+        if(!road) return {dx:-fallback.dz,dz:fallback.dx,extent:5};
+        let extent=road.width/2;
+        for(const candidate of near) {
+          if(candidate.name!==road.name || Math.abs(candidate.dx*road.dx+candidate.dz*road.dz)<.87) continue;
+          const lateral=Math.abs((candidate.ax-x)*road.dz-(candidate.az-z)*road.dx);
+          extent=Math.max(extent,Math.min(14.4,lateral+candidate.width/2));
+        }
+        return {dx:road.dx,dz:road.dz,extent};
+      };
+      const primary=axis(main);
+      return [{x,z,axes:[primary,axis(other,primary)]}];
+    });
+    const stops=(D.brtStations || []).map(([name,x,z])=>{
+      let direction=[.719,-.695],best=Infinity;
+      for(const line of D.brtCenterlines || []) {
+        for(let i=1;i<line.length;i++) {
+          const [[ax,az],[bx,bz]]=[line[i-1],line[i]];
+          const length=Math.hypot(bx-ax,bz-az);
+          if(length<.12) continue;
+          const distance=segmentDistance(x,z,ax,az,bx,bz);
+          if(distance>=best) continue;
+          best=distance;
+          const eastward=Math.sign(bx-ax)||1;
+          direction=[eastward*(bx-ax)/length,eastward*(bz-az)/length];
+        }
+      }
+      return [name,x,z,...direction];
+    });
+    return {signals,stops};
+  }
+
   function inBuilding(x,z,radius) {
     for (const polygon of buildings.at(x,z)) {
       if (inPolygon(x,z,polygon)) return true;
@@ -144,9 +189,9 @@
         uv.push(...xy);
       }
     }
-    function quad(a,b,c,d,color,width=1,height=1,v=0) {
-      triangle(a,b,c,color,[[0,v],[width,v],[width,v+height]]);
-      triangle(a,c,d,color,[[0,v],[width,v+height],[0,v+height]]);
+    function quad(a,b,c,d,color,width=1,height=1,v=0,u=0) {
+      triangle(a,b,c,color,[[u,v],[u+width,v],[u+width,v+height]]);
+      triangle(a,c,d,color,[[u,v],[u+width,v+height],[u,v+height]]);
     }
     function mesh(material) {
       const geometry=new T.BufferGeometry();
@@ -320,6 +365,11 @@
         float brightness=dot(detailColor,vec3(.27,.64,.09));
         vec3 corrected=mix(vec3(brightness),detailColor,1.12)*1.14;
         diffuseColor.rgb=mix(terrainTint,corrected,blend*(.59+altitude*.34));
+        float green=smoothstep(.012,.057,corrected.g-max(corrected.r*.946,corrected.b));
+        float near=1.-smoothstep(7.,82.,distance(cameraPosition,field));
+        float clumps=.5+.26*sin(dot(field.xz,vec2(3.8,-3.1)))+.24*sin(dot(field.xz,vec2(7.,4.7)));
+        float blades=fract(sin(dot(floor(field.xz*48.),vec2(63.2,41.3)))*19738.12);
+        diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(.84,1.04,.80)*(.80+clumps*.23+blades*.29),green*near*.75);
         diffuseColor.rgb*=.955+grit*.084;
       `:`
         float brightness=dot(detailColor,vec3(.22,.70,.08));
@@ -371,20 +421,108 @@
     scene.add(parkMesh);
   }
 
-  function asphalt(scene) {
-    const sidewalk=chunkedBatch(), surfaces=chunkedBatch(), paint=chunkedBatch(), junctions=new Map();
+  function pavingTexture(sidewalk) {
+    const canvas=document.createElement('canvas');
+    canvas.width=canvas.height=256;
+    const context=canvas.getContext('2d');
+    const rng=random(sidewalk?26832:691003);
+    context.fillStyle=sidewalk?'#a7a7a7':'#939393';
+    context.fillRect(0,0,256,256);
+    for(let i=0;i<90;i++) {
+      const x=rng()*256,z=rng()*256,r=5+rng()*36;
+      const value=rng()<.5?'255,255,255':'24,24,24';
+      const stain=context.createRadialGradient(x,z,1,x,z,r);
+      stain.addColorStop(0,'rgba('+value+',.105)');
+      stain.addColorStop(1,'rgba('+value+',0)');
+      context.fillStyle=stain;
+      context.fillRect(x-r,z-r,r*2,r*2);
+    }
+    for(let i=0;i<5100;i++) {
+      const value=Math.round(44+rng()*192);
+      context.fillStyle='rgba('+value+','+value+','+value+','+(.16+rng()*.46)+')';
+      context.fillRect(rng()*256,rng()*256,1+rng()*2.2,1+rng()*1.6);
+    }
+    if(!sidewalk) {
+      for(let line=0;line<11;line++) {
+        let x=rng()*249,z=rng()*245;
+        context.beginPath();
+        context.moveTo(x,z);
+        for(let j=0;j<5;j++) {
+          x+=2+rng()*6;
+          z+=rng()*13-6.5;
+          context.lineTo(x,z);
+        }
+        context.strokeStyle='#24252561';
+        context.lineWidth=.7+rng()*.8;
+        context.stroke();
+      }
+    }
+    const texture=new T.CanvasTexture(canvas);
+    texture.wrapS=texture.wrapT=T.RepeatWrapping;
+    texture.anisotropy=5;
+    return texture;
+  }
+
+  function pavingMaterial(sidewalk,plaza=false) {
+    const material=surfaceMaterial();
+    const surface=pavingTexture(sidewalk);
+    material.customProgramCacheKey=()=>plaza?'plaza stone':sidewalk?'sidewalk pavement':'road pavement';
+    material.onBeforeCompile=shader=>{
+      shader.uniforms.pavement={value:surface};
+      shader.vertexShader=shader.vertexShader.replace('#include <common>',`
+        #include <common>
+        varying vec3 pavingPosition;
+        varying vec2 pavingUV;
+      `).replace('#include <begin_vertex>','#include <begin_vertex>\npavingPosition=position;\npavingUV=uv;');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`
+        #include <common>
+        varying vec3 pavingPosition;
+        varying vec2 pavingUV;
+        uniform sampler2D pavement;
+      `).replace('#include <color_fragment>',`
+        #include <color_fragment>
+        vec2 point=pavingPosition.xz;
+        float detail=texture2D(pavement,point*.42).r;
+        float aggregate=texture2D(pavement,point*2.6).r;
+        float macro=texture2D(pavement,point*.077+vec2(.33,.79)).r;
+        float worn=1.-smoothstep(17.,78.,distance(cameraPosition,pavingPosition));
+        diffuseColor.rgb*=.78+macro*.31+(detail-.48)*.48+(aggregate-.50)*.29*worn;
+      `+(sidewalk?`
+        vec2 pavingSlabs=`+(plaza?'pavingPosition.xz':'pavingUV')+`;
+        float section=mod(pavingSlabs.x/1.65+.01,1.);
+        float jointDistance=min(section,1.-section);
+        float joint=1.-smoothstep(.007,.028,jointDistance);
+        float across=mod(pavingSlabs.y/.9+.02,1.);
+        float edgeJoint=1.-smoothstep(.006,.026,min(across,1.-across));
+        diffuseColor.rgb*=1.-(joint*.27+edgeJoint*.19)*worn;
+      `:`
+        float wheel=abs(fract(pavingUV.y/3.31+.23)*2.-1.);
+        float laneWear=(1.-smoothstep(.10,.31,wheel))*.043;
+        diffuseColor.rgb+=diffuseColor.rgb*laneWear*macro;
+      `));
+    };
+    return material;
+  }
+
+  function asphalt(scene,signals) {
+    const sidewalk=chunkedBatch(), surfaces=chunkedBatch(), paint=chunkedBatch(), rapid=chunkedBatch(), junctions=new Map();
     const walk=new T.Color(0xb8b2a8), white=new T.Color(0xf7e9d5), yellow=new T.Color(0xe9ad46);
     const styles=[0x4c5055,0x55575b,0x9a8f7f,0x9a9080,0x777573].map(c=>new T.Color(c));
+    const concrete=new T.Color(0x777472), transitRed=new T.Color(0xa54237);
+    const intersectionGrid=indexGrid(65);
+    const stencils=[];
+    for(const [x,z] of D.trafficSignals || []) intersectionGrid.add([x,z,x,z],[x,z],21);
 
     function roadBand(target,ax,az,bx,bz,half,lift,color,ends=false) {
       const dx=bx-ax, dz=bz-az, length=Math.hypot(dx,dz);
-      const sx=-dz/length*half, sz=dx/length*half;
+      const sx=-dz/length*half, sz=dx/length*half, phase=(ax*dx+az*dz)/length;
       const steps=Math.max(1,Math.ceil(length/7));
       const vertex=(x,z)=>[x,ground(x,z)+lift,z];
       for (let step=0;step<steps;step++) {
         const a=step/steps, b=(step+1)/steps;
         const x=ax+dx*a,z=az+dz*a,ex=ax+dx*b,ez=az+dz*b;
-        target.quad(vertex(x+sx,z+sz),vertex(ex+sx,ez+sz),vertex(ex-sx,ez-sz),vertex(x-sx,z-sz),color);
+        target.quad(vertex(x+sx,z+sz),vertex(ex+sx,ez+sz),vertex(ex-sx,ez-sz),vertex(x-sx,z-sz),
+          color,length/steps,2*half,0,phase+a*length);
       }
       if (!ends) return;
       for (const [x,z] of [[ax,az],[bx,bz]]) {
@@ -396,8 +534,9 @@
       }
     }
 
-    for (const [name,kind,width,,line] of D.roads) {
-      const painted=kind===0 || kind===1 && /Carroll|Mifflin|Pinckney|Main Street|Hamilton|Wilson/.test(name);
+    for (const [name,kind,width,,line,busLane] of D.roads) {
+      const eastWash=name==='East Washington Avenue';
+      const painted=eastWash || kind===0 || kind===1 && /Carroll|Mifflin|Pinckney|Main Street|Hamilton|Wilson/.test(name);
       if(name && kind<=2) for(const index of [0,line.length-1]) {
         const [x,z]=line[index];
         if(Math.hypot(x*.76,z)>910) continue;
@@ -411,7 +550,22 @@
         const dx=bx-ax,dz=bz-az,length=Math.hypot(dx,dz);
         if (length<.04) continue;
         if (kind<=2) roadBand(sidewalk,ax,az,bx,bz,width/2+(kind===2?1.5:2.05),.105,walk,true);
-        roadBand(surfaces,ax,az,bx,bz,width/2,.241-kind*.017,styles[kind],length>1.0);
+        roadBand(surfaces,ax,az,bx,bz,width/2,.241-kind*.017,eastWash&&width>9?concrete:styles[kind],length>1.0);
+        if(busLane) {
+          const lateral=width/2-1.81, ux=dx/length,uz=dz/length;
+          const bx0=ax+uz*lateral,bz0=az-ux*lateral;
+          const phase=bx0*ux+bz0*uz;
+          const step=length/Math.max(1,Math.ceil(length/5));
+          for(let at=0;at<length-.04;at+=step) {
+            const x=bx0+(at+step/2)*ux,z=bz0+(at+step/2)*uz;
+            if(intersectionGrid.at(x,z).some(([px,pz])=>Math.hypot(px-x,pz-z)<15)) continue;
+            roadBand(rapid,bx0+at*ux,bz0+at*uz,bx0+(at+step)*ux,bz0+(at+step)*uz,1.66,.275,transitRed);
+            if(Math.floor((phase+at)/132)!==Math.floor((phase+at+step)/132) &&
+              !intersectionGrid.at(x,z).some(([px,pz])=>Math.hypot(px-x,pz-z)<21)) {
+              stencils.push([x,z,ux,uz]);
+            }
+          }
+        }
         if (!painted || length<7) continue;
         const start=i===1?5:1;
         const end=length-(i===line.length-1?5:1);
@@ -422,8 +576,13 @@
               ax+dx*(m+size)/length+ox,az+dz*(m+size)/length+oz,size>5?.085:.065,.285,color);
           }
         };
-        marks(0,kind===0?yellow:white,kind===0?5:2.6,kind===0?8.4:8.7);
-        if (width>=13) {
+        if(eastWash && width>=9) {
+          const laneCount=Math.round((width-1.0)/3.31);
+          for(let lane=1;lane<laneCount;lane++) marks((lane-laneCount/2)*3.31,white,4.2,10.5);
+        } else {
+          marks(0,kind===0?yellow:white,kind===0?5:2.6,kind===0?8.4:8.7);
+        }
+        if (!eastWash && width>=13) {
           marks(width*.23,white,3.2,10);
           marks(-width*.23,white,3.2,10);
         }
@@ -432,6 +591,7 @@
     for(const arms of junctions.values()) {
       if(new Set(arms.map(arm=>arm.name)).size<2) continue;
       for(const {kind,width,x,z,nx,nz} of arms) {
+        if(intersectionGrid.at(x,z).some(([sx,sz])=>Math.hypot(x-sx,z-sz)<18)) continue;
         const length=Math.hypot(nx-x,nz-z);
         if(kind===2||length<7) continue;
         const dx=(nx-x)/length,dz=(nz-z)/length;
@@ -442,22 +602,24 @@
         }
       }
     }
-    const paving=surfaceMaterial();
-    paving.onBeforeCompile=shader=>{
-      shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 pavingPosition;')
-        .replace('#include <begin_vertex>','#include <begin_vertex>\npavingPosition=position;');
-      shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 pavingPosition;')
-        .replace('#include <color_fragment>',`
-          #include <color_fragment>
-          vec2 point=pavingPosition.xz;
-          float pixelFade=1.-smoothstep(12.,65.,distance(cameraPosition,pavingPosition));
-          float aggregate=fract(sin(dot(floor(point*29.),vec2(99.83,47.17)))*46763.21);
-          float mottled=.5+.23*sin(point.x*.66+point.y*.91)+.27*sin(point.y*.29-point.x*.42);
-          float weathering=.5+.27*sin(point.y*1.9+point.x*4.1)+.23*sin(point.x*8.2-point.y*3.41);
-          diffuseColor.rgb*=.876+.115*mottled+pixelFade*(aggregate*.083+weathering*.067);
-        `);
-    };
-    scene.add(sidewalk.mesh(paving),surfaces.mesh(paving),paint.mesh(surfaceMaterial()));
+    for(const {x,z,axes} of signals) {
+      for(let direction=0;direction<2;direction++) {
+        const {dx,dz,extent}=axes[direction];
+        for(const sign of [-1,1]) {
+          const off=sign*(axes[1-direction].extent+.58), rx=-dz,rz=dx;
+          const cx=x+dx*off,cz=z+dz*off;
+          for(let step=-extent+.65;step<extent-.48;step+=.84) {
+            const sx=cx+rx*step,sz=cz+rz*step;
+            roadBand(paint,sx,sz,sx+dx*sign*1.74,sz+dz*sign*1.74,.185,.315,white);
+          }
+          const stopX=cx+dx*sign*2.85,stopZ=cz+dz*sign*2.85;
+          roadBand(paint,stopX,stopZ,stopX-rx*sign*(extent-.45),stopZ-rz*sign*(extent-.45),.15,.315,white);
+        }
+      }
+    }
+    const roadMaterial=pavingMaterial(false);
+    scene.add(sidewalk.mesh(pavingMaterial(true)),surfaces.mesh(roadMaterial),rapid.mesh(roadMaterial),paint.mesh(surfaceMaterial()));
+    return stencils;
   }
 
   function streetLights(scene) {
@@ -719,7 +881,7 @@
         cylinder(scene,1.7,1.9,.65,px,ground(px,pz)+.33,pz,shade,12);
       }
     }
-    const plazaMesh=plaza.mesh(surfaceMaterial());
+    const plazaMesh=plaza.mesh(pavingMaterial(true,true));
     plazaMesh.receiveShadow=true;
     scene.add(plazaMesh);
     const building=new T.Group();
@@ -816,97 +978,6 @@
     for (const [x,z,r] of [[375,307,8],[301,398,8],[337,350,14],[320,361,8],[350,333,7]]) {
       cylinder(scene,r,r,1,x,25.7,z,cream,24);
       cylinder(scene,r-.6,r-.6,.15,x,26.25,z,grass,24);
-    }
-  }
-
-  function foliage(scene,wind) {
-    const chunks = new Map();
-    const rng=random(5399);
-    function plant(x,z,h,r) {
-      const key=Math.floor(x/240)+','+Math.floor(z/240);
-      if(!chunks.has(key)) chunks.set(key,[]);
-      chunks.get(key).push([x,ground(x,z),z,h,r,rng()]);
-    }
-    for (const [x,z] of D.trees) {
-      if (x<west || x>east || z<north || z>south || inBuilding(x,z,1) || onWater(x,z)) continue;
-      if (rng()<.18) continue;
-      const h=4.1+rng()*6.1, width=1.65+rng()*1.7;
-      plant(x,z,h,width);
-    }
-    for (const [x,z] of [[-76,32],[-71,-35],[-33,77],[36,70],[72,28],[75,-37],[34,-77],[-32,-79]]) {
-      plant(x,z,8+rng()*2.5,2.8+rng());
-    }
-    const bark=new T.MeshLambertMaterial({color:0xffffff,flatShading:true});
-    const leaves=new T.MeshLambertMaterial({color:0xffffff});
-    leaves.onBeforeCompile=shader=>{
-      shader.uniforms.wind=wind;
-      shader.vertexShader=shader.vertexShader.replace('#include <common>',`
-        #include <common>
-        uniform float wind;
-        varying vec3 leafPosition;
-        varying float crownHeight;
-      `).replace('#include <begin_vertex>',`
-        #include <begin_vertex>
-        vec3 tree=(instanceMatrix*vec4(position,1.)).xyz;
-        leafPosition=tree;
-        crownHeight=position.y;
-        float drift=sin(tree.z*.047+tree.x*.012+wind*.80)*.047;
-        transformed.x+=drift*(position.y+.85);
-        transformed.z+=drift*position.x*.49;
-      `);
-      shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`
-        #include <common>
-        varying vec3 leafPosition;
-        varying float crownHeight;
-      `).replace('#include <color_fragment>',`
-        #include <color_fragment>
-        float bits=fract(sin(dot(floor(leafPosition*8.),vec3(59.,77.,33.)))*23957.);
-        float patches=.5+.44*sin(dot(leafPosition,vec3(17.,9.,12.)));
-        float closeup=1.-smoothstep(38.,95.,distance(cameraPosition,leafPosition));
-        diffuseColor.rgb*=.84+crownHeight*.14+(bits*.25+patches*.13)*closeup;
-      `);
-    };
-    const trunkShape=new T.CylinderGeometry(.13,.23,1,5);
-    function crown(detail) {
-      const shape=new T.IcosahedronGeometry(1,detail), positions=shape.getAttribute('position');
-      for(let i=0;i<positions.count;i++) {
-        const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);
-        const clump=1+.11*Math.sin(x*13.+z*8.)*Math.cos(y*9.-z*12.)+.08*Math.sin(y*7.+x*3.);
-        positions.setXYZ(i,x*clump,y*clump,z*clump);
-      }
-      return shape;
-    }
-    const crownShape=crown(1), distantShape=crown(0);
-    const dummy=new T.Object3D(), color=new T.Color();
-    for(const entries of chunks.values()) {
-      const trunks=new T.InstancedMesh(trunkShape,bark,entries.length);
-      const crowns=new T.InstancedMesh(crownShape,leaves,entries.length);
-      const second=new T.InstancedMesh(distantShape,leaves,entries.length);
-      crowns.castShadow=true;
-      for (let i=0;i<entries.length;i++) {
-        const [x,y,z,h,r,shade]=entries[i];
-        dummy.position.set(x,y+h*.31,z);
-        dummy.scale.set(1,h*.65,1);
-        dummy.updateMatrix();
-        trunks.setMatrixAt(i,dummy.matrix);
-        trunks.setColorAt(i,color.set(0x625749));
-        dummy.rotation.y=shade*12;
-        dummy.position.set(x,y+h*.76,z);
-        dummy.scale.set(r*.88,h*.33,r);
-        dummy.updateMatrix();
-        crowns.setMatrixAt(i,dummy.matrix);
-        crowns.setColorAt(i,color.setHSL(.19+shade*.115,.29+shade*.18,.24+shade*.14));
-        dummy.position.set(x+r*.48,y+h*.64,z-r*.19);
-        dummy.scale.set(r*.63,h*.24,r*.68);
-        dummy.updateMatrix();
-        second.setMatrixAt(i,dummy.matrix);
-        second.setColorAt(i,color.offsetHSL(-.021,.02,.044));
-      }
-      for (const [mesh,range] of [[trunks,470],[crowns,1250],[second,780]]) {
-        mesh.computeBoundingSphere();
-        mesh.userData.range=range;
-        scene.add(mesh);
-      }
     }
   }
 
@@ -1038,12 +1109,16 @@
     const evening={value:0};
     const wind={value:0};
     worldSurface(scene,photos);
-    asphalt(scene);
+    const layout=streetLayout();
+    const stencils=asphalt(scene,layout.signals);
+    const data=D;
+    const geo={data,ground,nearestRoad,inBuilding,onWater,random,clamp,batch,box,cylinder,mergeLandmark};
+    const stationLighting=MadisonStreetscape.create(scene,{...layout,stencils},geo,wind);
     const lightStreet=streetLights(scene);
     cityBlocks(scene,photos,evening);
     capitol(scene);
     terrace(scene);
-    foliage(scene,wind);
+    const landscape=MadisonLandscape.create(scene,geo,photos,wind);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -1051,7 +1126,7 @@
     });
 
     let mood;
-    let shadowX=Infinity, shadowZ=Infinity;
+    let shadowX=Infinity, shadowZ=Infinity, shadowSpan=380;
     function setLight(i) {
       mood=atmosphere.setLight(i);
       sun.color.set(mood.warmth);
@@ -1066,6 +1141,7 @@
       renderer.toneMappingExposure=mood.exposure;
       evening.value=i===2?.85:i===1?.15:0;
       lightStreet(evening.value);
+      stationLighting(evening.value);
     }
     function resize() {
       renderer.setSize(host.clientWidth,host.clientHeight,false);
@@ -1103,7 +1179,15 @@
       const direction=camera.getWorldDirection(viewDirection);
       const ahead=Math.max(0,height-65)*.61;
       const sx=clamp(x+direction.x*ahead,west,east), sz=clamp(z+direction.z*ahead,north,south);
-      if(Math.hypot(sx-shadowX,sz-shadowZ)>71) {
+      const span=height<55?206:380;
+      if(span!==shadowSpan) {
+        shadowSpan=span;
+        sun.shadow.camera.left=sun.shadow.camera.bottom=-span;
+        sun.shadow.camera.right=sun.shadow.camera.top=span;
+        sun.shadow.camera.updateProjectionMatrix();
+        shadowX=shadowZ=Infinity;
+      }
+      if(Math.hypot(sx-shadowX,sz-shadowZ)>span*.18) {
         shadowX=sx;
         shadowZ=sz;
         sun.target.position.set(sx,11,sz);
@@ -1112,6 +1196,7 @@
       }
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
+      landscape(player,camera,software || frameTime>.063);
       if(frameTime>.073) reflectionQuality=false;
       if(!software && frameTime<.034) reflectionQuality=true;
       atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));

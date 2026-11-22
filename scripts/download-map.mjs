@@ -8,6 +8,7 @@ await mkdir(cache, { recursive: true });
 const bounds = [-89.4095, 43.0644, -89.3585, 43.0882];
 const city = 'https://maps.cityofmadison.com/arcgis/rest/services';
 const open = city + '/Public/OPEN_DATA/MapServer';
+const transportation = city + '/MPO/RTP_PIM_Board/MapServer';
 const buildings = 'https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/3DMadison_3D_WFL1/FeatureServer/0';
 
 async function download(name, url) {
@@ -17,7 +18,7 @@ async function download(name, url) {
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  const { stdout } = await curl('curl.exe', [
+  const { stdout } = await curl(process.platform === 'win32' ? 'curl.exe' : 'curl', [
     '-fLsS', '--max-time', '48', '-A', 'MadisonIsthmus/1.0 (offline GIS prototype)', url
   ], { maxBuffer: 32 * 1024 * 1024, encoding: 'buffer' });
   await writeFile(path, stdout);
@@ -78,6 +79,13 @@ const tile = 2 ** terrainZoom;
 const tileX = lon => Math.floor((lon + 180) / 360 * tile);
 const tileY = lat => Math.floor((1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) * tile / 2);
 const jobs = [
+  collection('tree-inventory', open + '/0', 'OBJECTID,SPP_COM,DIAMETER,STATUS'),
+  collection('brt-stations', transportation + '/52', 'NAME,Type,Notes,LPA'),
+  collection('brt-routes', transportation + '/51', '*'),
+  collection('traffic-signals', transportation + '/29', '*')
+];
+const streetscapeOnly = process.argv.includes('--streetscape-only');
+if (!streetscapeOnly) jobs.push(
   collection('buildings', buildings, 'FID,Name,BuildingUs,BuildingCl'),
   collection('water', open + '/8', '*', [-89.44, 43.01, -89.30, 43.14]),
   collection('parks', open + '/24', '*'),
@@ -87,8 +95,8 @@ const jobs = [
   streets(),
   download('three-license.txt', 'https://cdn.jsdelivr.net/npm/three@0.160.1/LICENSE')
     .then(data => writeFile(new URL('../assets/THREE-LICENSE.txt', import.meta.url), data))
-];
-for (let x = tileX(bounds[0]); x <= tileX(bounds[2]); x++) {
+);
+for (let x = tileX(bounds[0]); !streetscapeOnly && x <= tileX(bounds[2]); x++) {
   for (let y = tileY(bounds[3]); y <= tileY(bounds[1]); y++) {
     jobs.push(download(`height-${x}-${y}.png`, `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${terrainZoom}/${x}/${y}.png`)
       .then(data => console.log('Terrain', x, y, data.length)));

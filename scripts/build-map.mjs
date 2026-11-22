@@ -116,11 +116,14 @@ for (const {tags = {}, geometry} of osm?.elements ?? []) {
     const type = tags.highway;
     const name = tags.name || '';
     const lanes = Number(tags.lanes) || 0;
-    const width = Math.max(roadWidth[type], lanes > 2 ? lanes*3.05+1.2 : 0);
+    const dividedEastWash = name === 'East Washington Avenue' && tags.oneway === 'yes';
+    const width = dividedEastWash ? (lanes || 3)*3.31+1.0 :
+      Math.max(roadWidth[type], lanes > 2 ? lanes*3.05+1.2 : 0);
     const isPath = ['footway','cycleway','path','steps','track'].includes(type);
     const kind = type === 'pedestrian' || name === 'State Street' ? 2 : isPath ? 3 : type === 'service' ? 4 : width >= 10 ? 0 : 1;
     if (isPath && tags.footway === 'sidewalk') continue;
-    roads.push([name,kind,width,tags.bridge && tags.bridge !== 'no' ? 1 : 0,line]);
+    const rapidLane = dividedEastWash && lanes !== 2 && geometry.some(point => point.lon > -89.3787);
+    roads.push([name,kind,width,tags.bridge && tags.bridge !== 'no' ? 1 : 0,line,rapidLane ? 1 : 0]);
     if (name) namedRoads.add(name.toLowerCase());
   }
 }
@@ -170,15 +173,42 @@ for (const feature of await features('buildings')) {
 }
 const water = (await features('water')).flatMap(f => polygons(f.geometry));
 const parks = (await features('parks')).flatMap(f => polygons(f.geometry).map(p => [f.properties.Park_Name,p]));
-const trees = (await features('trees')).filter(f=>f.geometry).map(f=>project(f.geometry.coordinates));
+const inventory = await features('tree-inventory');
+function treeGroup(species) {
+  if (/pine|spruce|fir|larch|hemlock|cedar|arborvitae/i.test(species)) return 3;
+  if (/locust|birch|aspen|ginkgo/i.test(species)) return 1;
+  if (/elm|linden|hackberry|sycamore|ash|cottonwood|plane/i.test(species)) return 2;
+  if (/crab|lilac|serviceberry|pear|cherry|hawthorn|plum|dogwood|magnolia/i.test(species)) return 4;
+  return 0;
+}
+const trees = (inventory.length ? inventory : await features('trees')).flatMap(({geometry,properties})=>{
+  const species=properties.SPP_COM || '';
+  if (!geometry || /vacant|stump/i.test(species) || properties.STATUS && properties.STATUS !== 'Active') return [];
+  const diameter=Math.min(65,Math.max(0,Number(properties.DIAMETER)||0));
+  return [[...project(geometry.coordinates),Math.round(diameter),treeGroup(species)]];
+});
+const brtStations=(await features('brt-stations'))
+  .filter(f=>f.geometry?.type==='Point' && f.properties.Type==='center' &&
+    ['Blair','Paterson','Baldwin'].includes(f.properties.NAME))
+  .map(f=>[f.properties.NAME,...project(f.geometry.coordinates)])
+  .sort((a,b)=>a[1]-b[1]);
+const brtCenterlines=(await features('brt-routes'))
+  .filter(f=>f.geometry?.type==='LineString' && f.properties.LPA===3 &&
+    ['C','E'].includes(f.properties.Corridor) &&
+    f.geometry.coordinates.some(([lon,lat])=>lon> -89.379 && lat>43.078))
+  .map(f=>path(f.geometry.coordinates));
+const trafficSignals=(await features('traffic-signals'))
+  .filter(f=>f.geometry?.type==='Point' && f.properties.Status==='Current' && f.properties.IntControl==='SL')
+  .map(f=>project(f.geometry.coordinates));
 const map = {
-  origin, meters, bounds, roads, houses, water, parks, trees, osm: Boolean(osm),
+  origin, meters, bounds, roads, houses, water, parks, trees, brtStations, brtCenterlines, trafficSignals, osm: Boolean(osm),
   terrain: [terrain[0], terrain[1], Buffer.from(terrain[2]).toString('base64')]
 };
 await writeFile(new URL('../data/madison.js', import.meta.url), 'window.MADISON = ' + JSON.stringify(map) + ';\n');
 console.log({
   buildings: houses.length, mappedHeights: houses.filter(h=>h[3]).length,
   roads: roads.length, parks: parks.length, water: water.length, trees: trees.length,
+  brtStations: brtStations.length, trafficSignals: trafficSignals.length,
   terrainRange: [Math.min(...elevations)/16+255, Math.max(...elevations)/16+255],
   osm: Boolean(osm)
 });

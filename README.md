@@ -22,9 +22,13 @@ The playable map covers about 4.1 by 2.6 km, from the downtown edge of the UW ca
 
 Public aerial photos cover the terrain and surrounding landscape. Procedural clouds, water, façade materials and swaying tree crowns respond to daylight, golden hour, and blue hour. Most building heights are estimated, and the Capitol and Monona Terrace have custom exteriors. The procedural atmosphere takes inspiration from [Abyssal Garden](https://github.com/Noniv/abyssal-garden).
 
+Street trees vary in height and canopy shape using the City Forestry inventory. From ground level you can see layered leaves, grass, flowerbeds around Capitol Square, and textured pavement. The field map marks the Metro Rapid corridor and can take you to the Blair, Paterson, and Baldwin center platforms. Bus-lane markings, shelter details, and signal timing are simulated.
+
 ## Data and source
 
 - [City of Madison open data](https://data-cityofmadison.opendata.arcgis.com/) and [Greater Madison MPO](https://www.cityofmadison.com/mpo/maps-data/data-resources) for parks, water, street trees and supplementary roads.
+- [City Forestry street tree inventory](https://maps.cityofmadison.com/arcgis/rest/services/Public/OPEN_DATA/MapServer/0) for tree locations, species groups, and trunk diameters.
+- [Greater Madison MPO transportation layers](https://maps.cityofmadison.com/arcgis/rest/services/MPO/RTP_PIM_Board/MapServer) and [Madison Metro bus-only lane guide](https://www.cityofmadison.com/metro/routes-schedules/bus-rapid-transit/bus-only-traffic-lanes) for the East Washington Avenue stations, lanes, and traffic signal locations.
 - [Dane County, City of Madison and Ayres Associates](https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/3DMadison_3D_WFL1/FeatureServer/0) for building footprints.
 - [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) for street and path centerlines and some building heights. The OpenStreetMap-derived data is available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1-0/). The processed geodata is in `data/madison.js`. The download and conversion scripts reproduce it.
 - [Mapzen / AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) for elevation.
