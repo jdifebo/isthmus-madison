@@ -8,7 +8,7 @@
   <meta name="madison-aerial" content="assets/madison-aerial.jpg">
   <meta name="madison-region" content="assets/madison-region.jpg">
   <title>Isthmus · Downtown Madison</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <main id="game" aria-label="Downtown Madison open world">
@@ -20,6 +20,7 @@
         <span>ISTHMUS</span>
       </button>
       <div class="rail-actions">
+        <a id="scene-toggle" class="glass small" href="?market=1">Market</a>
         <button id="light" class="glass small" type="button" aria-label="Change time of day"><span aria-hidden="true">☀</span> <span id="light-label">Golden hour</span></button>
         <button id="map-toggle" class="glass small" type="button" aria-expanded="false"><span aria-hidden="true">⌖</span> Map <kbd>M</kbd></button>
       </div>
@@ -33,8 +34,12 @@
         <button id="walk" type="button" class="glass secondary" disabled>Explore on foot</button>
         <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
         <button id="ride-start" type="button" class="glass secondary" disabled>Ride Metro Rapid</button>
+        <a id="market-start" class="glass secondary" href="?market=1">Saturday Market</a>
       </div>
-      <p id="loading" role="status">Loading downtown…</p>
+      <div id="loading">
+        <div class="loading-heading"><span id="loading-status" role="status">Reading the map…</span><span id="loading-percent" aria-hidden="true">0%</span></div>
+        <progress id="loading-progress" value="0" max="100" aria-label="Loading progress"></progress>
+      </div>
     </section>
     <section id="hud" class="hud" aria-label="Exploration controls" hidden>
       <div class="place">
@@ -48,6 +53,10 @@
       <section id="transit-panel" class="transit-panel glass" aria-label="Metro Rapid boarding" hidden>
         <div><p id="transit-route" class="eyebrow">Route A</p><p id="transit-status" aria-live="polite"></p></div>
         <button id="transit-action" type="button" class="glass" hidden><span id="transit-action-label"></span><kbd>E</kbd></button>
+      </section>
+      <section id="market-panel" class="transit-panel glass" aria-label="Market stall" hidden>
+        <div><p class="eyebrow">Market stall</p><p id="market-stall-name"></p></div>
+        <button id="market-browse" class="glass" type="button">Browse <kbd>E</kbd></button>
       </section>
       <div class="control-bar glass" aria-label="Keyboard shortcuts">
         <span class="movement-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
@@ -73,7 +82,7 @@
       <div class="map-caption"><span><i></i> <span id="map-status">Capitol Square</span></span><button id="map-expand" type="button">Open map</button></div>
       <div id="map-details" hidden>
         <p id="coordinates"></p>
-        <p id="transit-legend" class="map-legend" hidden><span></span> Metro Rapid <i></i> Moving buses</p>
+        <p id="transit-legend" class="map-legend" hidden><span></span> <b id="transit-legend-label">Metro Rapid</b> <i></i> Moving buses</p>
         <p class="eyebrow">JUMP TO A LANDMARK</p>
         <div id="landmarks"></div>
       </div>
@@ -87,13 +96,21 @@
         <div><dt>Sprint / fly faster</dt><dd>Shift</dd></div>
         <div><dt>Brake when driving</dt><dd>Space</dd></div>
         <div><dt>Walk / drive / fly</dt><dd>1 / 2 / 3</dd></div>
-        <div><dt>Board bus / request stop</dt><dd>E</dd></div>
+        <div><dt>Board bus / browse stall</dt><dd>E</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
         <div><dt>Map / reset</dt><dd>M / R</dd></div>
         <div><dt>Return to title</dt><dd>Esc</dd></div>
       </dl>
     </section>
+    <dialog id="stall-dialog" class="market-dialog" aria-labelledby="stall-title">
+      <header>
+        <div><p class="eyebrow">Saturday Market</p><h2 id="stall-title"></h2></div>
+        <button id="market-close" type="button" class="glass small" aria-label="Close stall" autofocus>×</button>
+      </header>
+      <ul id="market-items"></ul>
+      <p id="market-basket" aria-live="polite"></p>
+    </dialog>
     <div id="toast" class="glass toast" role="status" hidden></div>
     <footer class="credits"><button id="credits-toggle" type="button" aria-expanded="false">Map credits</button>
       <div id="credits" class="glass credits-popup" hidden>
@@ -108,15 +125,16 @@
     </footer>
   </main>
   <script src="assets/three.min.js"></script>
-  <script src="data/madison.js?v=5"></script>
+  <script src="data/madison.js?v=6"></script>
   <script src="atmosphere.js"></script>
   <script src="homes.js?v=5"></script>
   <script src="places.js"></script>
   <script src="landscape.js?v=6"></script>
-  <script src="traffic.js?v=3"></script>
-  <script src="pedestrians.js"></script>
-  <script src="streetscape.js?v=3"></script>
-  <script src="world.js?v=8"></script>
-  <script src="game.js?v=7"></script>
+  <script src="traffic.js?v=4"></script>
+  <script src="market.js"></script>
+  <script src="pedestrians.js?v=2"></script>
+  <script src="streetscape.js?v=4"></script>
+  <script src="world.js?v=9"></script>
+  <script src="game.js?v=8"></script>
 </body>
 </html>

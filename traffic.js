@@ -104,7 +104,7 @@
     return path(aligned);
   }
 
-  function extendBusLane(highway,guide,direction) {
+  function extendBusLane(highway,guide,direction,market) {
     if(!guide?.length) return {line:highway,downtown:0};
     const center=path(guide),pieces=Math.ceil(center.length/2.6),points=[];
     const joint=highway.sample(direction>0?0:highway.length);
@@ -113,7 +113,8 @@
       const [x,z]=center.sample(s);
       const [ax,az]=center.sample(s-3.7),[bx,bz]=center.sample(s+3.7);
       const dx=bx-ax,dz=bz-az,span=Math.hypot(dx,dz);
-      const offset=x<-640 && z>22?3.34:2.08;
+      const onLoop=market && x>-305 && (Math.abs(z)>118 || x>170);
+      const offset=onLoop?3.20:x<-640 && z>22?3.34:2.08;
       points.push([x-dz*offset/span,z+dx*offset/span]);
     }
     const join=direction>0?points.at(-1):points[0];
@@ -123,20 +124,31 @@
       point[0]+=delta[0]*weight;
       point[1]+=delta[1]*weight;
     }
-    const line=path(direction>0?[...points,...highway.points]:[...highway.points,...points]);
+    let routePoints=direction>0?[...points,...highway.points]:[...highway.points,...points];
+    if(market) {
+      // Give the articulated coaches room at Webster's turn around the East Washington median.
+      const [turnX,turnZ]=direction>0?guide.at(-1):guide[0];
+      routePoints=routePoints.map(([x,z])=>{
+        const t=Math.max(0,1-Math.hypot(x-turnX,z-turnZ)/17),inset=2*t*t*(3-2*t);
+        return [x-inset,z+inset];
+      });
+    }
+    const line=path(routePoints);
     return {line,downtown:line.length-highway.length};
   }
 
-  function network(data,layout) {
+  function network(data,layout,market=false) {
     const routes=[],curbs=[];
+    const detour=market && Boolean(data.rapidMarket?.length);
+    const approaches=detour?data.rapidMarket:data.rapidDowntown;
     for(const direction of [1,-1]) {
       const chain=corridor(data.roads,direction);
       if(!chain.length) continue;
       for(const kind of ['bus','center','outer']) {
         const bus=kind==='bus';
         const highway=runningLane(chain,kind,layout.stops);
-        const guide=bus && (data.rapidDowntown || []).find(part=>part[0]===direction)?.[1];
-        const {line,downtown}=extendBusLane(highway,guide,direction);
+        const guide=bus && (approaches || []).find(part=>part[0]===direction)?.[1];
+        const {line,downtown}=extendBusLane(highway,guide,direction,detour);
         const signals=[];
         for(const signal of layout.signals) {
           const {s,distance,dx,dz}=line.project(signal.x,signal.z);
@@ -153,10 +165,12 @@
         }):[];
         if(guide) for(const [id,name,side,location] of data.brtCurbStops || []) {
           if(side!==direction) continue;
-          const projection=line.project(...location);
+          const temporary=detour && name==='Capitol Square';
+          const center=temporary?(direction>0?[127,194]:[-125,-205]):location;
+          const projection=line.project(...center);
           const [x,z,dx,dz]=line.sample(projection.s);
           const a=x-dz*3.02,b=z+dx*3.02;
-          curbs.push([name,a,b,dx,dz,{id,direction,curb:true}]);
+          curbs.push([name,a,b,dx,dz,{id,direction,curb:true,detour:temporary}]);
           stations.push({id,name,x:a,z:b,dx,dz,s:projection.s+7.4,curb:true});
         }
         stations.sort((a,b)=>a.s-b.s);

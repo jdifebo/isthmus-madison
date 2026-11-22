@@ -1068,8 +1068,14 @@
     return group;
   }
 
-  async function create(host) {
+  async function create(host,{marketDay=false,progress=()=>{}}={}) {
+    async function stage(value,label) {
+      progress(value,label);
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    }
+    await stage(14,'Loading aerial imagery');
     const photos=await aerialTextures();
+    await stage(32,'Building the terrain and streets');
     const renderer=new T.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
     const gl=renderer.getContext();
     const gpu=gl.getExtension('WEBGL_debug_renderer_info');
@@ -1104,7 +1110,7 @@
     const wind={value:0};
     worldSurface(scene,photos);
     const layout=streetLayout();
-    const rapid=MadisonTraffic.network(D,layout);
+    const rapid=MadisonTraffic.network(D,layout,marketDay);
     layout.stops.push(...rapid.curbs);
     const stencils=asphalt(scene,layout.signals);
     const data=D;
@@ -1113,14 +1119,18 @@
       streetCandidates:(x,z)=>roadGrid.at(x,z)};
     const stationLighting=MadisonStreetscape.create(scene,{...layout,stencils},geo,wind);
     const lightStreet=streetLights(scene);
+    await stage(56,'Building downtown');
     const homes=MadisonHomes.create(scene,geo,evening);
     const stadium=MadisonPlaces.create(scene,geo);
     cityBlocks(scene,photos,evening,homes,stadium);
     capitol(scene);
     terrace(scene);
-    const landscape=MadisonLandscape.create(scene,geo,photos,wind,homes);
+    await stage(78,marketDay?'Setting up the market':'Adding trees and traffic');
+    const market=marketDay?MadisonMarket.create(scene,geo):null;
+    const yards=market?{...homes,paved:(x,z)=>homes.paved(x,z)||market.paved(x,z)}:homes;
+    const landscape=MadisonLandscape.create(scene,geo,photos,wind,yards);
     const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes);
-    const pedestrians=MadisonPedestrians.create(scene,geo,layout);
+    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -1156,7 +1166,8 @@
     window.addEventListener('resize',resize);
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
-    return {camera,car,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+    await stage(94,'Preparing the first view');
+    return {camera,car,market,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
       transit:traffic.transit,advanceTraffic:traffic.advance,platforms:layout.stops,
       rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;

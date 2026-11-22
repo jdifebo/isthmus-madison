@@ -53,7 +53,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .mark i:nth-child(3) { width: 12px; justify-self: end; }
 .rail-actions { display: flex; gap: 8px; }
 .glass { background: var(--glass); border: 1px solid var(--line); border-radius: 9px; }
-button.glass:hover, .control-bar button:hover, .travel button:hover { background: #394658; }
+:is(button,a).glass:hover, .control-bar button:hover, .travel button:hover { background: #394658; }
+#scene-toggle { display: none; text-decoration: none; }
+.playing #scene-toggle { display: inline-block; }
 .small { padding: 8px 12px; white-space: nowrap; font-size: 14px; }
 .small > span:first-child { margin-right: 4px; color: var(--accent); font-size: 16px; }
 button kbd { margin-left: 3px; }
@@ -69,10 +71,20 @@ h1, h2, p { margin: 0; }
 .intro h1 em { color: #ffe2b6; font-weight: inherit; padding-right: .13em; }
 .lede { color: #f1e9db; font-size: clamp(16px, 1.35vw, 21px); max-width: 350px; margin-bottom: 29px; }
 .start-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.start-actions button { min-height: 50px; font-weight: 700; padding: 12px 17px; }
+.start-actions :is(button,a) { min-height: 50px; font-weight: 700; padding: 12px 17px; }
+.start-actions a { display: inline-flex; align-items: center; text-decoration: none; color: #ffe0ae; }
 .primary { border-radius: 8px; background: linear-gradient(145deg,#ffe0ae,var(--accent)); color: #2c2221; }
 .primary:hover { background: #ffd2a8; }
-#loading { color: var(--dim); margin-top: 14px; font-size: 14px; }
+#loading { color: var(--dim); margin-top: 17px; width: min(320px, 100%); font-size: 14px; }
+.loading-heading { display: flex; justify-content: space-between; gap: 10px; }
+#loading-percent { color: var(--accent); font-variant-numeric: tabular-nums; }
+#loading-progress {
+  display: block; width: 100%; height: 6px; margin-top: 8px; border: none;
+  border-radius: 8px; background: #ffffff25; accent-color: var(--accent); overflow: hidden;
+}
+#loading-progress::-webkit-progress-bar { background: #ffffff25; }
+#loading-progress::-webkit-progress-value { background: var(--accent); border-radius: 8px; }
+#loading-progress::-moz-progress-bar { background: var(--accent); border-radius: 8px; }
 .map-card {
   position: absolute;
   bottom: 48px; right: clamp(18px, 3.3vw, 55px);
@@ -97,6 +109,7 @@ h1, h2, p { margin: 0; }
 #map-details { border-top: 1px solid var(--line); padding: 12px 13px 15px; }
 #coordinates { margin: 0 0 9px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
 .map-legend { margin: 0 0 10px; color: var(--dim); font-size: 13px; }
+.map-legend b { font-weight: inherit; }
 .map-legend span { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: #e48c74; margin: 0 5px 3px 0; }
 .map-legend i { display: inline-block; width: 5px; height: 8px; border-radius: 1px; background: #6cd6dc; margin: 0 4px 0 12px; transform: rotate(38deg); }
 #landmarks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
@@ -126,8 +139,24 @@ h1, h2, p { margin: 0; }
   border-left: 2px solid #79d9df;
 }
 .transit-panel .eyebrow { color: #a6edf2; letter-spacing: .14em; }
-#transit-status { margin-top: 3px; font-size: 14px; }
-#transit-action { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
+#transit-status, #market-stall-name { margin-top: 3px; font-size: 14px; }
+#transit-action, #market-browse { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
+#market-panel { border-left-color: var(--accent); }
+#market-panel .eyebrow { color: var(--accent); }
+.market-dialog {
+  width: min(450px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 22px;
+  border: 1px solid var(--line); border-radius: 13px; background: #202e35; color: var(--ink);
+  box-shadow: 0 18px 55px #071016a6;
+}
+.market-dialog::backdrop { background: #0d171c99; }
+.market-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.market-dialog h2 { font: 33px/1.12 var(--serif); margin-top: 6px; }
+.market-dialog ul { list-style: none; margin: 19px 0 10px; padding: 0; border-top: 1px solid var(--line); }
+.market-dialog li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.market-dialog li h3 { margin: 0; font: 19px/1.2 var(--serif); }
+.market-dialog li p, #market-basket { color: var(--dim); font-size: 13px; margin-top: 4px; }
+.market-dialog li button { flex: none; }
+.market-dialog li button[aria-pressed="true"] { color: var(--accent); border-color: #ffc18c80; }
 .travel {
   display: flex; gap: 4px; align-items: center; padding: 4px;
   position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
@@ -184,15 +213,23 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .wordmark { font-size: 12px; gap: 7px; }
   .rail-actions kbd, #look-tip { display: none; }
   .travel kbd { display: none; }
-  .start-actions button { font-size: 14px; }
+  .start-actions :is(button,a) { font-size: 14px; }
   .map-card:not(.expanded) { width: 152px; }
   .playing .map-card:not(.expanded) { bottom: 63px; }
   .place { top: 75px; }
   .transit-panel { gap: 8px; padding: 10px; }
-  #transit-action kbd { display: none; }
+  :is(#transit-action,#market-browse) kbd { display: none; }
+  .rail { gap: 8px; }
+  .rail-actions { gap: 5px; }
+  .rail-actions .small { padding-inline: 8px; }
 }
 @media (max-width: 570px) and (max-height: 650px) {
   .map-card:not(.expanded) { display: none; }
+}
+@media (max-width: 380px) {
+  .wordmark { letter-spacing: .18em; }
+  .rail-actions .small { padding-inline: 7px; font-size: 12px; }
+  .rail-actions .small > span[aria-hidden="true"] { display: none; }
 }
 @media (pointer: coarse) and (max-width: 755px) {
   .speedometer { bottom: 215px; }

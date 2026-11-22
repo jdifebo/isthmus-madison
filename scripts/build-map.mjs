@@ -208,6 +208,40 @@ const rapidDowntown=southSquare && [10,11,12,17,18].every(id=>downtownSections.h
   [1,[18,11,9].flatMap(id=>downtownSections.get(id))],
   [-1,[...southSquare.slice(-3).reverse(),...[10,12,17].flatMap(id=>downtownSections.get(id))]]
 ]:[];
+
+function streetRun(names,start,end) {
+  const edges=new Map();
+  const add=(a,b,line)=>{
+    const key=a.join();
+    if(!edges.has(key)) edges.set(key,[]);
+    edges.get(key).push([b,line]);
+  };
+  for(const [name,kind,,,line] of roads) {
+    if(kind>2 || !names.includes(name)) continue;
+    add(line[0],line.at(-1),line);
+    add(line.at(-1),line[0],line.slice().reverse());
+  }
+  const queue=[[start,[]]],seen=new Set([start.join()]);
+  for(let i=0;i<queue.length;i++) {
+    const [point,hops]=queue[i];
+    if(point.join()===end.join()) return hops.flat();
+    for(const [destination,line] of edges.get(point.join()) || []) {
+      if(seen.has(destination.join())) continue;
+      seen.add(destination.join());
+      queue.push([destination,[...hops,line]]);
+    }
+  }
+  return [];
+}
+
+// The modeled event service uses the city's two directions of the Outer Loop.
+const loopWest=[-320,-8.3],loopEast=[162.8,-161.5];
+const marketEast=streetRun(['North Fairchild Street','South Fairchild Street','West Doty Street','East Doty Street','South Webster Street'],loopWest,loopEast);
+const marketWest=streetRun(['North Webster Street','East Dayton Street','West Dayton Street'],loopEast,loopWest);
+const approachEast=rapidDowntown[0]?.[1].filter(([x])=>x<-321);
+const approachWest=rapidDowntown[1]?.[1].filter(([x])=>x<-321);
+const rapidMarket=marketEast.length && marketWest.length && approachEast?.length && approachWest?.length?
+  [[1,[...approachEast,...marketEast]],[-1,[...marketWest,...approachWest]]]:[];
 const curbPoint=name=>stationFeatures.filter(f=>f.geometry?.type==='Point' && f.properties.NAME===name)
   .map(f=>project(f.geometry.coordinates));
 const campus=curbPoint('East Campus').sort((a,b)=>b[1]-a[1]);
@@ -237,7 +271,7 @@ for(const feature of await features('lots')) {
   }
 }
 const map = {
-  origin, meters, bounds, roads, houses, water, parks, trees, lots, brtStations, brtCenterlines, rapidDowntown, brtCurbStops,
+  origin, meters, bounds, roads, houses, water, parks, trees, lots, brtStations, brtCenterlines, rapidDowntown, rapidMarket, brtCurbStops,
   trafficSignals, osm: Boolean(osm),
   terrain: [terrain[0], terrain[1], Buffer.from(terrain[2]).toString('base64')]
 };

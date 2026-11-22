@@ -16,6 +16,9 @@
   ];
   const stationPoints=[];
   const query=new URLSearchParams(window.location.search);
+  const marketDay=query.get('market')==='1';
+  const marketBasket=new Set();
+  const stallDialog=$('stall-dialog');
   const stopQuery=query.get('stop')?.toLowerCase();
   let openingStop,firstRide;
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
@@ -29,7 +32,7 @@
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   const clamp=(n,min,max)=>Math.max(min,Math.min(n,max));
   const smooth=(from,to,rate,dt)=>from+(to-from)*(1-Math.exp(-rate*dt));
-  let engine, state='intro', focus=points[0], light=1, expanded=false, toastTimer;
+  let engine, state='intro', focus=points[0], light=marketDay?0:1, expanded=false, toastTimer;
   let x=focus.x,z=focus.z,yaw=focus.yaw,pitch=-.035,speed=0,steer=0,walkTime=0,walkAmount=0;
   let altitude=0, airX=0, airY=0, airZ=0, groundReturn=points[0];
   let pointer=null, previous=0, lastHUD=-1, lastRender=0, snap=true;
@@ -46,7 +49,7 @@
     for(const [name,x,z,,,info] of engine.platforms) {
       const stationId=info?.id || name.toLowerCase();
       const direction=info?.direction>0?'Eastbound':'Westbound';
-      const nameWithDirection=name+' BRT'+(info?.curb?' · '+direction:'');
+      const nameWithDirection=name+' BRT'+(info?.curb?' · '+direction:'')+(info?.detour?' detour':'');
       const platform=engine.transit.platformStart(stationId);
       const view=info?.curb?platform:{x:x+4.25,z:z+18.25,yaw:-.23};
       stationPoints.push({...view,name:nameWithDirection,stationId,above:43,transit:true,marker:[x,z]});
@@ -190,12 +193,13 @@
 
   function carAllowed(cx,cz,angle) {
     const dx=Math.sin(angle), dz=-Math.cos(angle);
-    return !groundBlocked(cx,cz,1) && !groundBlocked(cx+dx*1.42,cz+dz*1.42,.93)
-      && !groundBlocked(cx-dx*1.42,cz-dz*1.42,.93);
+    const blocked=(x,z,radius)=>groundBlocked(x,z,radius)||engine.market?.drivingBlocked(x,z,radius);
+    return !blocked(cx,cz,1) && !blocked(cx+dx*1.42,cz+dz*1.42,.93)
+      && !blocked(cx-dx*1.42,cz-dz*1.42,.93);
   }
 
   function groundBlocked(x,z,radius) {
-    return world.blocked(x,z,radius) || engine.trafficBlocked(x,z,radius);
+    return world.blocked(x,z,radius) || engine.trafficBlocked(x,z,radius) || engine.market?.blocked(x,z,radius);
   }
 
   function driveSpawn() {
@@ -218,7 +222,7 @@
         if (carAllowed(cx,cz,yaw)) { x=cx; z=cz; return; }
       }
     }
-    x=-133; z=28; yaw=Math.PI/4;
+    x=marketDay?230:-133; z=marketDay?-213:28; yaw=Math.PI/4;
   }
 
   function safeDrop(point,range=45) {
@@ -470,6 +474,9 @@
     $('speed').textContent=String(Math.round(Math.abs(speed)*2.23694));
     $('altitude').textContent=String(Math.round(Math.max(0,altitude-world.ground(x,z))));
     updateTransitPanel();
+    const stall=state==='walk' && $('transit-panel').hidden && engine.market?.nearby(x,z);
+    $('market-panel').hidden=!stall;
+    if(stall && $('market-stall-name').textContent!==stall.name) $('market-stall-name').textContent=stall.name;
     drawMap();
   }
 
@@ -478,7 +485,7 @@
     const dt=Math.min((stamp-(previous || stamp))/1000,.35);
     previous=stamp;
     if(document.hidden) return;
-    if(!expanded && $('help').hidden) {
+    if(!expanded && $('help').hidden && !stallDialog.open) {
       if(state==='walk') walk(dt);
       if(state==='drive') drive(dt);
       if(state==='fly') fly(dt);
@@ -500,12 +507,62 @@
     engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
   }
 
+  function browseMarket(stall=engine.market?.nearby(x,z)) {
+    if(state!=='walk' || !stall) return;
+    keys.clear();
+    pointer=null;
+    $('stall-title').textContent=stall.name;
+    const items=$('market-items');
+    items.replaceChildren();
+    function updateBasket() {
+      const count=marketBasket.size;
+      $('market-basket').textContent=count?`${count} ${count===1?'item':'items'} in your basket`:'Your basket is empty';
+    }
+    for(const [name,description] of stall.items) {
+      const row=document.createElement('li');
+      const details=document.createElement('div');
+      const title=document.createElement('h3');
+      const copy=document.createElement('p');
+      const add=document.createElement('button');
+      title.textContent=name;
+      copy.textContent=description;
+      add.className='glass small';
+      add.type='button';
+      function updateChoice() {
+        const chosen=marketBasket.has(name);
+        add.setAttribute('aria-pressed',String(chosen));
+        add.setAttribute('aria-label',chosen?'In basket · '+name:'Add to basket · '+name);
+        add.textContent=chosen?'In basket':'Add to basket';
+      }
+      add.addEventListener('click',()=>{
+        if(!marketBasket.delete(name)) marketBasket.add(name);
+        updateChoice();
+        updateBasket();
+      });
+      updateChoice();
+      details.append(title,copy);
+      row.append(details,add);
+      items.append(row);
+    }
+    updateBasket();
+    stallDialog.showModal();
+  }
+
+  function loadingProgress(value,label) {
+    $('loading-progress').value=value;
+    $('loading-percent').textContent=value+'%';
+    $('loading-status').textContent=label+(value<100?'…':'');
+  }
+
   function bind() {
-    $('walk').addEventListener('click',()=>changeMode('walk',points[0]));
+    const walkStart=engine.market?.start || points[0];
+    $('walk').addEventListener('click',()=>changeMode('walk',walkStart));
     $('drive').addEventListener('click',()=>changeMode('drive',points[0]));
     $('fly').addEventListener('click',()=>changeMode('fly',flyover));
     $('ride-start').addEventListener('click',()=>visitPlatform(firstRide));
     $('transit-action').addEventListener('click',busAction);
+    $('market-browse').addEventListener('click',()=>browseMarket());
+    $('market-close').addEventListener('click',()=>stallDialog.close());
     $('home').addEventListener('click',()=>changeMode('intro',points[0]));
     const selectMode=mode=>{
       if(mode===state) return;
@@ -515,7 +572,7 @@
         return;
       }
       if(state==='drive' && mode==='walk' && Math.abs(speed)>2.3) { toast('Brake before stepping out.'); return; }
-      changeMode(mode,state==='intro'?(mode==='fly'?flyover:points[0]):undefined);
+      changeMode(mode,state==='intro'?(mode==='fly'?flyover:mode==='walk'?walkStart:points[0]):undefined);
     };
     const reset=()=>{
       if(state!=='intro') { changeMode(state==='ride'?'walk':state,focus); toast('Back at '+focus.name); }
@@ -554,10 +611,11 @@
       $('landmarks').append(button);
     }
     $('transit-legend').hidden=!stationPoints.length;
+    if(marketDay) $('transit-legend-label').textContent='Metro Rapid detour';
     $('osm-credit').hidden=!data.osm;
     if(data.osm) $('credits-toggle').textContent='© OpenStreetMap · Map credits';
     window.addEventListener('keydown',event=>{
-      if(event.altKey || event.ctrlKey || event.metaKey) return;
+      if(event.altKey || event.ctrlKey || event.metaKey || stallDialog.open) return;
       const key=remap[event.code] || event.code;
       if(event.code==='Escape') {
         if(game.classList.contains('hud-free')) game.classList.remove('hud-free');
@@ -581,7 +639,9 @@
         keys.add(key);
       }
       if(!event.repeat && key==='KeyE') {
+        const stall=state==='walk' && engine.market?.nearby(x,z);
         if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
+        else if(stall) browseMarket(stall);
         else selectMode(state==='drive'?'walk':'drive');
       }
       if(!event.repeat && key==='KeyR') reset();
@@ -622,28 +682,40 @@
 
   requestAnimationFrame(async()=>{
     try {
+      if(marketDay) {
+        $('light-label').textContent=lightNames[light];
+        for(const id of ['scene-toggle','market-start']) {
+          $(id).href='?';
+          $(id).textContent='Regular day';
+        }
+      }
+      loadingProgress(5,'Reading the map');
       drawMapBase();
       drawMap();
-      engine=await world.create($('scene'));
+      engine=await world.create($('scene'),{marketDay,progress:loadingProgress});
+      if(engine.market) points.splice(1,0,engine.market.start);
       loadStationPoints();
       drawMapBase();
       engine.setLight(light);
       engine.advanceTraffic(0,null);
-      setCamera(0,0);
-      engine.render(0);
       bind();
+      if(openingStop) {
+        if(query.get('platform')==='1') visitPlatform(openingStop);
+        else changeMode('walk',openingStop);
+      } else if(engine.market) changeMode('walk',engine.market.start);
+      setCamera(0,0);
+      engine.render(0,state==='intro'?null:[x,z,0]);
+      loadingProgress(100,'Ready to explore');
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;
       $('ride-start').disabled=!firstRide;
       $('ride-start').hidden=!firstRide;
       $('loading').hidden=true;
-      if(openingStop) {
-        if(query.get('platform')==='1') visitPlatform(openingStop);
-        else changeMode('walk',openingStop);
-      }
       requestAnimationFrame(frame);
     } catch(error) {
       console.error(error);
-      $('loading').textContent='The 3D view could not start. Open the game in a WebGL-enabled browser.';
+      if(engine && state!=='intro') changeMode('intro',points[0]);
+      $('loading-status').textContent='The 3D view could not start. Open the game in a WebGL-enabled browser.';
+      $('loading-percent').hidden=$('loading-progress').hidden=true;
     }
   });
 })();

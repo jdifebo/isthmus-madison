@@ -36,7 +36,7 @@
     scene.add(letters);
   }
 
-  function stationSign(name,direction) {
+  function stationSign(name,direction,detour) {
     const canvas=document.createElement('canvas');
     canvas.width=256;
     canvas.height=128;
@@ -51,7 +51,8 @@
     ink.font='700 41px sans-serif';
     ink.fillText(name,14,89,226);
     ink.font='600 15px sans-serif';
-    ink.fillText(direction?(direction>0?'EASTBOUND':'WESTBOUND'):'EAST WASHINGTON AVENUE',15,114);
+    const label=direction?(direction>0?'EASTBOUND':'WESTBOUND'):'EAST WASHINGTON AVENUE';
+    ink.fillText(label+(detour?' · DETOUR':''),15,114);
     const map=new T.CanvasTexture(canvas);
     map.colorSpace=T.SRGBColorSpace;
     map.anisotropy=5;
@@ -89,7 +90,7 @@
         box(structures,.20,2.64,1.11,-.67,1.51,6.13,charcoal);
         mergeLandmark(structures);
         box(station,.038,1.82,7.98,-1.00,1.66,-1.43,glass);
-        const sign=new T.Mesh(new T.PlaneGeometry(1.69,.84),stationSign(name,info.direction));
+        const sign=new T.Mesh(new T.PlaneGeometry(1.69,.84),stationSign(name,info.direction,info.detour));
         sign.rotation.y=Math.PI/2;
         sign.position.set(-.55,2.34,6.13);
         station.add(sign);

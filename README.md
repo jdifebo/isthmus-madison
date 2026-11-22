@@ -12,7 +12,7 @@ Walk, drive, or fly through downtown Madison, Wisconsin. [Play on GitHub Pages](
 | Sprint or boost in flight | Shift |
 | Brake in the car | Space |
 | Walk / drive / fly | 1 / 2 / 3 |
-| Board a bus or request a stop | E at a platform or onboard |
+| Board a bus, request a stop, or browse a stall | E at a platform, onboard, or beside a stall |
 | Take off / land | F |
 | Open the map and jump to a landmark | M |
 | Hide or restore the HUD | H |
@@ -30,6 +30,8 @@ Articulated Route A buses run between East Campus and Baldwin. Eastbound buses f
 Open the game with `?stop=paterson` to start at the station. The same shortcut works for Blair and Baldwin. [Start at Paterson](https://jdifebo.github.io/isthmus-madison/?stop=paterson)
 
 Choose **Ride Metro Rapid** at the title screen to start at the eastbound State Street shelter. Board when the doors open, drag to look around the cabin, and request a stop to step off when the doors open. The field map distinguishes the eastbound and westbound curb stops. The playable ride ends at Baldwin eastbound and East Campus westbound. [Start at the eastbound State Street shelter](https://jdifebo.github.io/isthmus-madison/?stop=state-east&platform=1)
+
+Choose **Saturday Market** to walk Capitol Square among shoppers and browse produce, flowers, bread, and cheese at fictional stalls. Use **Regular day** to return to the usual scene. On market days, simulated Route A buses use a detour based on the city's Outer Loop, with temporary Square stops on East Doty and West Dayton. [Enter Saturday Market](https://jdifebo.github.io/isthmus-madison/?market=1) · [Dane County Farmers’ Market](https://dcfm.org/index.php?p=markets%2Fsaturday-on-the-square) · [City street closures](https://www.cityofmadison.com/news/2026-04-07/street-closures-for-dane-county-farmers-market-on-the-square) · [Metro's downtown routing study](https://www.cityofmadison.com/metro/documents/brt/downtownrouting.pdf)
 
 The field map also jumps to Orton Park and Breese Stevens Field. Nearby homes use mapped footprints and parcel boundaries, with generated roof shapes, siding, windows, doors, porches, paths, driveways, and planting beds. The house styles draw from the [Third Lake Ridge district](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/third-lake-ridge) and [Marquette Bungalows](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/marquette-bungalows). Breese Stevens Field has a lined soccer pitch, stands, and a stone arcade inspired by its [historic grandstand](https://www.cityofmadison.com/parks/find-a-park/breese-stevens/history).
 
