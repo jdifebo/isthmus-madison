@@ -114,15 +114,15 @@
 
   function trafficSignals(scene,layout,geo,clock) {
     const {box,cylinder,ground,mergeLandmark}=geo;
+    const {cycle,green,yellow}=MadisonTraffic;
     const post=new T.MeshLambertMaterial({color:0x7b8381});
     const metal=new T.MeshLambertMaterial({color:0x313735});
     const backs=new T.MeshLambertMaterial({color:0x68604a});
     const chunks=new Map(), lenses=[];
-    for(const {x,z,axes} of layout) {
+    for(const {x,z,axes,phase} of layout) {
       const key=Math.floor(x/330)+','+Math.floor(z/330);
       if(!chunks.has(key)) chunks.set(key,new T.Group());
       const chunk=chunks.get(key);
-      const phase=(Math.abs(Math.round(x*19.73+z*7.21))%170)/4;
       for(let axis=0;axis<2;axis++) {
         const main=axes[axis], side=axes[1-axis];
         const {dx,dz,extent}=main;
@@ -185,8 +185,8 @@
         varying vec3 phaseInfo;
       `).replace('#include <color_fragment>',`
         #include <color_fragment>
-        float phase=mod(signalClock+phaseInfo.x+phaseInfo.y*22.,44.);
-        float litLens=phase<18.5?2.:phase<21.0?1.:0.;
+        float phase=mod(signalClock+phaseInfo.x+phaseInfo.y*${(cycle/2).toFixed(1)},${cycle.toFixed(1)});
+        float litLens=phase<${green.toFixed(1)}?2.:phase<${yellow.toFixed(1)}?1.:0.;
         vec3 lampColor=phaseInfo.z<.5?vec3(1.,.026,.012):
           phaseInfo.z<1.5?vec3(1.,.48,.018):vec3(.027,.91,.247);
         float power=abs(litLens-phaseInfo.z)<.20?1.68:.034;

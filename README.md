@@ -24,6 +24,10 @@ Public aerial photos cover the terrain and surrounding landscape. Procedural clo
 
 Street trees vary in height and canopy shape using the City Forestry inventory. From ground level you can see layered leaves, grass, flowerbeds around Capitol Square, and textured pavement. The field map marks the Metro Rapid corridor and can take you to the Blair, Paterson, and Baldwin center platforms. Bus-lane markings, shelter details, and signal timing are simulated.
 
+Articulated Route A buses run both ways on East Washington Avenue and open their platform-side doors at stops. Cars use the general lanes and brake for traffic lights, queues, and the player. The field map tracks the simulated buses, which arrive more often than the real service. [City of Madison Metro Rapid and Route A](https://www.cityofmadison.com/metro/routes-schedules/route-a)
+
+Open the game with `?stop=paterson` to start at the station. The same shortcut works for Blair and Baldwin. [Start at Paterson](https://jdifebo.github.io/isthmus-madison/?stop=paterson)
+
 The field map also jumps to Orton Park and Breese Stevens Field. Nearby homes use mapped footprints and parcel boundaries, with generated roof shapes, siding, windows, doors, porches, paths, driveways, and planting beds. The house styles draw from the [Third Lake Ridge district](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/third-lake-ridge) and [Marquette Bungalows](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/marquette-bungalows). Breese Stevens Field has a lined soccer pitch, stands, and a stone arcade inspired by its [historic grandstand](https://www.cityofmadison.com/parks/find-a-park/breese-stevens/history).
 
 ## Data and source

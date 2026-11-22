@@ -15,8 +15,10 @@
     {name:'Breese Stevens Field', x:839, z:-886, yaw:.73, above:78, flyPitch:-.56, marker:[899,-967]}
   ];
   const stationPoints=(data.brtStations || []).map(([name,x,z])=>({
-    name:name+' BRT',x:x+2.6,z:z+16.9,yaw:-.23,above:43,transit:true,marker:[x,z]
+    name:name+' BRT',x:x+4.25,z:z+18.25,yaw:-.23,above:43,transit:true,marker:[x,z]
   }));
+  const stopQuery=new URLSearchParams(window.location.search).get('stop')?.toLowerCase();
+  const openingStop=stationPoints.find(point=>point.name.toLowerCase()===stopQuery+' brt');
   points.push(...stationPoints);
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
   const modeNames={walk:'WALKING',drive:'DRIVING',fly:'FLYING'};
@@ -118,6 +120,17 @@
 
   function drawMap() {
     ctx.drawImage(mapBase,0,0);
+    for(const [bx,bz,dx,dz,boarding] of engine?.buses || []) {
+      ctx.save();
+      ctx.translate(mapX(bx),mapY(bz));
+      ctx.rotate(Math.atan2(dx,-dz));
+      ctx.fillStyle=boarding?'#e1faf5':'#6cd6dc';
+      ctx.strokeStyle='#1b3540';
+      ctx.lineWidth=1.05;
+      ctx.fillRect(-2,-4,4,8);
+      ctx.strokeRect(-2,-4,4,8);
+      ctx.restore();
+    }
     const px=mapX(x),py=mapY(z);
     ctx.save();
     ctx.translate(px,py);
@@ -159,8 +172,12 @@
 
   function carAllowed(cx,cz,angle) {
     const dx=Math.sin(angle), dz=-Math.cos(angle);
-    return !world.blocked(cx,cz,1) && !world.blocked(cx+dx*1.42,cz+dz*1.42,.93)
-      && !world.blocked(cx-dx*1.42,cz-dz*1.42,.93);
+    return !groundBlocked(cx,cz,1) && !groundBlocked(cx+dx*1.42,cz+dz*1.42,.93)
+      && !groundBlocked(cx-dx*1.42,cz-dz*1.42,.93);
+  }
+
+  function groundBlocked(x,z,radius) {
+    return world.blocked(x,z,radius) || engine.trafficBlocked(x,z,radius);
   }
 
   function driveSpawn() {
@@ -187,11 +204,11 @@
   }
 
   function safeDrop(point,range=45) {
-    if (!world.blocked(point.x,point.z,.4)) return point;
+    if (!groundBlocked(point.x,point.z,.4)) return point;
     for(let radius=2;radius<=range;radius+=2) {
       for(let i=0;i<16;i++) {
         const angle=i*Math.PI/8, cx=point.x+Math.sin(angle)*radius, cz=point.z+Math.cos(angle)*radius;
-        if (!world.blocked(cx,cz,.4)) return {...point,x:cx,z:cz};
+        if (!groundBlocked(cx,cz,.4)) return {...point,x:cx,z:cz};
       }
     }
     return null;
@@ -215,7 +232,7 @@
     } else if(previousMode==='drive' && next==='walk') {
       for(const side of [1,-1]) {
         const px=x+Math.cos(yaw)*2.3*side, pz=z+Math.sin(yaw)*2.3*side;
-        if(!world.blocked(px,pz,.4)) { x=px; z=pz; break; }
+        if(!groundBlocked(px,pz,.4)) { x=px; z=pz; break; }
       }
     }
     state=next;
@@ -284,9 +301,9 @@
     const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.24));
     const sx=dx/steps,sz=dz/steps;
     for(let i=0;i<steps;i++) {
-      if(!world.blocked(x+sx,z+sz,.33)) { x+=sx; z+=sz; }
-      else if(!world.blocked(x+sx,z,.33)) x+=sx;
-      else if(!world.blocked(x,z+sz,.33)) z+=sz;
+      if(!groundBlocked(x+sx,z+sz,.33)) { x+=sx; z+=sz; }
+      else if(!groundBlocked(x+sx,z,.33)) x+=sx;
+      else if(!groundBlocked(x,z+sz,.33)) z+=sz;
     }
     walkTime+=dt*(sprint?13.5:10);
   }
@@ -501,6 +518,7 @@
       bind();
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;
       $('loading').hidden=true;
+      if(openingStop) changeMode('walk',openingStop);
       requestAnimationFrame(frame);
     } catch(error) {
       console.error(error);

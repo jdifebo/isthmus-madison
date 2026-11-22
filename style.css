@@ -98,6 +98,7 @@ h1, h2, p { margin: 0; }
 #coordinates { margin: 0 0 9px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
 .map-legend { margin: 0 0 10px; color: var(--dim); font-size: 13px; }
 .map-legend span { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: #e48c74; margin: 0 5px 3px 0; }
+.map-legend i { display: inline-block; width: 5px; height: 8px; border-radius: 1px; background: #6cd6dc; margin: 0 4px 0 12px; transform: rotate(38deg); }
 #landmarks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
 #landmarks button { text-align: left; font-size: 14px; border: 1px solid var(--line); border-radius: 5px; padding: 8px; }
 #landmarks button:hover { background: #34475a; }

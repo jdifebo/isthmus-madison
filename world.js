@@ -133,7 +133,8 @@
         return {dx:road.dx,dz:road.dz,extent};
       };
       const primary=axis(main);
-      return [{x,z,axes:[primary,axis(other,primary)]}];
+      const phase=(Math.abs(Math.round(x*19.73+z*7.21))%170)/4;
+      return [{x,z,phase,axes:[primary,axis(other,primary)]}];
     });
     const stops=(D.brtStations || []).map(([name,x,z])=>{
       let direction=[.719,-.695],best=Infinity;
@@ -1116,6 +1117,7 @@
     capitol(scene);
     terrace(scene);
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,homes);
+    const traffic=MadisonTraffic.create(scene,geo,layout);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -1151,7 +1153,7 @@
     window.addEventListener('resize',resize);
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
-    return {camera,car,canvas:renderer.domElement,setLight,render(seconds,player=null) {
+    return {camera,car,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
       if(elapsed>0) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
@@ -1195,6 +1197,7 @@
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
+      traffic.update(seconds,camera,player && height===0?player:null);
       if(frameTime>.073) reflectionQuality=false;
       if(!software && frameTime<.034) reflectionQuality=true;
       atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));
