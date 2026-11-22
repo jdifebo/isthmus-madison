@@ -793,15 +793,15 @@
       if(kind===1 && !knownHeights[name] && homes.build(id,poly,measured,estimated)) continue;
       const height=knownHeights[name] || measured || estimated;
       const base=ground(x,z), top=base+height;
+      if(kind===1 && size>=11) homes.addEntry(id,poly,base);
       const palette=kind===0?stone:home;
       const wall=new T.Color(palette[Math.floor(rng()*palette.length)]);
       const roof=wall.clone().lerp(new T.Color(kind===0?0x63696b:0x645953),.68);
       const brick=wall.clone().multiplyScalar(.73);
       const style=kind===1?3:height>24&&rng()>.46?2:rng()>.50?1:0;
-      const simpleHome=kind===1 && size<250 && ring.length<=10 && poly.length===1 && rng()<.67;
       const retail=kind===0 && (downtown>.32 || name==='Overture Center') && size>210;
       const equipment=kind===0 && size>420 && size<5800 && rng()<.72 && inPolygon(x,z,poly);
-      const roofLift=simpleHome?Math.min(2.6,Math.sqrt(size)*.19):equipment?1.65:.44;
+      const roofLift=equipment?1.65:.44;
       roofLevels.set(poly,top+roofLift);
 
       for (const outline of poly) {
@@ -825,19 +825,7 @@
           if (kind===0 && height>8) trims.quad([ax,top-.25,az],[bx,top-.25,bz],[bx,top+.4,bz],[ax,top+.4,az],face.clone().multiplyScalar(1.08));
         }
       }
-      if (simpleHome) {
-        const [points,faces]=triangulate(poly);
-        for (const face of faces) {
-          const vertices=face.map(i=>[points[i].x,top,points[i].y]);
-          const [a,b,c]=vertices;
-          const peak=[(a[0]+b[0]+c[0])/3,top+roofLift,(a[2]+b[2]+c[2])/3];
-          roofs.triangle(a,peak,b,roof);
-          roofs.triangle(b,peak,c,roof);
-          roofs.triangle(c,peak,a,roof);
-        }
-      } else {
-        fill(roofs,poly,()=>top,roof);
-      }
+      fill(roofs,poly,()=>top,roof);
       if(equipment) {
         const sizeX=Math.min(3.2,Math.sqrt(size)*.135), sizeZ=sizeX*.58;
         const outline=[[x-sizeX,z-sizeZ],[x+sizeX,z-sizeZ],[x+sizeX,z+sizeZ],[x-sizeX,z+sizeZ]];

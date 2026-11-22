@@ -5,7 +5,7 @@
   const sidingColors=[0xa6aaa0,0xc4b7a2,0x81978f,0xc4a077,0xa37264,0x9caab7,0xe0ceaa,0x839679,0xb3a8a2];
   const masonryColors=[0xaf715c,0xb98972,0xd0b195,0x956555,0xccb99f];
   const roofColors=[0x6c6f72,0x665a55,0x7d7568,0x625957,0x575f65,0x746b66];
-  const doorColors=[0x57736a,0x8a504a,0x826145,0x4f626c,0x435451,0x8d744c];
+  const doorColors=[0x58796b,0xa04f46,0xa37754,0x4e7188,0x396456,0xb59655];
   const pick=(range,rng)=>range[Math.floor(rng()*range.length)];
 
   function surfaceTexture(type,random) {
@@ -191,26 +191,45 @@
     return {a,b,length,ux,uz,nx:uz*winding,nz:-ux*winding};
   }
 
-  function fitStreet(face,{streetCandidates,segmentDistance}) {
-    const mid=face.length*.5,{a,ux,uz,nx,nz}=face;
-    const x=a[0]+mid*ux,z=a[1]+mid*uz;
-    let choice=null;
-    for(const street of streetCandidates(x,z)) {
-      if(!street.name || street.kind>1) continue;
-      const dx=street.bx-street.ax,dz=street.bz-street.az,length=Math.hypot(dx,dz);
-      const alignment=Math.abs((ux*dx+uz*dz)/length);
-      if(alignment<.54) continue;
-      const t=((x-street.ax)*dx+(z-street.az)*dz)/(length*length);
-      const clampT=Math.max(0,Math.min(1,t));
-      const sx=street.ax+dx*clampT,sz=street.az+dz*clampT;
-      const outward=(sx-x)*nx+(sz-z)*nz;
-      const distance=Math.sqrt(segmentDistance(x,z,street.ax,street.az,street.bx,street.bz));
-      const gap=outward-street.width*.5-1.45;
-      if(outward<distance*.69 || gap<.5 || gap>42) continue;
-      const score=gap+(1-alignment)*19+(distance-outward)*2.1+(street.kind===0?1.3:0);
-      if(!choice || score<choice.score) choice={street,gap,score};
+  function entrance(faces,{streetCandidates,inBuilding}) {
+    let best=null, fallback=null;
+    for(const face of faces) {
+      if(face.length<1.34) continue;
+      const at=face.length*.5;
+      const [x,,z]=wallPoint(face,at,0);
+      const room=[.43,1.13,2.23,3.23].find(distance=>{
+        const [px,,pz]=wallPoint(face,at,0,distance);
+        return inBuilding(px,pz,.20);
+      }) ?? 4;
+      if(room<.45) continue;
+      const widthBonus=Math.min(face.length,9)*.64;
+      const fallbackScore=room+widthBonus;
+      if(!fallback || fallbackScore>fallback.score) fallback={face,gap:room,score:fallbackScore};
+      const streetOptions=[];
+      for(const street of streetCandidates(x,z)) {
+        if(!street.name || street.kind>1) continue;
+        const curb=sidewalkPoint(street,x,z);
+        const outward=(curb.x-x)*face.nx+(curb.z-z)*face.nz;
+        const distance=Math.hypot(x-curb.x,z-curb.z);
+        const gap=distance-street.width*.5-1.45;
+        if(outward<Math.max(.24,distance*.38) || gap<-.8 || gap>64) continue;
+        const dx=street.bx-street.ax,dz=street.bz-street.az;
+        const alignment=Math.abs((face.ux*dx+face.uz*dz)/Math.hypot(dx,dz));
+        const score=gap+(1-alignment)*8+(distance-outward)*1.4-widthBonus+(street.kind===0?2:0);
+        if(!best || score<best.score) streetOptions.push({face,street,curb,gap:Math.min(room,Math.max(.24,gap)),score,distance});
+      }
+      streetOptions.sort((a,b)=>a.score-b.score);
+      for(const option of streetOptions) {
+        const stop=option.distance-option.street.width*.5-1.2;
+        let visible=true;
+        for(let step=.75;step<stop;step+=2) {
+          const [px,pz]=[x+(option.curb.x-x)*step/option.distance,z+(option.curb.z-z)*step/option.distance];
+          if(inBuilding(px,pz,.24)) { visible=false; break; }
+        }
+        if(visible) { best=option; break; }
+      }
     }
-    return choice;
+    return best || fallback;
   }
 
   function roofPlan(ring,frame,shape,base,rise) {
@@ -219,19 +238,47 @@
     const corners=ring.map(([x,z])=>coordinate(x,z));
     const xs=corners.map(p=>p[0]),zs=corners.map(p=>p[1]);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs);
-    const cross=Math.max(1.2,(maxX-minX)*.5);
-    const deep=Math.max(1.2,(maxZ-minZ)*.5);
+    const cross=Math.max(.20,(maxX-minX)*.5),deep=Math.max(.20,(maxZ-minZ)*.5);
+    const hip=Math.min(cross,deep);
+    const sideSpan=shape==='hip'?hip:cross,endSpan=shape==='hip'?hip:deep;
+    rise=Math.min(rise,(shape==='side'?deep:sideSpan)*.88);
     const sides=[
-      {axis:0,value:(x,z)=>(coordinate(x,z)[0]-minX)/cross},
-      {axis:0,value:(x,z)=>(maxX-coordinate(x,z)[0])/cross}
+      {axis:0,value:(x,z)=>(coordinate(x,z)[0]-minX)/sideSpan},
+      {axis:0,value:(x,z)=>(maxX-coordinate(x,z)[0])/sideSpan}
     ];
     const ends=[
-      {axis:1,value:(x,z)=>(coordinate(x,z)[1]-minZ)/deep},
-      {axis:1,value:(x,z)=>(maxZ-coordinate(x,z)[1])/deep}
+      {axis:1,value:(x,z)=>(coordinate(x,z)[1]-minZ)/endSpan},
+      {axis:1,value:(x,z)=>(maxZ-coordinate(x,z)[1])/endSpan}
     ];
     const planes=shape==='hip'?[...sides,...ends]:shape==='side'?ends:sides;
-    const at=(x,z)=>base+rise*Math.max(0,Math.min(1,...planes.map(p=>p.value(x,z))));
+    const at=(x,z)=>base+rise*Math.min(...planes.map(p=>p.value(x,z)));
     return {coordinate,planes,at,high:base+rise};
+  }
+
+  function roofOutline(polygon,inPolygon) {
+    const [outer,...holes]=polygon,winding=Math.sign(signedArea(outer));
+    const edges=outer.map((a,i)=>edge(a,outer[(i+1)%outer.length],winding));
+    if(edges.some(({length})=>length<.12)) return polygon;
+    const overhang=outer.map(([x,z],i)=>{
+      const before=edges[(i+edges.length-1)%edges.length],after=edges[i];
+      const width=.28/Math.max(.58,1+before.nx*after.nx+before.nz*after.nz);
+      return [x+(before.nx+after.nx)*width,z+(before.nz+after.nz)*width];
+    });
+    // A short return or a tight inside corner can make the offset fold over itself.
+    if(overhang.some((a,i)=>{
+      const b=overhang[(i+1)%outer.length],{ux,uz}=edges[i];
+      return (b[0]-a[0])*ux+(b[1]-a[1])*uz<.045;
+    })) return polygon;
+    function crosses(a,b,c,d) {
+      const turn=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
+      return turn(a,b,c)*turn(a,b,d)<-1e-9 && turn(c,d,a)*turn(c,d,b)<-1e-9;
+    }
+    for(let i=0;i<overhang.length;i++) for(let j=i+2;j<overhang.length;j++) {
+      if(i===0 && j===overhang.length-1) continue;
+      if(crosses(overhang[i],overhang[(i+1)%overhang.length],overhang[j],overhang[(j+1)%overhang.length])) return polygon;
+    }
+    if(outer.some(([x,z])=>!inPolygon(x,z,[overhang]))) return polygon;
+    return [overhang,...holes];
   }
 
   function clip(points,signed) {
@@ -247,7 +294,18 @@
     return result;
   }
 
-  function coverRoof(sink,polygon,roof,tint,triangulate) {
+  function roofSections(a,b,roof) {
+    const cuts=[0,1];
+    for(let p=0;p<roof.planes.length;p++) for(let q=p+1;q<roof.planes.length;q++) {
+      const near=roof.planes[p].value(...a)-roof.planes[q].value(...a);
+      const far=roof.planes[p].value(...b)-roof.planes[q].value(...b);
+      if(near*far<0) cuts.push(near/(near-far));
+    }
+    cuts.sort((a,b)=>a-b);
+    return cuts;
+  }
+
+  function coverRoof(sink,facing,polygon,roof,tint,trimTint,triangulate) {
     const [points,faces]=triangulate(polygon);
     for(const face of faces) {
       const triangle=face.map(i=>[points[i].x,points[i].y]);
@@ -262,6 +320,18 @@
           const uv=coordinates.map(p=>plane.axis===0?[p[1]*.59,p[0]*.67]:[p[0]*.59,p[1]*.67]);
           sink.triangle(...vertices.map(([x,z])=>[x,roof.at(x,z),z]),tint,uv);
         }
+      }
+    }
+    for(const ring of polygon) for(let i=0;i<ring.length;i++) {
+      const a=ring[i],b=ring[(i+1)%ring.length],cuts=roofSections(a,b,roof);
+      const point=t=>{
+        const x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t;
+        return [x,roof.at(x,z),z];
+      };
+      for(let j=1;j<cuts.length;j++) {
+        const top=point(cuts[j]),previous=point(cuts[j-1]);
+        if(Math.hypot(top[0]-previous[0],top[2]-previous[2])<.004) continue;
+        facing.quad(previous,top,[top[0],top[1]-.14,top[2]],[previous[0],previous[1]-.14,previous[2]],trimTint);
       }
     }
   }
@@ -291,37 +361,14 @@
     sink.quad(d,D,A,a,tint);
   }
 
-  function wallsFor(polygon,facades,volume,roofing,roof,bottom,wallTint,baseTint,trimTint,roofTint,ground) {
+  function wallsFor(polygon,facades,volume,roof,bottom,wallTint,baseTint,ground) {
     for(const ring of polygon) {
       const winding=Math.sign(signedArea(ring))||1;
-      const outer=ring===polygon[0];
-      function overhang(i) {
-        const a=ring[i],before=ring[(i+ring.length-1)%ring.length],after=ring[(i+1)%ring.length];
-        if(Math.min(Math.hypot(a[0]-before[0],a[1]-before[1]),Math.hypot(a[0]-after[0],a[1]-after[1]))<.09) return a;
-        const left=edge(before,a,winding),right=edge(a,after,winding);
-        const length=.29/Math.max(.79,1+left.nx*right.nx+left.nz*right.nz);
-        return [a[0]+(left.nx+right.nx)*length,a[1]+(left.nz+right.nz)*length];
-      }
       for(let i=0;i<ring.length;i++) {
         const [a,b]=[ring[i],ring[(i+1)%ring.length]];
         if(Math.hypot(b[0]-a[0],b[1]-a[1])<.09) continue;
         const face=edge(a,b,winding);
-        const cuts=[0,1];
-        for(let p=0;p<roof.planes.length;p++) {
-          for(let q=p+1;q<roof.planes.length;q++) {
-            const near=roof.planes[p].value(...a)-roof.planes[q].value(...a);
-            const far=roof.planes[p].value(...b)-roof.planes[q].value(...b);
-            if(near*far<0) cuts.push(near/(near-far));
-          }
-        }
-        cuts.sort((a,b)=>a-b);
-        const overA=outer?overhang(i):a,overB=outer?overhang((i+1)%ring.length):b;
-        function eave(t,y) {
-          const x=overA[0]+(overB[0]-overA[0])*t,z=overA[1]+(overB[1]-overA[1])*t;
-          const insideX=2*(a[0]+(b[0]-a[0])*t)-x;
-          const insideZ=2*(a[1]+(b[1]-a[1])*t)-z;
-          return [x,y+Math.min(0,y-roof.at(insideX,insideZ)),z];
-        }
+        const cuts=roofSections(a,b,roof);
         volume.quad([a[0],Math.min(ground(...a)-.16,bottom-.2),a[1]],
           [b[0],Math.min(ground(...b)-.16,bottom-.2),b[1]],
           [b[0],bottom,b[1]],[a[0],bottom,a[1]],baseTint);
@@ -333,12 +380,6 @@
           const t=wallPoint(face,v,ra),s=wallPoint(face,u,qa);
           facades.triangle(q,r,t,wallTint,[[u*.53,0],[v*.53,0],[v*.53,(ra-bottom)*1.10]]);
           facades.triangle(q,t,s,wallTint,[[u*.53,0],[v*.53,(ra-bottom)*1.10],[u*.53,(qa-bottom)*1.10]]);
-          if(!outer) continue;
-          const start=eave(cuts[j-1],qa),end=eave(cuts[j],ra);
-          roofing.quad(s,start,end,t,roofTint,.25,(v-u)*.63);
-          const lowStart=[start[0],start[1]-.15,start[2]],lowEnd=[end[0],end[1]-.15,end[2]];
-          volume.quad(start,lowStart,lowEnd,end,trimTint);
-          volume.quad(lowStart,wallPoint(face,u,qa-.15),wallPoint(face,v,ra-.15),lowEnd,trimTint);
         }
       }
     }
@@ -350,7 +391,16 @@
     const t=Math.max(0,Math.min(1,((x-street.ax)*dx+(z-street.az)*dz)/length2));
     const nearX=street.ax+dx*t,nearZ=street.az+dz*t;
     const distance=Math.hypot(x-nearX,z-nearZ);
-    return {x:nearX,z:nearZ,nx:(x-nearX)/distance,nz:(z-nearZ)/distance};
+    return {x:nearX,z:nearZ,nx:distance?(x-nearX)/distance:dz/Math.sqrt(length2),
+      nz:distance?(z-nearZ)/distance:-dx/Math.sqrt(length2)};
+  }
+
+  function shellFaces(ring) {
+    const winding=Math.sign(signedArea(ring))||1;
+    return ring.flatMap((a,i)=>{
+      const b=ring[(i+1)%ring.length];
+      return Math.hypot(b[0]-a[0],b[1]-a[1])<.24?[]:[edge(a,b,winding)];
+    });
   }
 
   function create(scene,geo,evening) {
@@ -384,6 +434,8 @@
     const plantings=[];
     const stone=new T.Color(0xb2a99a),paving=new T.Color(0xa9a19a),asphalt=new T.Color(0x69706e);
     const soil=new T.Color(0x554133),bricks=new T.Color(0xa67662);
+    const doorFrame=new T.Color(0xe2d7c1),knob=new T.Color(0xc5a564),lampFrame=new T.Color(0x463b32);
+    const lampGlass=new T.Color(0xeccc8e),doorShadow=new T.Color(0x3b3029);
     function paved(x,z) {
       return pavedGrid.at(x,z).some(([ax,az,bx,bz,width])=>segmentDistance(x,z,ax,az,bx,bz)<width*width);
     }
@@ -463,31 +515,60 @@
       }
     }
 
+    function door(face,at,threshold,width,rng) {
+      const left=at-width/2,right=at+width/2;
+      const paint=new T.Color(pick(doorColors,rng));
+      prism(trim,face,left-.11,right+.11,.018,.091,threshold-.035,threshold+2.19,doorShadow);
+      prism(trim,face,left-.105,left+.012,.058,.145,threshold-.049,threshold+2.22,doorFrame);
+      prism(trim,face,right-.012,right+.105,.058,.145,threshold-.049,threshold+2.22,doorFrame);
+      prism(trim,face,left-.14,right+.14,.056,.167,threshold+2.103,threshold+2.258,doorFrame);
+      panel(glazing,face,at,threshold,width,2.104,.101,paint,5+Math.floor(rng()*3));
+      prism(trim,face,left-.07,right+.07,.04,.175,threshold-.055,threshold+.018,stone);
+      const handle=at+width*.29;
+      prism(trim,face,handle-.025,handle+.025,.10,.159,threshold+.97,threshold+1.025,knob);
+      const lamp=right+.27;
+      if(lamp+.11<face.length) {
+        prism(trim,face,lamp-.086,lamp+.086,.032,.18,threshold+1.60,threshold+1.89,lampFrame);
+        panel(trim,face,lamp,threshold+1.65,.106,.16,.183,lampGlass);
+      }
+    }
+
+    function steps(face,at,threshold,depth,halfWidth) {
+      const [x,,z]=wallPoint(face,at,0,depth+.48);
+      const soil=Math.min(ground(x,z),threshold-.11);
+      const count=Math.max(1,Math.min(7,Math.ceil((threshold-soil)/.18)));
+      for(let i=0;i<count;i++) {
+        prism(trim,face,at-halfWidth,at+halfWidth,depth-.03,depth+.27*(count-i),
+          soil-.055,soil+(threshold-soil)*(i+1)/(count+1),stone);
+      }
+      return depth+.27*count;
+    }
+
+    function addEntry(id,polygon,base) {
+      const front=entrance(shellFaces(polygon[0]),geo);
+      if(!front) return;
+      const {face}=front,at=face.length*.5;
+      const [x,,z]=wallPoint(face,at,0,.10);
+      const threshold=Math.max(base+.28,ground(x,z)+.16);
+      const rng=random((Number(id)||31)*97213);
+      const width=Math.min(1.24,face.length-.36);
+      door(face,at,threshold,width,rng);
+      const depth=steps(face,at,threshold,.24,Math.min(width*.68,face.length*.46));
+      if(front.street) entryYard(face,front,at,depth-.52,assigned.get(polygon),rng);
+    }
+
     function build(id,polygon,measured,estimated) {
       const ring=polygon[0],size=area(ring),lot=assigned.get(polygon);
-      if(size<11 || size>305 || measured>14.4) return false;
-      const winding=Math.sign(signedArea(ring))||1;
-      const faces=ring.flatMap((a,i)=>{
-        const b=ring[(i+1)%ring.length];
-        return Math.hypot(b[0]-a[0],b[1]-a[1])<.24?[]:[edge(a,b,winding)];
-      });
+      if(size<11 || size>348 || measured>19.5) return false;
+      const faces=shellFaces(ring);
       if(!faces.length) return false;
       const rng=random((Number(id)||31)*97213);
       const longest=faces.reduce((a,b)=>a.length>b.length?a:b);
-      let front=null,segment=null;
-      for(const face of faces) {
-        if(face.length<2.75) continue;
-        const street=fitStreet(face,geo);
-        if(!street) continue;
-        const probe=wallPoint(face,face.length*.5,0,Math.min(2.3,street.gap*.7));
-        if(inBuilding(probe[0],probe[2],.26)) continue;
-        const rank=street.score-Math.min(face.length,10)*.36;
-        if(!front || rank<front.rank) { front={...street,rank}; segment=face; }
-      }
-      const frame=segment||longest;
+      const front=entrance(faces,geo);
+      const frame=front?.face || longest;
       const garage=lot && size<75 && (largest.get(lot)||0)>size*1.61;
       const single=garage || size<64 || size<153 && (measured>0?measured<5.6:rng()<.49);
-      const levels=single?1:2;
+      const levels=single?1:measured>9.8?Math.min(5,Math.round((measured-1.5)/3)):2;
       const form=garage?'gable':pick(['gable','gable','side','hip','gable'],rng);
       const [x,z]=center(ring),g=ground(x,z);
       const below=garage?.19:clamp(.42+rng()*.37+Math.abs(ground(...frame.a)-ground(...frame.b))*.11,.41,.91);
@@ -505,53 +586,55 @@
       const steel=new T.Color(0x655951);
       const recess=new T.Color(0x423f39);
       const white=new T.Color(0xf1e6d7);
-      wallsFor(polygon,facade,volume,roof,shape,base,houseTint,plinth,trimTint,roofTint,ground);
-      coverRoof(roof,polygon,shape,roofTint,triangulate);
+      wallsFor(polygon,facade,volume,shape,base,houseTint,plinth,ground);
+      coverRoof(roof,volume,roofOutline(polygon,inPolygon),shape,roofTint,trimTint,triangulate);
       roofLevels.set(polygon,shape.high+.08);
 
-      const doorWidth=garage?2.30:.93;
-      const doorAt=frame.length*(garage?.50:rng()<.4?.31:rng()<.52?.69:.51);
-      let porchDepth=0;
-      if(front && frame.length>doorWidth+.6) {
-        const threshold=base+.019;
+      const doorWidth=garage?Math.min(2.30,frame.length-.30):Math.min(.99,frame.length-.34);
+      const inset=rng()<.4?.32:rng()<.52?.68:.5;
+      let doorAt=frame.length*.5;
+      if(front && !garage && frame.length>3.3) {
+        const proposed=frame.length*inset;
+        const [px,,pz]=wallPoint(frame,proposed,0,.56);
+        if(!inBuilding(px,pz,.26)) doorAt=proposed;
+      }
+      const hasDoor=front && doorWidth>(garage?1.55:.72);
+      if(hasDoor) {
+        const [doorX,,doorZ]=wallPoint(frame,doorAt,0,.14);
+        const threshold=Math.max(base+.019,ground(doorX,doorZ)+.12);
         if(garage) {
           panel(trim,frame,doorAt,threshold,doorWidth,1.97,.028,trimTint);
           panel(trim,frame,doorAt,threshold+.09,doorWidth-.22,1.72,.037,new T.Color(0xa49b89));
           for(let course=1;course<=4;course++) panel(trim,frame,doorAt,threshold+course*.36,doorWidth-.22,.042,.043,recess);
         } else {
-          panel(trim,frame,doorAt,threshold-.045,1.105,2.24,.038,trimTint);
-          panel(glazing,frame,doorAt,threshold,.93,2.104,.050,new T.Color(pick(doorColors,rng)),5+Math.floor(rng()*3));
-          porchDepth=front.gap>3.25 && frame.length>3.05 && rng()<.72?1.54+rng()*.47:.72;
+          door(frame,doorAt,threshold,doorWidth,rng);
+          const porchDepth=front.gap>3.1 && frame.length>3.4 && rng()<.72?1.38+rng()*.38:Math.min(.63,front.gap*.59);
           const wide=porchDepth>1?Math.min(frame.length*.44,2.42):.74;
           const left=Math.max(.12,doorAt-wide),right=Math.min(frame.length-.10,doorAt+wide);
-          const soil=wallPoint(frame,doorAt,0,porchDepth+.35);
-          const stepBase=Math.min(ground(soil[0],soil[2]),threshold-.11);
           const deckTint=new T.Color(porchDepth>1?0x9b8c79:0xb4aaa0);
           prism(trim,frame,left,right,.027,porchDepth,threshold-.21,threshold-.02,deckTint);
-          const riseCount=Math.max(1,Math.min(6,Math.ceil((threshold-stepBase)/.19)));
-          for(let j=0;j<riseCount;j++) {
-            prism(trim,frame,doorAt-.61,doorAt+.61,porchDepth-.03,porchDepth+.29*(riseCount-j),
-              stepBase-.02,stepBase+(threshold-stepBase)*(j+1)/(riseCount+1),stone);
-          }
-          if(porchDepth>1) {
+          const depth=steps(frame,doorAt,threshold,porchDepth,Math.min(.61,doorWidth*.62));
+          const a=wallPoint(frame,left-.10,0,.032),b=wallPoint(frame,right+.10,0,.032);
+          const rearY=Math.min(threshold+2.77,shape.at(a[0],a[2])-.18,shape.at(b[0],b[2])-.18);
+          if(porchDepth>1 && rearY>threshold+2.42) {
+            const roofFront=porchDepth+.22,frontY=Math.max(threshold+2.27,rearY-.30);
             for(const col of [left+.10,right-.10]) prism(trim,frame,col-.062,col+.062,porchDepth-.16,porchDepth-.03,
-              threshold-.01,threshold+2.26,trimTint);
+              threshold-.01,frontY-.014,trimTint);
             for(const [from,to] of [[left+.10,doorAt-.67],[doorAt+.67,right-.10]]) {
               if(to-from<.36) continue;
               prism(trim,frame,from,to,porchDepth-.14,porchDepth-.062,threshold+.79,threshold+.86,trimTint);
               for(let rail=from+.16;rail<to;rail+=.185) prism(trim,frame,rail-.019,rail+.019,porchDepth-.118,porchDepth-.081,
                 threshold-.02,threshold+.79,trimTint);
             }
-            const roofFront=porchDepth+.24,rearY=threshold+2.77,frontY=threshold+2.42;
-            const a=wallPoint(frame,left-.13,rearY,.024),b=wallPoint(frame,right+.13,rearY,.024);
-            const c=wallPoint(frame,right+.13,frontY,roofFront),d=wallPoint(frame,left-.13,frontY,roofFront);
+            a[1]=b[1]=rearY;
+            const c=wallPoint(frame,right+.10,frontY,roofFront),d=wallPoint(frame,left-.10,frontY,roofFront);
             roof.quad(a,d,c,b,roofTint,porchDepth*.69,(right-left)*.59);
             prism(trim,frame,left-.13,right+.13,roofFront-.057,roofFront,frontY-.11,frontY,trimTint);
           }
-          if(rng()<.34) panel(trim,frame,clamp(doorAt+.70,.35,frame.length-.35),threshold+1.43,.18,.29,.078,
-            new T.Color(0xa88957));
-          entryYard(frame,front,doorAt,porchDepth+Math.max(0,riseCount-2)*.29,lot,rng);
-          driveway(frame,front,lot,polygon,rng);
+          if(front.street) {
+            entryYard(frame,front,doorAt,depth-.52,lot,rng);
+            driveway(frame,front,lot,polygon,rng);
+          }
         }
       }
       for(const face of faces) {
@@ -564,7 +647,7 @@
             const at=face.length*(bay+.5)/count+(isFront?0:(rng()-.5)*.26);
             const width=Math.min(face.length/count-.31,garage?.76:family===2&&isFront&&story===0?1.62:.84+rng()*.24);
             const y=base+story*floorHeight+(garage?1.09:.81+rng()*.15),height=garage?.65:family===2?.98:1.24+rng()*.31;
-            if(isFront && story===0 && Math.abs(at-doorAt)<doorWidth*.53+width/2+.12) continue;
+            if(isFront && hasDoor && story===0 && Math.abs(at-doorAt)<doorWidth*.53+width/2+.21) continue;
             if(!isFront && !garage && rng()<.24) continue;
             if(width<.38) continue;
             panel(trim,face,at,y-.037,width+.13,height+.083,.044,trimTint);
@@ -602,7 +685,7 @@
         concrete.mesh(geo.pavingMaterial(true),false,780),gravel.mesh(geo.pavingMaterial(false),false,780),
         beds.mesh(plain,false,300));
     }
-    return {build,complete,paved,plantings};
+    return {build,addEntry,complete,paved,plantings};
   }
 
   window.MadisonHomes={create};
