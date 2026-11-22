@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#162624">
+  <meta name="description" content="Walk and drive through a 3D map of downtown Madison, Wisconsin.">
+  <title>Isthmus · Downtown Madison</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="game" aria-label="Downtown Madison open world">
+    <div id="scene"></div>
+    <div id="wash" aria-hidden="true"></div>
+    <header class="rail">
+      <button id="home" class="wordmark" aria-label="Return to title">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>ISTHMUS</span>
+      </button>
+      <div class="rail-actions">
+        <button id="light" class="glass small" type="button" aria-label="Change time of day"><span aria-hidden="true">☀</span> <span id="light-label">Daylight</span></button>
+        <button id="map-toggle" class="glass small" type="button" aria-expanded="false"><span aria-hidden="true">⌖</span> Map <kbd>M</kbd></button>
+      </div>
+    </header>
+    <section id="intro" class="intro" aria-labelledby="title">
+      <p class="eyebrow"><span></span> 43°04′ N &nbsp; 89°23′ W</p>
+      <h1 id="title">Downtown<br><em>Madison</em></h1>
+      <p class="lede">Explore Wisconsin’s capital from the streets of the isthmus to the shores of its two lakes.</p>
+      <div class="start-actions">
+        <button id="walk" type="button" class="primary" disabled>Explore on foot</button>
+        <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
+      </div>
+      <p id="loading" role="status">Loading downtown…</p>
+    </section>
+    <section id="hud" class="hud" aria-label="Exploration controls" hidden>
+      <div class="place">
+        <div id="mode-label" class="eyebrow"><span></span> WALKING</div>
+        <h2 id="place-name">Capitol Square</h2>
+        <div id="location-name"></div>
+      </div>
+      <div class="reticle" aria-hidden="true"></div>
+      <div id="speedometer" class="speedometer glass" hidden><strong id="speed">0</strong><span>MPH</span></div>
+      <div class="control-bar glass" aria-label="Keyboard shortcuts">
+        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
+        <span id="look-tip">Drag to look</span>
+        <button id="mode" type="button"><kbd>E</kbd><span id="mode-action">Drive</span></button>
+        <button id="reset" type="button"><kbd>R</kbd> Reset</button>
+        <button id="help-toggle" type="button" aria-label="Show all controls" aria-expanded="false">?</button>
+      </div>
+      <div class="touch-controls" aria-label="Touch movement">
+        <button data-key="KeyW" aria-label="Forward">▲</button>
+        <div><button data-key="KeyA" aria-label="Left">◀</button><button data-key="KeyS" aria-label="Back">▼</button><button data-key="KeyD" aria-label="Right">▶</button></div>
+      </div>
+    </section>
+    <aside id="map-card" class="map-card glass" aria-labelledby="map-title">
+      <div class="map-heading"><div><p class="eyebrow">THE ISTHMUS</p><h2 id="map-title">Field map</h2></div><button id="map-close" class="small glass" aria-label="Close map" hidden>×</button><span id="north" aria-label="North is up">N ↑</span></div>
+      <canvas id="map" width="520" height="320" role="img" aria-label="North-up map of downtown Madison and its lakes"></canvas>
+      <div class="map-caption"><span><i></i> <span id="map-status">Capitol Square</span></span><button id="map-expand" type="button">Open map</button></div>
+      <div id="map-details" hidden>
+        <p id="coordinates"></p>
+        <p class="eyebrow">JUMP TO A LANDMARK</p>
+        <div id="landmarks"></div>
+      </div>
+    </aside>
+    <section id="help" class="glass help" aria-label="All controls" hidden>
+      <h2>Controls</h2>
+      <dl>
+        <div><dt>Walk / steer</dt><dd>W A S D or arrow keys</dd></div>
+        <div><dt>Look on foot</dt><dd>Drag the view</dd></div>
+        <div><dt>Sprint / brake</dt><dd>Shift / Space</dd></div>
+        <div><dt>Walk / drive</dt><dd>E</dd></div>
+        <div><dt>Map / reset</dt><dd>M / R</dd></div>
+        <div><dt>Return to title</dt><dd>Esc</dd></div>
+      </dl>
+    </section>
+    <div id="toast" class="glass toast" role="status" hidden></div>
+    <footer class="credits"><button id="credits-toggle" type="button" aria-expanded="false">Map credits</button>
+      <div id="credits" class="glass credits-popup" hidden>
+        <p><a href="https://data-cityofmadison.opendata.arcgis.com/" target="_blank" rel="noreferrer">City of Madison</a> · roads, parks, water and trees</p>
+        <p><a href="https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/3DMadison_3D_WFL1/FeatureServer/0" target="_blank" rel="noreferrer">Dane County, City of Madison and Ayres Associates</a> · building footprints</p>
+        <p><a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Mapzen / AWS Terrain Tiles</a> · elevation</p>
+        <p id="osm-credit" hidden><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · paths, streets and some building heights</p>
+      </div>
+    </footer>
+  </main>
+  <script src="assets/three.min.js"></script>
+  <script src="data/madison.js"></script>
+  <script src="world.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
