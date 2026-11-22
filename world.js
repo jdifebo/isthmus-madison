@@ -1153,7 +1153,8 @@
     window.addEventListener('resize',resize);
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
-    return {camera,car,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,render(seconds,player=null) {
+    return {camera,car,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+      transit:traffic.transit,advanceTraffic:traffic.advance,render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
       if(elapsed>0) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
@@ -1197,7 +1198,7 @@
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
-      traffic.update(seconds,camera,player && height===0?player:null);
+      traffic.render(camera);
       if(frameTime>.073) reflectionQuality=false;
       if(!software && frameTime<.034) reflectionQuality=true;
       atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));

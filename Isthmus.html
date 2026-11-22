@@ -130,6 +130,15 @@ h1, h2, p { margin: 0; }
 .control-bar kbd { margin: 0; }
 .control-bar .flight-hint { display: none; }
 .flying .control-bar .flight-hint { display: inline-flex; }
+.riding .control-bar .movement-hint, .riding .touch-controls { display: none; }
+.transit-panel {
+  position: absolute; bottom: 88px; left: clamp(18px, 3.3vw, 55px); z-index: 2;
+  display: flex; align-items: center; gap: 16px; padding: 12px 14px; max-width: calc(100% - 36px);
+  border-left: 2px solid #79d9df;
+}
+.transit-panel .eyebrow { color: #a6edf2; letter-spacing: .14em; }
+#transit-status { margin-top: 3px; font-size: 14px; }
+#transit-action { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
 .travel {
   display: flex; gap: 4px; align-items: center; padding: 4px;
   position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
@@ -157,6 +166,8 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .touch-controls div { display: flex; gap: 5px; }
   .touch-controls button { width: 39px; height: 36px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass); touch-action: none; }
   .speedometer { bottom: 215px; left: 18px; }
+  .transit-panel { bottom: 220px; left: 18px; }
+  .riding .transit-panel { bottom: 88px; }
   #altimeter { bottom: 255px; }
 }
 @media (max-width: 755px) {
@@ -170,6 +181,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .playing .map-card:not(.expanded) { bottom: 81px; }
   .control-bar { bottom: 22px; gap: 5px; }
   .speedometer { bottom: 123px; }
+  .riding .transit-panel { bottom: 117px; }
   .help { bottom: 122px; }
   .credits { bottom: 9px; }
 }
@@ -187,6 +199,8 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .map-card:not(.expanded) { width: 152px; }
   .playing .map-card:not(.expanded) { bottom: 63px; }
   .place { top: 75px; }
+  .transit-panel { gap: 8px; padding: 10px; }
+  #transit-action kbd { display: none; }
 }
 @media (max-width: 570px) and (max-height: 650px) {
   .map-card:not(.expanded) { display: none; }
@@ -221,6 +235,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <button id="fly" type="button" class="primary" disabled>Take flight</button>
         <button id="walk" type="button" class="glass secondary" disabled>Explore on foot</button>
         <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
+        <button id="ride-start" type="button" class="glass secondary" disabled>Ride Metro Rapid</button>
       </div>
       <p id="loading" role="status">Loading downtown…</p>
     </section>
@@ -233,8 +248,12 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
       <div class="reticle" aria-hidden="true"></div>
       <div id="speedometer" class="speedometer glass" hidden><strong id="speed">0</strong><span>MPH</span></div>
       <div id="altimeter" class="speedometer glass" aria-label="Height above the surface" hidden><strong id="altitude">0</strong><span>M ABOVE<br>GROUND</span></div>
+      <section id="transit-panel" class="transit-panel glass" aria-label="Metro Rapid boarding" hidden>
+        <div><p id="transit-route" class="eyebrow">Route A</p><p id="transit-status" aria-live="polite"></p></div>
+        <button id="transit-action" type="button" class="glass" hidden><span id="transit-action-label"></span><kbd>E</kbd></button>
+      </section>
       <div class="control-bar glass" aria-label="Keyboard shortcuts">
-        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
+        <span class="movement-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
         <span id="look-tip">Drag to look</span>
         <span class="flight-hint"><kbd>Space</kbd> Up <kbd>C</kbd> Down</span>
         <button id="reset" type="button"><kbd>R</kbd> Reset</button>
@@ -266,11 +285,12 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
       <h2>Controls</h2>
       <dl>
         <div><dt>Move / steer</dt><dd>W A S D or arrow keys</dd></div>
-        <div><dt>Look on foot or in flight</dt><dd>Drag the view</dd></div>
+        <div><dt>Look around</dt><dd>Drag the view</dd></div>
         <div><dt>Ascend / descend</dt><dd>Space / C</dd></div>
         <div><dt>Sprint / fly faster</dt><dd>Shift</dd></div>
         <div><dt>Brake when driving</dt><dd>Space</dd></div>
         <div><dt>Walk / drive / fly</dt><dd>1 / 2 / 3</dd></div>
+        <div><dt>Board bus / request stop</dt><dd>E</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
         <div><dt>Map / reset</dt><dd>M / R</dd></div>
@@ -2157,10 +2177,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           if(scores[axis]<.80) continue;
           signals.push({s:s-signal.axes[1-axis].extent-3.8,signal,axis});
         }
-        const stations=kind==='bus'?layout.stops.flatMap(([name,x,z])=>{
+        const stations=kind==='bus'?layout.stops.flatMap(([name,x,z,dx,dz])=>{
           const stop=line.project(x,z);
           if(stop.distance>7 || stop.s<22 || stop.s>line.length-15) return [];
-          return [{name,s:stop.s+7.4}];
+          return [{name,x,z,dx,dz,s:stop.s+7.4}];
         }).sort((a,b)=>a.s-b.s):[];
         routes.push({kind,direction,line,signals:signals.sort((a,b)=>a.s-b.s),stations,vehicles:[]});
       }
@@ -2261,8 +2281,13 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const coat=color=>new T.MeshLambertMaterial({color,side:T.DoubleSide});
     const tire=coat(0x242726),hub=coat(0xb7c2c2),dark=coat(0x25343a);
     const glass=new T.MeshPhongMaterial({color:0x36556c,specular:0xa6bccb,shininess:64,side:T.DoubleSide});
+    const busGlass=glass.clone();
+    const clearGlass=new T.MeshPhongMaterial({color:0x82b4c9,transparent:true,opacity:.14,depthWrite:false,
+      specular:0xc6dae2,shininess:74,side:T.DoubleSide});
     const white=coat(0xe3e8de),navy=coat(0x15334f),blue=coat(0x328fc0),lightBlue=coat(0x81cfe2);
     const interior=coat(0x545b61),pole=coat(0xdaba63);
+    const seatCloth=coat(0x366075),seatBack=coat(0x33464e),ceiling=coat(0xc7cdca),wallLiner=coat(0xa1a6a4);
+    const cabinLight=new T.MeshBasicMaterial({color:0xe4edd8});
     const whiteLamp=new T.MeshBasicMaterial({color:0xffe9bf});
     const redLamp=new T.MeshBasicMaterial({color:0xcf493b});
     const amberLamp=new T.MeshBasicMaterial({color:0xf0a143});
@@ -2319,7 +2344,63 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     }
 
     function bus(direction) {
-      const doors=[];
+      const doors=[],cabins=[],panes=[];
+      let nextSign;
+
+      function cabin(front) {
+        const detail=new T.Group(),back=front?-5.14:-3.65,nose=front?4.83:3.07;
+        const length=nose-back,center=(back+nose)/2;
+        box(detail,2.42,.042,length,0,.565,center,interior);
+        box(detail,.52,.014,length,0,.591,center,seatBack);
+        box(detail,2.37,.087,length,0,2.72,center,ceiling);
+        for(const side of [-1,1]) {
+          box(detail,.067,.055,length-.36,side*.65,2.646,center,cabinLight);
+          box(detail,.038,.035,length-.52,side*.80,2.425,center,pole);
+          const rows=front?(side<0?[-4.37,-1.61,-.05,1.36]:[-4.17,-1.54,-.08,1.32]):
+            (side<0?[-3.16,.11,1.32]:[-3.16,-1.95,-.51,.99,2.22]);
+          for(const z of rows) {
+            box(detail,.083,.53,.31,side*.77,.83,z,hub);
+            box(detail,.70,.104,.495,side*.84,1.014,z,seatCloth);
+            const backrest=box(detail,.70,.534,.11,side*.84,1.245,z-.22,seatBack);
+            backrest.rotation.x=-.083;
+            box(detail,.62,.337,.059,side*.84,1.263,z-.144,seatCloth).rotation.x=-.083;
+            box(detail,.119,.071,.08,side*.47,1.365,z-.235,pole);
+          }
+          for(const z of front?[-3.39,-.86,2.49,4.43]:[-2.48,-.54,1.69]) {
+            cylinder(detail,.018,.018,1.96,side*.44,1.57,z,pole,8);
+            const loop=box(detail,.036,.23,.043,side*.80,2.30,z+.36,dark);
+            loop.rotation.z=side*.12;
+            box(detail,.117,.033,.058,side*.80,2.194,z+.36,pole);
+          }
+          const panels=front?[[-5.0,-3.36],[-1.94,2.99],[4.31,4.81]]:
+            side<0?[[-3.64,-1.83],[-.52,3.05]]:[[-3.64,3.05]];
+          for(const [a,b] of panels) box(detail,.052,.375,b-a,side*1.149,.763,(a+b)/2,wallLiner);
+        }
+        if(front) {
+          box(detail,1.81,.265,.43,0,1.115,4.59,dark);
+          box(detail,.60,.66,.55,.82,.838,4.35,wallLiner);
+          box(detail,.46,.137,.46,.74,1.13,4.07,seatCloth);
+          box(detail,.435,.48,.10,.74,1.34,3.87,seatBack);
+          const wheel=new T.Mesh(new T.TorusGeometry(.157,.022,8,20),dark);
+          wheel.rotation.x=-.65;
+          wheel.position.set(.74,1.40,4.56);
+          detail.add(wheel);
+          box(detail,.16,.52,.16,-.68,1.095,4.04,dark);
+          box(detail,.14,.076,.055,-.68,1.34,3.958,blue);
+          box(detail,1.42,.26,.071,-.07,2.50,3.40,dark);
+        }
+        mergeLandmark(detail);
+        if(front) {
+          nextSign=textSign('ROUTE A',1.32,.24,'#162124','#ffcd74');
+          nextSign.rotation.y=Math.PI;
+          nextSign.position.set(-.07,2.50,3.360);
+          detail.add(nextSign);
+        }
+        detail.visible=false;
+        cabins.push(detail);
+        return detail;
+      }
+
       function section(front) {
         const group=new T.Group(),frame=new T.Group();
         group.add(frame);
@@ -2330,7 +2411,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         box(frame,1.76,.33,front?3.69:2.14,0,3.237,front?-1.2:-.54,navy);
         for(let i=0;i<6;i++) box(frame,.076,.045,front?3.48:1.9,-.52+i*.208,3.423,front?-1.2:-.54,hub);
         for(const side of [-1,1]) {
-          const openings=side<0?(front?[-2.65,3.67]:[]):(front?[-2.80,3.70]:[-1.17]);
+          const platform=side>0;
+          const openings=platform?(front?[-2.65,3.67]:[]):(front?[-2.80,3.70]:[-1.17]);
           let start=back+.08;
           const z0=front?4.74:3.08;
           box(frame,.145,.13,z0-start,side*1.195,2.615,(z0+start)/2,navy);
@@ -2340,7 +2422,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
             box(frame,.099,.60,length,side*1.218,.780,center,white);
             box(frame,.107,.19,length,side*1.219,1.149,center,lightBlue);
             box(frame,.103,.19,length,side*1.22,1.34,center,navy);
-            box(frame,.092,1.032,length,side*1.218,1.941,center,glass);
+            box(frame,.092,1.032,length,side*1.218,1.941,center,busGlass);
             box(frame,.102,.18,length,side*1.22,2.54,center,navy);
             const bays=Math.ceil(length/1.54);
             for(let window=0;window<=bays;window++) box(frame,.145,1.04,.074,side*1.21,1.94,begin+length*window/bays,dark);
@@ -2356,11 +2438,13 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
               const leaf=new T.Group();
               const position=opening+slide*.302;
               leaf.position.set(side*1.233,0,position);
-              box(leaf,.083,1.98,.589,0,1.51,0,dark);
-              box(leaf,.089,1.45,.43,side*.012,1.73,0,glass);
+              box(leaf,.083,.51,.589,0,.776,0,dark);
+              box(leaf,.083,.12,.589,0,2.438,0,dark);
+              for(const stile of [-1,1]) box(leaf,.083,1.43,.078,0,1.724,stile*.25,dark);
+              box(leaf,.089,1.45,.43,side*.012,1.73,0,busGlass);
               box(leaf,.092,.05,.39,side*.017,1.12,0,lightBlue);
               mergeLandmark(leaf);
-              doors.push({leaf,position,slide,platform:side<0});
+              doors.push({leaf,position,slide,platform});
               group.add(leaf);
             }
           }
@@ -2379,7 +2463,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         }
         if(front) {
           box(frame,2.33,.826,.235,0,.938,4.90,blue);
-          box(frame,2.24,1.27,.17,0,1.94,4.98,glass);
+          box(frame,2.24,1.27,.17,0,1.94,4.98,busGlass);
           box(frame,2.26,.367,.15,0,2.685,4.925,navy);
           for(const side of [-1,1]) {
             box(frame,.102,1.38,.13,side*1.103,1.91,5.015,navy);
@@ -2388,7 +2472,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           }
         } else {
           box(frame,2.43,2.13,.14,0,1.546,-3.68,navy);
-          box(frame,1.78,.93,.085,0,1.88,-3.782,glass);
+          box(frame,1.78,.93,.085,0,1.88,-3.782,busGlass);
           box(frame,1.93,.47,.10,0,.783,-3.784,blue);
           for(const side of [-1,1]) box(frame,.19,.48,.075,side*1.01,.87,-3.823,redLamp);
         }
@@ -2404,19 +2488,35 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         display.position.set(0,front?2.70:2.50,front?5.009:-3.79);
         if(!front) display.rotation.y=Math.PI;
         group.add(display);
+        group.add(cabin(front));
+        group.traverse(mesh=>{ if(mesh.material===busGlass) panes.push(mesh); });
         scene.add(group);
         return group;
       }
       const body=section(true),trailer=section(false);
       const bellows=new T.Group();
-      box(bellows,2.24,2.48,1.13,0,1.77,0,dark);
-      for(let rib=0;rib<8;rib++) box(bellows,2.32,2.53,.039,0,1.77,-.54+rib*.154,tire);
+      box(bellows,2.24,.18,1.13,0,2.92,0,dark);
+      box(bellows,2.24,.12,1.13,0,.60,0,dark);
+      for(const side of [-1,1]) box(bellows,.23,2.40,1.13,side*1.023,1.80,0,dark);
+      for(let rib=0;rib<8;rib++) {
+        const z=-.54+rib*.154;
+        box(bellows,2.31,.126,.043,0,3.00,z,tire);
+        for(const side of [-1,1]) box(bellows,.152,2.45,.043,side*1.103,1.80,z,tire);
+      }
       mergeLandmark(bellows);
       scene.add(bellows);
       const brakeLights=new T.Group();
       for(const side of [-1,1]) box(brakeLights,.158,.40,.077,side*1.01,.87,-3.83,brakeLamp);
       trailer.add(brakeLights);
-      return {body,trailer,bellows,doors,brakeLights,length:18.30};
+      const passengerView=enabled=>{
+        for(const pane of panes) pane.material=enabled?clearGlass:busGlass;
+        for(const detail of cabins) detail.visible=enabled;
+      };
+      const display=message=>{
+        if(!signs.has(message)) signs.set(message,signTexture(message,'#162124','#ffcd74'));
+        nextSign.material=signs.get(message);
+      };
+      return {body,trailer,bellows,doors,brakeLights,passengerView,display,length:18.30};
     }
 
     return {bus,car};
@@ -2426,7 +2526,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const routes=trafficRoutes(geo.data.roads,layout);
     const models=vehicleModels(scene,geo);
     const rng=geo.random(421433);
-    let model=0,lastTime;
+    let model=0,lastTime,passenger=null;
     for(const route of routes) {
       const bus=route.kind==='bus';
       const paterson=route.stations.find(stop=>stop.name==='Paterson');
@@ -2461,15 +2561,20 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     scene.add(shadows);
     const shadow=new T.Object3D(),blockers=[],buses=[];
 
-    function place(group,line,s,width,length,shadowCount) {
+    function pose(line,s) {
       const [x,z,dx,dz]=line.sample(s);
       const [ax,az]=line.sample(s-2.4),[bx,bz]=line.sample(s+2.4);
       const slope=Math.atan2(geo.ground(bx,bz)-geo.ground(ax,az),Math.hypot(bx-ax,bz-az));
       const ux=bx-ax,uz=bz-az,d=Math.hypot(ux,uz);
-      const yaw=Math.atan2(d>0?ux:dx,d>0?uz:dz),y=geo.ground(x,z);
+      return {x,y:geo.ground(x,z),z,dx:d>0?ux/d:dx,dz:d>0?uz/d:dz,slope};
+    }
+
+    function place(group,line,s,width,length,shadowCount) {
+      const {x,y,z,dx,dz,slope}=pose(line,s);
+      const yaw=Math.atan2(dx,dz);
       group.position.set(x,y+.246,z);
       group.rotation.set(-slope,yaw,0,'YXZ');
-      blockers.push([x,z,Math.sin(yaw),Math.cos(yaw),width/2,length/2]);
+      blockers.push([x,z,dx,dz,width/2,length/2]);
       shadow.position.set(x,y+.293,z);
       shadow.rotation.set(-slope,yaw,0,'YXZ');
       shadow.scale.set(width*1.56,1,length*1.20);
@@ -2477,20 +2582,34 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       shadows.setMatrixAt(shadowCount,shadow.matrix);
     }
 
-    function update(time,camera,player) {
+    function advance(time,player) {
       const elapsed=lastTime===undefined?0:Math.min(.25,Math.max(0,time-lastTime));
       lastTime=time;
       const steps=Math.ceil(elapsed*30);
-      blockers.length=0;
       buses.length=0;
-      let shadowCount=0;
+      const onPlatform=player && platformAt(player[0],player[1]);
       for(const route of routes) {
         const {line,vehicles}=route;
-        const occupied=player?line.project(player[0],player[1]):null;
+        const occupied=player && !(onPlatform && route.kind==='bus')?line.project(player[0],player[1]):null;
         for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),occupied);
+        if(route.kind!=='bus') continue;
         for(const actor of vehicles) {
-          const [x,z,dx,dz]=line.sample(actor.s-(actor.bus?8:0));
-          if(actor.bus) buses.push([x,z,dx,dz,actor.dwell>0]);
+          const [x,z,dx,dz]=line.sample(actor.s-8);
+          buses.push([x,z,dx,dz,actor.dwell>0]);
+        }
+      }
+    }
+
+    function doorsOpen(actor) {
+      return geo.clamp(Math.min(actor.dwell/1.05,(actor.dwellTime-actor.dwell)/.96),0,1);
+    }
+
+    function render(camera) {
+      blockers.length=0;
+      let shadowCount=0;
+      for(const {line,vehicles} of routes) {
+        for(const actor of vehicles) {
+          const [x,z]=line.sample(actor.s-(actor.bus?8:0));
           const within=Math.hypot(x-camera.position.x,z-camera.position.z)<(actor.bus?680:490);
           actor.body.visible=within;
           if(actor.bus) actor.trailer.visible=actor.bellows.visible=within;
@@ -2502,7 +2621,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
             const [jx,jz,jdx,jdz]=line.sample(actor.s-10.71);
             actor.bellows.position.set(jx,geo.ground(jx,jz)+.248,jz);
             actor.bellows.rotation.y=Math.atan2(jdx,jdz);
-            const open=geo.clamp(Math.min(actor.dwell/1.05,(actor.dwellTime-actor.dwell)/.96),0,1);
+            const open=doorsOpen(actor);
             for(const {leaf,platform,position,slide} of actor.doors) leaf.position.z=position+(platform?slide*.58*open:0);
           } else {
             place(actor.body,line,actor.s-actor.length*.5,1.88,actor.length,shadowCount++);
@@ -2522,7 +2641,101 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       return false;
     }
-    return {update,blocked,buses};
+
+    function platformAt(x,z) {
+      for(const [name,sx,sz,dx,dz] of layout.stops) {
+        const px=x-sx,pz=z-sz,along=Math.abs(px*dx+pz*dz),across=Math.abs(-px*dz+pz*dx);
+        if(across<=2.16 && along<=14.3) return {name,height:.44*geo.clamp((14.3-along)/3.7,0,1)};
+      }
+      return null;
+    }
+
+    function platformPosition(station,direction,offset=5.75,towardBus=true) {
+      const {x,z,dx,dz,name}=station;
+      const rx=-dz*direction,rz=dx*direction;
+      return {name,x:x+direction*dx*offset+rx*1.54,z:z+direction*dz*offset+rz*1.54,
+        yaw:Math.atan2(rx,-rz)+(towardBus?0:Math.PI)};
+    }
+
+    function platformStart(name) {
+      const stop=layout.stops.find(row=>row[0]===name);
+      if(!stop) return null;
+      const [label,x,z,dx,dz]=stop;
+      return platformPosition({name:label,x,z,dx,dz},1);
+    }
+
+    function boardingAt(x,z) {
+      const platform=platformAt(x,z);
+      if(!platform) return null;
+      let nearest=null,best=4.35;
+      for(const route of routes) {
+        if(route.kind!=='bus') continue;
+        for(const actor of route.vehicles) {
+          if(doorsOpen(actor)<.74 || route.stations[actor.stop]?.name!==platform.name || !route.stations[actor.stop+1]) continue;
+          const head=pose(route.line,actor.s-5.02);
+          for(const door of [-2.65,3.67]) {
+            const sx=head.x+head.dx*door+head.dz*1.26,sz=head.z+head.dz*door-head.dx*1.26;
+            const distance=Math.hypot(sx-x,sz-z);
+            if(distance>=best) continue;
+            nearest={actor,route,station:platform.name};
+            best=distance;
+          }
+        }
+      }
+      return nearest;
+    }
+
+    function board(x,z) {
+      if(passenger) return null;
+      const offer=boardingAt(x,z);
+      if(!offer) return null;
+      passenger=offer;
+      offer.actor.passengerView(true);
+      return offer.station;
+    }
+
+    function release() {
+      if(!passenger) return;
+      passenger.actor.passengerView(false);
+      passenger=null;
+    }
+
+    function ride() {
+      if(!passenger) return null;
+      const {actor,route}=passenger;
+      const current=route.stations[actor.stop] || route.stations.at(-1);
+      const stopped=actor.dwell>0;
+      const next=stopped?route.stations[actor.stop+1]:current;
+      const open=doorsOpen(actor)>=.74;
+      const final=stopped&&!next;
+      const cabin=pose(route.line,actor.s-5.02);
+      const seatAlong=-1.43,seatAcross=-.63;
+      actor.display(stopped?current.name.toUpperCase():('NEXT  '+(next?.name || current.name).toUpperCase()));
+      return {x:cabin.x+cabin.dx*seatAlong+cabin.dz*seatAcross,
+        y:cabin.y+1.94+Math.sin(cabin.slope)*seatAlong,
+        z:cabin.z+cabin.dz*seatAlong-cabin.dx*seatAcross,yaw:Math.atan2(cabin.dx,-cabin.dz),
+        direction:route.direction>0?'Eastbound':'Westbound',station:stopped?current.name:null,next:next?.name,
+        final,open};
+    }
+
+    function exit() {
+      if(!passenger || doorsOpen(passenger.actor)<.74) return null;
+      const {actor,route}=passenger;
+      const stop=route.stations[actor.stop];
+      if(!stop) return null;
+      const point=platformPosition(stop,route.direction,5.75,false);
+      release();
+      return point;
+    }
+
+    function stationStatus(x,z) {
+      const platform=platformAt(x,z);
+      if(!platform) return null;
+      const offer=boardingAt(x,z);
+      return {name:platform.name,direction:offer?offer.route.direction>0?'Eastbound':'Westbound':null};
+    }
+
+    return {advance,render,blocked,buses,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release}};
   }
 
   window.MadisonTraffic={cycle,green,yellow,create};
@@ -3894,7 +4107,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     window.addEventListener('resize',resize);
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
-    return {camera,car,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,render(seconds,player=null) {
+    return {camera,car,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+      transit:traffic.transit,advanceTraffic:traffic.advance,render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
       if(elapsed>0) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
@@ -3938,7 +4152,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
-      traffic.update(seconds,camera,player && height===0?player:null);
+      traffic.render(camera);
       if(frameTime>.073) reflectionQuality=false;
       if(!software && frameTime<.034) reflectionQuality=true;
       atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));
@@ -3968,13 +4182,16 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     {name:'Breese Stevens Field', x:839, z:-886, yaw:.73, above:78, flyPitch:-.56, marker:[899,-967]}
   ];
   const stationPoints=(data.brtStations || []).map(([name,x,z])=>({
-    name:name+' BRT',x:x+4.25,z:z+18.25,yaw:-.23,above:43,transit:true,marker:[x,z]
+    name:name+' BRT',station:name,x:x+4.25,z:z+18.25,yaw:-.23,above:43,transit:true,marker:[x,z]
   }));
-  const stopQuery=new URLSearchParams(window.location.search).get('stop')?.toLowerCase();
-  const openingStop=stationPoints.find(point=>point.name.toLowerCase()===stopQuery+' brt');
+  const query=new URLSearchParams(window.location.search);
+  const stopQuery=query.get('stop')?.toLowerCase();
+  const openingStop=stationPoints.find(point=>point.station.toLowerCase()===stopQuery);
+  const firstRide=stationPoints.find(point=>point.station==='Paterson') || stationPoints[0];
   points.push(...stationPoints);
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
-  const modeNames={walk:'WALKING',drive:'DRIVING',fly:'FLYING'};
+  const modeNames={walk:'WALKING',drive:'DRIVING',fly:'FLYING',ride:'RIDING'};
+  const travelModes=['walk','drive','fly'];
   const modeKeys={Digit1:'walk',Digit2:'drive',Digit3:'fly'};
   const worldBounds=data.bounds;
   const keys=new Set();
@@ -3987,6 +4204,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   let x=focus.x,z=focus.z,yaw=focus.yaw,pitch=-.035,speed=0,steer=0,walkTime=0,walkAmount=0;
   let altitude=0, airX=0, airY=0, airZ=0, groundReturn=points[0];
   let pointer=null, previous=0, lastHUD=-1, lastRender=0, snap=true;
+  let rideView=null,rideLook=0,stopRequested=false;
   const mapBase=document.createElement('canvas');
   mapBase.width=map.width;
   mapBase.height=map.height;
@@ -4170,6 +4388,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   function changeMode(next,point) {
     if (!engine) return;
     const previousMode=state;
+    if(previousMode==='ride' && next!=='ride') {
+      engine.transit.release();
+      rideView=null;
+      stopRequested=false;
+    }
     let landedAway=false;
     if(point) {
       focus=point;
@@ -4202,6 +4425,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     game.classList.toggle('playing',next!=='intro');
     game.classList.toggle('driving',next==='drive');
     game.classList.toggle('flying',next==='fly');
+    game.classList.toggle('riding',next==='ride');
     game.classList.remove('hud-free');
     $('intro').hidden=next!=='intro';
     $('hud').hidden=next==='intro';
@@ -4212,11 +4436,69 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('mode-label').lastChild.textContent=' '+(modeNames[next] || modeNames.walk);
     $('motion-label').textContent={walk:'Move',drive:'Steer',fly:'Fly'}[next] || 'Move';
     $('look-tip').textContent=next==='drive'?'Space to brake':'Drag to look';
-    for(const mode of Object.keys(modeNames)) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
+    for(const mode of travelModes) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
     engine.car.visible=next==='drive';
     setMap(false);
     updateHUD();
     if(landedAway) toast('Returned to your last ground position.');
+  }
+
+  function visitPlatform(point) {
+    const platform=engine.transit.platformStart(point.station);
+    changeMode('walk',platform?{...point,...platform,name:point.name}:point);
+  }
+
+  function stepOff() {
+    const platform=engine.transit.exit();
+    if(!platform) return;
+    const station=stationPoints.find(point=>point.station===platform.name);
+    changeMode('walk',{...station,...platform,name:station?.name || platform.name});
+    toast('Stepped off at '+platform.name+'.');
+  }
+
+  function busAction() {
+    if(state==='ride') {
+      if(rideView?.open) stepOff();
+      else {
+        stopRequested=!stopRequested;
+        updateTransitPanel();
+      }
+      return;
+    }
+    if(state!=='walk') return;
+    const boarded=engine.transit.board(x,z);
+    if(!boarded) { toast('Wait for the platform doors to open.'); return; }
+    rideView=engine.transit.ride();
+    rideLook=.10;
+    pitch=-.025;
+    stopRequested=false;
+    changeMode('ride');
+  }
+
+  function updateTransitPanel() {
+    const waiting=state==='walk'?engine.transit.stationStatus(x,z):null;
+    const riding=state==='ride'?rideView:null;
+    const direction=riding?.direction || waiting?.direction;
+    const panel=$('transit-panel'),button=$('transit-action');
+    panel.hidden=!riding&&!waiting;
+    if(panel.hidden) return;
+    let action,status;
+    if(riding) {
+      action=riding.open?'Step off':stopRequested?'Cancel request':'Request stop';
+      if(riding.open) status='Doors open at '+riding.station;
+      else if(stopRequested) status='Stop requested for '+riding.next;
+      else if(riding.station) status='At '+riding.station;
+      else status='Next stop · '+riding.next;
+    } else {
+      action=direction?'Board bus':'';
+      status=direction?'Doors open at '+waiting.name:'Waiting at '+waiting.name;
+    }
+    const labels={'transit-status':status,'transit-route':direction?'Route A · '+direction:'Route A','transit-action-label':action};
+    for(const [id,label] of Object.entries(labels)) {
+      const element=$(id);
+      if(element.textContent!==label) element.textContent=label;
+    }
+    button.hidden=!action;
   }
 
   function fly(dt) {
@@ -4295,10 +4577,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       camera.lookAt(-342,37,14);
       return;
     }
+    if(state==='ride' && rideView) {
+      ({x,z}=rideView);
+      yaw=rideView.yaw+rideLook;
+      const y=rideView.y;
+      camera.position.set(x,y,z);
+      camera.lookAt(x+Math.sin(yaw)*Math.cos(pitch),y+Math.sin(pitch),z-Math.cos(yaw)*Math.cos(pitch));
+      return;
+    }
     const base=world.ground(x,z), dx=Math.sin(yaw), dz=-Math.cos(yaw);
     if(state!=='drive') {
       const bob=walkAmount*(reducedMotion.matches?0:.041)*Math.sin(walkTime);
-      const y=state==='fly'?altitude:base+1.86;
+      const y=state==='fly'?altitude:base+1.86+(engine.transit.platformAt(x,z)?.height || 0);
       camera.position.set(x,state==='fly' || snap?y:smooth(camera.position.y,y+bob,18,dt),z);
       camera.lookAt(x+dx*Math.cos(pitch),camera.position.y+Math.sin(pitch),z+dz*Math.cos(pitch));
     } else {
@@ -4324,13 +4614,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const distance=Math.hypot(x-nearby.x,z-nearby.z);
     const lake=state==='fly'?world.lakeName(x,z):'';
     const name=lake || (distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
-    $('place-name').textContent=name;
-    $('location-name').textContent=road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
-    $('map-status').textContent=state==='intro'?'Capitol Square':name;
+    $('place-name').textContent=rideView?'Metro Rapid':name;
+    $('location-name').textContent=rideView?'East Washington Avenue':
+      road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
+    $('map-status').textContent=state==='intro'?'Capitol Square':rideView?'Route A · '+(rideView.station || rideView.direction):name;
     const [lon,lat]=data.origin,[mx,mz]=data.meters;
     $('coordinates').textContent=(lat-z/mz).toFixed(5)+'° N  ·  '+Math.abs(lon+x/mx).toFixed(5)+'° W';
     $('speed').textContent=String(Math.round(Math.abs(speed)*2.23694));
     $('altitude').textContent=String(Math.round(Math.max(0,altitude-world.ground(x,z))));
+    updateTransitPanel();
     drawMap();
   }
 
@@ -4344,15 +4636,20 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(state==='drive') drive(dt);
       if(state==='fly') fly(dt);
     }
-    if(stamp-lastHUD>90) {
-      lastHUD=stamp;
-      updateHUD();
-    }
     if(state==='intro' && stamp-lastRender<32) return;
     let seconds=stamp/1000;
     if(state==='intro' && reducedMotion.matches) seconds=0;
     lastRender=stamp;
+    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null);
+    if(state==='ride') {
+      rideView=engine.transit.ride();
+      if(rideView?.open && (stopRequested || rideView.final)) stepOff();
+    }
     setCamera(seconds,dt);
+    if(stamp-lastHUD>90) {
+      lastHUD=stamp;
+      updateHUD();
+    }
     engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
   }
 
@@ -4360,16 +4657,23 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('walk').addEventListener('click',()=>changeMode('walk',points[0]));
     $('drive').addEventListener('click',()=>changeMode('drive',points[0]));
     $('fly').addEventListener('click',()=>changeMode('fly',flyover));
+    $('ride-start').addEventListener('click',()=>visitPlatform(firstRide));
+    $('transit-action').addEventListener('click',busAction);
     $('home').addEventListener('click',()=>changeMode('intro',points[0]));
     const selectMode=mode=>{
       if(mode===state) return;
+      if(state==='ride') {
+        if(mode==='walk') busAction();
+        else toast('Step off at a station to change travel modes.');
+        return;
+      }
       if(state==='drive' && mode==='walk' && Math.abs(speed)>2.3) { toast('Brake before stepping out.'); return; }
       changeMode(mode,state==='intro'?(mode==='fly'?flyover:points[0]):undefined);
     };
     const reset=()=>{
-      if(state!=='intro') { changeMode(state,focus); toast('Back at '+focus.name); }
+      if(state!=='intro') { changeMode(state==='ride'?'walk':state,focus); toast('Back at '+focus.name); }
     };
-    for(const mode of Object.keys(modeNames)) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
+    for(const mode of travelModes) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
     $('reset').addEventListener('click',reset);
     $('light').addEventListener('click',()=>{
       light=(light+1)%lightNames.length;
@@ -4395,7 +4699,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       button.type='button';
       button.textContent=point.name;
       if(point.transit) button.classList.add('transit-stop');
-      button.addEventListener('click',()=>changeMode(state==='intro'?'walk':state,point));
+      button.addEventListener('click',()=>{
+        const mode=state==='intro' || state==='ride'?'walk':state;
+        if(point.transit && mode==='walk') visitPlatform(point);
+        else changeMode(mode,point);
+      });
       $('landmarks').append(button);
     }
     $('transit-legend').hidden=!stationPoints.length;
@@ -4420,12 +4728,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(!event.repeat && modeKeys[key] && !expanded) { selectMode(modeKeys[key]); return; }
       if(!event.repeat && key==='KeyF' && !expanded) { selectMode(state==='fly'?'walk':'fly'); return; }
       if(state==='intro' || expanded) return;
-      if(['KeyW','KeyS','KeyA','KeyD','KeyC','Space','ShiftLeft','ShiftRight'].includes(key)) {
+      if(state!=='ride' && ['KeyW','KeyS','KeyA','KeyD','KeyC','Space','ShiftLeft','ShiftRight'].includes(key)) {
         if(key==='Space' && state==='walk') return;
         event.preventDefault();
         keys.add(key);
       }
-      if(!event.repeat && key==='KeyE') selectMode(state==='drive'?'walk':'drive');
+      if(!event.repeat && key==='KeyE') {
+        if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
+        else selectMode(state==='drive'?'walk':'drive');
+      }
       if(!event.repeat && key==='KeyR') reset();
       if(!event.repeat && key==='KeyH') {
         const hidden=game.classList.toggle('hud-free');
@@ -4443,7 +4754,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     });
     engine.canvas.addEventListener('pointermove',event=>{
       if(pointer?.id!==event.pointerId || expanded) return;
-      yaw+=(event.clientX-pointer.x)*.00335;
+      const delta=(event.clientX-pointer.x)*.00335;
+      if(state==='ride') rideLook+=delta;
+      else yaw+=delta;
       pitch=clamp(pitch-(event.clientY-pointer.y)*.00335,-1.56,1.56);
       pointer.x=event.clientX;
       pointer.y=event.clientY;
@@ -4466,12 +4779,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       drawMap();
       engine=await world.create($('scene'));
       engine.setLight(light);
+      engine.advanceTraffic(0,null);
       setCamera(0,0);
       engine.render(0);
       bind();
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;
+      $('ride-start').disabled=!firstRide;
+      $('ride-start').hidden=!firstRide;
       $('loading').hidden=true;
-      if(openingStop) changeMode('walk',openingStop);
+      if(openingStop) {
+        if(query.get('platform')==='1') visitPlatform(openingStop);
+        else changeMode('walk',openingStop);
+      }
       requestAnimationFrame(frame);
     } catch(error) {
       console.error(error);

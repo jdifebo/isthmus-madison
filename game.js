@@ -15,13 +15,16 @@
     {name:'Breese Stevens Field', x:839, z:-886, yaw:.73, above:78, flyPitch:-.56, marker:[899,-967]}
   ];
   const stationPoints=(data.brtStations || []).map(([name,x,z])=>({
-    name:name+' BRT',x:x+4.25,z:z+18.25,yaw:-.23,above:43,transit:true,marker:[x,z]
+    name:name+' BRT',station:name,x:x+4.25,z:z+18.25,yaw:-.23,above:43,transit:true,marker:[x,z]
   }));
-  const stopQuery=new URLSearchParams(window.location.search).get('stop')?.toLowerCase();
-  const openingStop=stationPoints.find(point=>point.name.toLowerCase()===stopQuery+' brt');
+  const query=new URLSearchParams(window.location.search);
+  const stopQuery=query.get('stop')?.toLowerCase();
+  const openingStop=stationPoints.find(point=>point.station.toLowerCase()===stopQuery);
+  const firstRide=stationPoints.find(point=>point.station==='Paterson') || stationPoints[0];
   points.push(...stationPoints);
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
-  const modeNames={walk:'WALKING',drive:'DRIVING',fly:'FLYING'};
+  const modeNames={walk:'WALKING',drive:'DRIVING',fly:'FLYING',ride:'RIDING'};
+  const travelModes=['walk','drive','fly'];
   const modeKeys={Digit1:'walk',Digit2:'drive',Digit3:'fly'};
   const worldBounds=data.bounds;
   const keys=new Set();
@@ -34,6 +37,7 @@
   let x=focus.x,z=focus.z,yaw=focus.yaw,pitch=-.035,speed=0,steer=0,walkTime=0,walkAmount=0;
   let altitude=0, airX=0, airY=0, airZ=0, groundReturn=points[0];
   let pointer=null, previous=0, lastHUD=-1, lastRender=0, snap=true;
+  let rideView=null,rideLook=0,stopRequested=false;
   const mapBase=document.createElement('canvas');
   mapBase.width=map.width;
   mapBase.height=map.height;
@@ -217,6 +221,11 @@
   function changeMode(next,point) {
     if (!engine) return;
     const previousMode=state;
+    if(previousMode==='ride' && next!=='ride') {
+      engine.transit.release();
+      rideView=null;
+      stopRequested=false;
+    }
     let landedAway=false;
     if(point) {
       focus=point;
@@ -249,6 +258,7 @@
     game.classList.toggle('playing',next!=='intro');
     game.classList.toggle('driving',next==='drive');
     game.classList.toggle('flying',next==='fly');
+    game.classList.toggle('riding',next==='ride');
     game.classList.remove('hud-free');
     $('intro').hidden=next!=='intro';
     $('hud').hidden=next==='intro';
@@ -259,11 +269,69 @@
     $('mode-label').lastChild.textContent=' '+(modeNames[next] || modeNames.walk);
     $('motion-label').textContent={walk:'Move',drive:'Steer',fly:'Fly'}[next] || 'Move';
     $('look-tip').textContent=next==='drive'?'Space to brake':'Drag to look';
-    for(const mode of Object.keys(modeNames)) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
+    for(const mode of travelModes) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
     engine.car.visible=next==='drive';
     setMap(false);
     updateHUD();
     if(landedAway) toast('Returned to your last ground position.');
+  }
+
+  function visitPlatform(point) {
+    const platform=engine.transit.platformStart(point.station);
+    changeMode('walk',platform?{...point,...platform,name:point.name}:point);
+  }
+
+  function stepOff() {
+    const platform=engine.transit.exit();
+    if(!platform) return;
+    const station=stationPoints.find(point=>point.station===platform.name);
+    changeMode('walk',{...station,...platform,name:station?.name || platform.name});
+    toast('Stepped off at '+platform.name+'.');
+  }
+
+  function busAction() {
+    if(state==='ride') {
+      if(rideView?.open) stepOff();
+      else {
+        stopRequested=!stopRequested;
+        updateTransitPanel();
+      }
+      return;
+    }
+    if(state!=='walk') return;
+    const boarded=engine.transit.board(x,z);
+    if(!boarded) { toast('Wait for the platform doors to open.'); return; }
+    rideView=engine.transit.ride();
+    rideLook=.10;
+    pitch=-.025;
+    stopRequested=false;
+    changeMode('ride');
+  }
+
+  function updateTransitPanel() {
+    const waiting=state==='walk'?engine.transit.stationStatus(x,z):null;
+    const riding=state==='ride'?rideView:null;
+    const direction=riding?.direction || waiting?.direction;
+    const panel=$('transit-panel'),button=$('transit-action');
+    panel.hidden=!riding&&!waiting;
+    if(panel.hidden) return;
+    let action,status;
+    if(riding) {
+      action=riding.open?'Step off':stopRequested?'Cancel request':'Request stop';
+      if(riding.open) status='Doors open at '+riding.station;
+      else if(stopRequested) status='Stop requested for '+riding.next;
+      else if(riding.station) status='At '+riding.station;
+      else status='Next stop · '+riding.next;
+    } else {
+      action=direction?'Board bus':'';
+      status=direction?'Doors open at '+waiting.name:'Waiting at '+waiting.name;
+    }
+    const labels={'transit-status':status,'transit-route':direction?'Route A · '+direction:'Route A','transit-action-label':action};
+    for(const [id,label] of Object.entries(labels)) {
+      const element=$(id);
+      if(element.textContent!==label) element.textContent=label;
+    }
+    button.hidden=!action;
   }
 
   function fly(dt) {
@@ -342,10 +410,18 @@
       camera.lookAt(-342,37,14);
       return;
     }
+    if(state==='ride' && rideView) {
+      ({x,z}=rideView);
+      yaw=rideView.yaw+rideLook;
+      const y=rideView.y;
+      camera.position.set(x,y,z);
+      camera.lookAt(x+Math.sin(yaw)*Math.cos(pitch),y+Math.sin(pitch),z-Math.cos(yaw)*Math.cos(pitch));
+      return;
+    }
     const base=world.ground(x,z), dx=Math.sin(yaw), dz=-Math.cos(yaw);
     if(state!=='drive') {
       const bob=walkAmount*(reducedMotion.matches?0:.041)*Math.sin(walkTime);
-      const y=state==='fly'?altitude:base+1.86;
+      const y=state==='fly'?altitude:base+1.86+(engine.transit.platformAt(x,z)?.height || 0);
       camera.position.set(x,state==='fly' || snap?y:smooth(camera.position.y,y+bob,18,dt),z);
       camera.lookAt(x+dx*Math.cos(pitch),camera.position.y+Math.sin(pitch),z+dz*Math.cos(pitch));
     } else {
@@ -371,13 +447,15 @@
     const distance=Math.hypot(x-nearby.x,z-nearby.z);
     const lake=state==='fly'?world.lakeName(x,z):'';
     const name=lake || (distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
-    $('place-name').textContent=name;
-    $('location-name').textContent=road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
-    $('map-status').textContent=state==='intro'?'Capitol Square':name;
+    $('place-name').textContent=rideView?'Metro Rapid':name;
+    $('location-name').textContent=rideView?'East Washington Avenue':
+      road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
+    $('map-status').textContent=state==='intro'?'Capitol Square':rideView?'Route A · '+(rideView.station || rideView.direction):name;
     const [lon,lat]=data.origin,[mx,mz]=data.meters;
     $('coordinates').textContent=(lat-z/mz).toFixed(5)+'° N  ·  '+Math.abs(lon+x/mx).toFixed(5)+'° W';
     $('speed').textContent=String(Math.round(Math.abs(speed)*2.23694));
     $('altitude').textContent=String(Math.round(Math.max(0,altitude-world.ground(x,z))));
+    updateTransitPanel();
     drawMap();
   }
 
@@ -391,15 +469,20 @@
       if(state==='drive') drive(dt);
       if(state==='fly') fly(dt);
     }
-    if(stamp-lastHUD>90) {
-      lastHUD=stamp;
-      updateHUD();
-    }
     if(state==='intro' && stamp-lastRender<32) return;
     let seconds=stamp/1000;
     if(state==='intro' && reducedMotion.matches) seconds=0;
     lastRender=stamp;
+    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null);
+    if(state==='ride') {
+      rideView=engine.transit.ride();
+      if(rideView?.open && (stopRequested || rideView.final)) stepOff();
+    }
     setCamera(seconds,dt);
+    if(stamp-lastHUD>90) {
+      lastHUD=stamp;
+      updateHUD();
+    }
     engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
   }
 
@@ -407,16 +490,23 @@
     $('walk').addEventListener('click',()=>changeMode('walk',points[0]));
     $('drive').addEventListener('click',()=>changeMode('drive',points[0]));
     $('fly').addEventListener('click',()=>changeMode('fly',flyover));
+    $('ride-start').addEventListener('click',()=>visitPlatform(firstRide));
+    $('transit-action').addEventListener('click',busAction);
     $('home').addEventListener('click',()=>changeMode('intro',points[0]));
     const selectMode=mode=>{
       if(mode===state) return;
+      if(state==='ride') {
+        if(mode==='walk') busAction();
+        else toast('Step off at a station to change travel modes.');
+        return;
+      }
       if(state==='drive' && mode==='walk' && Math.abs(speed)>2.3) { toast('Brake before stepping out.'); return; }
       changeMode(mode,state==='intro'?(mode==='fly'?flyover:points[0]):undefined);
     };
     const reset=()=>{
-      if(state!=='intro') { changeMode(state,focus); toast('Back at '+focus.name); }
+      if(state!=='intro') { changeMode(state==='ride'?'walk':state,focus); toast('Back at '+focus.name); }
     };
-    for(const mode of Object.keys(modeNames)) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
+    for(const mode of travelModes) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
     $('reset').addEventListener('click',reset);
     $('light').addEventListener('click',()=>{
       light=(light+1)%lightNames.length;
@@ -442,7 +532,11 @@
       button.type='button';
       button.textContent=point.name;
       if(point.transit) button.classList.add('transit-stop');
-      button.addEventListener('click',()=>changeMode(state==='intro'?'walk':state,point));
+      button.addEventListener('click',()=>{
+        const mode=state==='intro' || state==='ride'?'walk':state;
+        if(point.transit && mode==='walk') visitPlatform(point);
+        else changeMode(mode,point);
+      });
       $('landmarks').append(button);
     }
     $('transit-legend').hidden=!stationPoints.length;
@@ -467,12 +561,15 @@
       if(!event.repeat && modeKeys[key] && !expanded) { selectMode(modeKeys[key]); return; }
       if(!event.repeat && key==='KeyF' && !expanded) { selectMode(state==='fly'?'walk':'fly'); return; }
       if(state==='intro' || expanded) return;
-      if(['KeyW','KeyS','KeyA','KeyD','KeyC','Space','ShiftLeft','ShiftRight'].includes(key)) {
+      if(state!=='ride' && ['KeyW','KeyS','KeyA','KeyD','KeyC','Space','ShiftLeft','ShiftRight'].includes(key)) {
         if(key==='Space' && state==='walk') return;
         event.preventDefault();
         keys.add(key);
       }
-      if(!event.repeat && key==='KeyE') selectMode(state==='drive'?'walk':'drive');
+      if(!event.repeat && key==='KeyE') {
+        if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
+        else selectMode(state==='drive'?'walk':'drive');
+      }
       if(!event.repeat && key==='KeyR') reset();
       if(!event.repeat && key==='KeyH') {
         const hidden=game.classList.toggle('hud-free');
@@ -490,7 +587,9 @@
     });
     engine.canvas.addEventListener('pointermove',event=>{
       if(pointer?.id!==event.pointerId || expanded) return;
-      yaw+=(event.clientX-pointer.x)*.00335;
+      const delta=(event.clientX-pointer.x)*.00335;
+      if(state==='ride') rideLook+=delta;
+      else yaw+=delta;
       pitch=clamp(pitch-(event.clientY-pointer.y)*.00335,-1.56,1.56);
       pointer.x=event.clientX;
       pointer.y=event.clientY;
@@ -513,12 +612,18 @@
       drawMap();
       engine=await world.create($('scene'));
       engine.setLight(light);
+      engine.advanceTraffic(0,null);
       setCamera(0,0);
       engine.render(0);
       bind();
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;
+      $('ride-start').disabled=!firstRide;
+      $('ride-start').hidden=!firstRide;
       $('loading').hidden=true;
-      if(openingStop) changeMode('walk',openingStop);
+      if(openingStop) {
+        if(query.get('platform')==='1') visitPlatform(openingStop);
+        else changeMode('walk',openingStop);
+      }
       requestAnimationFrame(frame);
     } catch(error) {
       console.error(error);

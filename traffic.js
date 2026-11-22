@@ -120,10 +120,10 @@
           if(scores[axis]<.80) continue;
           signals.push({s:s-signal.axes[1-axis].extent-3.8,signal,axis});
         }
-        const stations=kind==='bus'?layout.stops.flatMap(([name,x,z])=>{
+        const stations=kind==='bus'?layout.stops.flatMap(([name,x,z,dx,dz])=>{
           const stop=line.project(x,z);
           if(stop.distance>7 || stop.s<22 || stop.s>line.length-15) return [];
-          return [{name,s:stop.s+7.4}];
+          return [{name,x,z,dx,dz,s:stop.s+7.4}];
         }).sort((a,b)=>a.s-b.s):[];
         routes.push({kind,direction,line,signals:signals.sort((a,b)=>a.s-b.s),stations,vehicles:[]});
       }
@@ -224,8 +224,13 @@
     const coat=color=>new T.MeshLambertMaterial({color,side:T.DoubleSide});
     const tire=coat(0x242726),hub=coat(0xb7c2c2),dark=coat(0x25343a);
     const glass=new T.MeshPhongMaterial({color:0x36556c,specular:0xa6bccb,shininess:64,side:T.DoubleSide});
+    const busGlass=glass.clone();
+    const clearGlass=new T.MeshPhongMaterial({color:0x82b4c9,transparent:true,opacity:.14,depthWrite:false,
+      specular:0xc6dae2,shininess:74,side:T.DoubleSide});
     const white=coat(0xe3e8de),navy=coat(0x15334f),blue=coat(0x328fc0),lightBlue=coat(0x81cfe2);
     const interior=coat(0x545b61),pole=coat(0xdaba63);
+    const seatCloth=coat(0x366075),seatBack=coat(0x33464e),ceiling=coat(0xc7cdca),wallLiner=coat(0xa1a6a4);
+    const cabinLight=new T.MeshBasicMaterial({color:0xe4edd8});
     const whiteLamp=new T.MeshBasicMaterial({color:0xffe9bf});
     const redLamp=new T.MeshBasicMaterial({color:0xcf493b});
     const amberLamp=new T.MeshBasicMaterial({color:0xf0a143});
@@ -282,7 +287,63 @@
     }
 
     function bus(direction) {
-      const doors=[];
+      const doors=[],cabins=[],panes=[];
+      let nextSign;
+
+      function cabin(front) {
+        const detail=new T.Group(),back=front?-5.14:-3.65,nose=front?4.83:3.07;
+        const length=nose-back,center=(back+nose)/2;
+        box(detail,2.42,.042,length,0,.565,center,interior);
+        box(detail,.52,.014,length,0,.591,center,seatBack);
+        box(detail,2.37,.087,length,0,2.72,center,ceiling);
+        for(const side of [-1,1]) {
+          box(detail,.067,.055,length-.36,side*.65,2.646,center,cabinLight);
+          box(detail,.038,.035,length-.52,side*.80,2.425,center,pole);
+          const rows=front?(side<0?[-4.37,-1.61,-.05,1.36]:[-4.17,-1.54,-.08,1.32]):
+            (side<0?[-3.16,.11,1.32]:[-3.16,-1.95,-.51,.99,2.22]);
+          for(const z of rows) {
+            box(detail,.083,.53,.31,side*.77,.83,z,hub);
+            box(detail,.70,.104,.495,side*.84,1.014,z,seatCloth);
+            const backrest=box(detail,.70,.534,.11,side*.84,1.245,z-.22,seatBack);
+            backrest.rotation.x=-.083;
+            box(detail,.62,.337,.059,side*.84,1.263,z-.144,seatCloth).rotation.x=-.083;
+            box(detail,.119,.071,.08,side*.47,1.365,z-.235,pole);
+          }
+          for(const z of front?[-3.39,-.86,2.49,4.43]:[-2.48,-.54,1.69]) {
+            cylinder(detail,.018,.018,1.96,side*.44,1.57,z,pole,8);
+            const loop=box(detail,.036,.23,.043,side*.80,2.30,z+.36,dark);
+            loop.rotation.z=side*.12;
+            box(detail,.117,.033,.058,side*.80,2.194,z+.36,pole);
+          }
+          const panels=front?[[-5.0,-3.36],[-1.94,2.99],[4.31,4.81]]:
+            side<0?[[-3.64,-1.83],[-.52,3.05]]:[[-3.64,3.05]];
+          for(const [a,b] of panels) box(detail,.052,.375,b-a,side*1.149,.763,(a+b)/2,wallLiner);
+        }
+        if(front) {
+          box(detail,1.81,.265,.43,0,1.115,4.59,dark);
+          box(detail,.60,.66,.55,.82,.838,4.35,wallLiner);
+          box(detail,.46,.137,.46,.74,1.13,4.07,seatCloth);
+          box(detail,.435,.48,.10,.74,1.34,3.87,seatBack);
+          const wheel=new T.Mesh(new T.TorusGeometry(.157,.022,8,20),dark);
+          wheel.rotation.x=-.65;
+          wheel.position.set(.74,1.40,4.56);
+          detail.add(wheel);
+          box(detail,.16,.52,.16,-.68,1.095,4.04,dark);
+          box(detail,.14,.076,.055,-.68,1.34,3.958,blue);
+          box(detail,1.42,.26,.071,-.07,2.50,3.40,dark);
+        }
+        mergeLandmark(detail);
+        if(front) {
+          nextSign=textSign('ROUTE A',1.32,.24,'#162124','#ffcd74');
+          nextSign.rotation.y=Math.PI;
+          nextSign.position.set(-.07,2.50,3.360);
+          detail.add(nextSign);
+        }
+        detail.visible=false;
+        cabins.push(detail);
+        return detail;
+      }
+
       function section(front) {
         const group=new T.Group(),frame=new T.Group();
         group.add(frame);
@@ -293,7 +354,8 @@
         box(frame,1.76,.33,front?3.69:2.14,0,3.237,front?-1.2:-.54,navy);
         for(let i=0;i<6;i++) box(frame,.076,.045,front?3.48:1.9,-.52+i*.208,3.423,front?-1.2:-.54,hub);
         for(const side of [-1,1]) {
-          const openings=side<0?(front?[-2.65,3.67]:[]):(front?[-2.80,3.70]:[-1.17]);
+          const platform=side>0;
+          const openings=platform?(front?[-2.65,3.67]:[]):(front?[-2.80,3.70]:[-1.17]);
           let start=back+.08;
           const z0=front?4.74:3.08;
           box(frame,.145,.13,z0-start,side*1.195,2.615,(z0+start)/2,navy);
@@ -303,7 +365,7 @@
             box(frame,.099,.60,length,side*1.218,.780,center,white);
             box(frame,.107,.19,length,side*1.219,1.149,center,lightBlue);
             box(frame,.103,.19,length,side*1.22,1.34,center,navy);
-            box(frame,.092,1.032,length,side*1.218,1.941,center,glass);
+            box(frame,.092,1.032,length,side*1.218,1.941,center,busGlass);
             box(frame,.102,.18,length,side*1.22,2.54,center,navy);
             const bays=Math.ceil(length/1.54);
             for(let window=0;window<=bays;window++) box(frame,.145,1.04,.074,side*1.21,1.94,begin+length*window/bays,dark);
@@ -319,11 +381,13 @@
               const leaf=new T.Group();
               const position=opening+slide*.302;
               leaf.position.set(side*1.233,0,position);
-              box(leaf,.083,1.98,.589,0,1.51,0,dark);
-              box(leaf,.089,1.45,.43,side*.012,1.73,0,glass);
+              box(leaf,.083,.51,.589,0,.776,0,dark);
+              box(leaf,.083,.12,.589,0,2.438,0,dark);
+              for(const stile of [-1,1]) box(leaf,.083,1.43,.078,0,1.724,stile*.25,dark);
+              box(leaf,.089,1.45,.43,side*.012,1.73,0,busGlass);
               box(leaf,.092,.05,.39,side*.017,1.12,0,lightBlue);
               mergeLandmark(leaf);
-              doors.push({leaf,position,slide,platform:side<0});
+              doors.push({leaf,position,slide,platform});
               group.add(leaf);
             }
           }
@@ -342,7 +406,7 @@
         }
         if(front) {
           box(frame,2.33,.826,.235,0,.938,4.90,blue);
-          box(frame,2.24,1.27,.17,0,1.94,4.98,glass);
+          box(frame,2.24,1.27,.17,0,1.94,4.98,busGlass);
           box(frame,2.26,.367,.15,0,2.685,4.925,navy);
           for(const side of [-1,1]) {
             box(frame,.102,1.38,.13,side*1.103,1.91,5.015,navy);
@@ -351,7 +415,7 @@
           }
         } else {
           box(frame,2.43,2.13,.14,0,1.546,-3.68,navy);
-          box(frame,1.78,.93,.085,0,1.88,-3.782,glass);
+          box(frame,1.78,.93,.085,0,1.88,-3.782,busGlass);
           box(frame,1.93,.47,.10,0,.783,-3.784,blue);
           for(const side of [-1,1]) box(frame,.19,.48,.075,side*1.01,.87,-3.823,redLamp);
         }
@@ -367,19 +431,35 @@
         display.position.set(0,front?2.70:2.50,front?5.009:-3.79);
         if(!front) display.rotation.y=Math.PI;
         group.add(display);
+        group.add(cabin(front));
+        group.traverse(mesh=>{ if(mesh.material===busGlass) panes.push(mesh); });
         scene.add(group);
         return group;
       }
       const body=section(true),trailer=section(false);
       const bellows=new T.Group();
-      box(bellows,2.24,2.48,1.13,0,1.77,0,dark);
-      for(let rib=0;rib<8;rib++) box(bellows,2.32,2.53,.039,0,1.77,-.54+rib*.154,tire);
+      box(bellows,2.24,.18,1.13,0,2.92,0,dark);
+      box(bellows,2.24,.12,1.13,0,.60,0,dark);
+      for(const side of [-1,1]) box(bellows,.23,2.40,1.13,side*1.023,1.80,0,dark);
+      for(let rib=0;rib<8;rib++) {
+        const z=-.54+rib*.154;
+        box(bellows,2.31,.126,.043,0,3.00,z,tire);
+        for(const side of [-1,1]) box(bellows,.152,2.45,.043,side*1.103,1.80,z,tire);
+      }
       mergeLandmark(bellows);
       scene.add(bellows);
       const brakeLights=new T.Group();
       for(const side of [-1,1]) box(brakeLights,.158,.40,.077,side*1.01,.87,-3.83,brakeLamp);
       trailer.add(brakeLights);
-      return {body,trailer,bellows,doors,brakeLights,length:18.30};
+      const passengerView=enabled=>{
+        for(const pane of panes) pane.material=enabled?clearGlass:busGlass;
+        for(const detail of cabins) detail.visible=enabled;
+      };
+      const display=message=>{
+        if(!signs.has(message)) signs.set(message,signTexture(message,'#162124','#ffcd74'));
+        nextSign.material=signs.get(message);
+      };
+      return {body,trailer,bellows,doors,brakeLights,passengerView,display,length:18.30};
     }
 
     return {bus,car};
@@ -389,7 +469,7 @@
     const routes=trafficRoutes(geo.data.roads,layout);
     const models=vehicleModels(scene,geo);
     const rng=geo.random(421433);
-    let model=0,lastTime;
+    let model=0,lastTime,passenger=null;
     for(const route of routes) {
       const bus=route.kind==='bus';
       const paterson=route.stations.find(stop=>stop.name==='Paterson');
@@ -424,15 +504,20 @@
     scene.add(shadows);
     const shadow=new T.Object3D(),blockers=[],buses=[];
 
-    function place(group,line,s,width,length,shadowCount) {
+    function pose(line,s) {
       const [x,z,dx,dz]=line.sample(s);
       const [ax,az]=line.sample(s-2.4),[bx,bz]=line.sample(s+2.4);
       const slope=Math.atan2(geo.ground(bx,bz)-geo.ground(ax,az),Math.hypot(bx-ax,bz-az));
       const ux=bx-ax,uz=bz-az,d=Math.hypot(ux,uz);
-      const yaw=Math.atan2(d>0?ux:dx,d>0?uz:dz),y=geo.ground(x,z);
+      return {x,y:geo.ground(x,z),z,dx:d>0?ux/d:dx,dz:d>0?uz/d:dz,slope};
+    }
+
+    function place(group,line,s,width,length,shadowCount) {
+      const {x,y,z,dx,dz,slope}=pose(line,s);
+      const yaw=Math.atan2(dx,dz);
       group.position.set(x,y+.246,z);
       group.rotation.set(-slope,yaw,0,'YXZ');
-      blockers.push([x,z,Math.sin(yaw),Math.cos(yaw),width/2,length/2]);
+      blockers.push([x,z,dx,dz,width/2,length/2]);
       shadow.position.set(x,y+.293,z);
       shadow.rotation.set(-slope,yaw,0,'YXZ');
       shadow.scale.set(width*1.56,1,length*1.20);
@@ -440,20 +525,34 @@
       shadows.setMatrixAt(shadowCount,shadow.matrix);
     }
 
-    function update(time,camera,player) {
+    function advance(time,player) {
       const elapsed=lastTime===undefined?0:Math.min(.25,Math.max(0,time-lastTime));
       lastTime=time;
       const steps=Math.ceil(elapsed*30);
-      blockers.length=0;
       buses.length=0;
-      let shadowCount=0;
+      const onPlatform=player && platformAt(player[0],player[1]);
       for(const route of routes) {
         const {line,vehicles}=route;
-        const occupied=player?line.project(player[0],player[1]):null;
+        const occupied=player && !(onPlatform && route.kind==='bus')?line.project(player[0],player[1]):null;
         for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),occupied);
+        if(route.kind!=='bus') continue;
         for(const actor of vehicles) {
-          const [x,z,dx,dz]=line.sample(actor.s-(actor.bus?8:0));
-          if(actor.bus) buses.push([x,z,dx,dz,actor.dwell>0]);
+          const [x,z,dx,dz]=line.sample(actor.s-8);
+          buses.push([x,z,dx,dz,actor.dwell>0]);
+        }
+      }
+    }
+
+    function doorsOpen(actor) {
+      return geo.clamp(Math.min(actor.dwell/1.05,(actor.dwellTime-actor.dwell)/.96),0,1);
+    }
+
+    function render(camera) {
+      blockers.length=0;
+      let shadowCount=0;
+      for(const {line,vehicles} of routes) {
+        for(const actor of vehicles) {
+          const [x,z]=line.sample(actor.s-(actor.bus?8:0));
           const within=Math.hypot(x-camera.position.x,z-camera.position.z)<(actor.bus?680:490);
           actor.body.visible=within;
           if(actor.bus) actor.trailer.visible=actor.bellows.visible=within;
@@ -465,7 +564,7 @@
             const [jx,jz,jdx,jdz]=line.sample(actor.s-10.71);
             actor.bellows.position.set(jx,geo.ground(jx,jz)+.248,jz);
             actor.bellows.rotation.y=Math.atan2(jdx,jdz);
-            const open=geo.clamp(Math.min(actor.dwell/1.05,(actor.dwellTime-actor.dwell)/.96),0,1);
+            const open=doorsOpen(actor);
             for(const {leaf,platform,position,slide} of actor.doors) leaf.position.z=position+(platform?slide*.58*open:0);
           } else {
             place(actor.body,line,actor.s-actor.length*.5,1.88,actor.length,shadowCount++);
@@ -485,7 +584,101 @@
       }
       return false;
     }
-    return {update,blocked,buses};
+
+    function platformAt(x,z) {
+      for(const [name,sx,sz,dx,dz] of layout.stops) {
+        const px=x-sx,pz=z-sz,along=Math.abs(px*dx+pz*dz),across=Math.abs(-px*dz+pz*dx);
+        if(across<=2.16 && along<=14.3) return {name,height:.44*geo.clamp((14.3-along)/3.7,0,1)};
+      }
+      return null;
+    }
+
+    function platformPosition(station,direction,offset=5.75,towardBus=true) {
+      const {x,z,dx,dz,name}=station;
+      const rx=-dz*direction,rz=dx*direction;
+      return {name,x:x+direction*dx*offset+rx*1.54,z:z+direction*dz*offset+rz*1.54,
+        yaw:Math.atan2(rx,-rz)+(towardBus?0:Math.PI)};
+    }
+
+    function platformStart(name) {
+      const stop=layout.stops.find(row=>row[0]===name);
+      if(!stop) return null;
+      const [label,x,z,dx,dz]=stop;
+      return platformPosition({name:label,x,z,dx,dz},1);
+    }
+
+    function boardingAt(x,z) {
+      const platform=platformAt(x,z);
+      if(!platform) return null;
+      let nearest=null,best=4.35;
+      for(const route of routes) {
+        if(route.kind!=='bus') continue;
+        for(const actor of route.vehicles) {
+          if(doorsOpen(actor)<.74 || route.stations[actor.stop]?.name!==platform.name || !route.stations[actor.stop+1]) continue;
+          const head=pose(route.line,actor.s-5.02);
+          for(const door of [-2.65,3.67]) {
+            const sx=head.x+head.dx*door+head.dz*1.26,sz=head.z+head.dz*door-head.dx*1.26;
+            const distance=Math.hypot(sx-x,sz-z);
+            if(distance>=best) continue;
+            nearest={actor,route,station:platform.name};
+            best=distance;
+          }
+        }
+      }
+      return nearest;
+    }
+
+    function board(x,z) {
+      if(passenger) return null;
+      const offer=boardingAt(x,z);
+      if(!offer) return null;
+      passenger=offer;
+      offer.actor.passengerView(true);
+      return offer.station;
+    }
+
+    function release() {
+      if(!passenger) return;
+      passenger.actor.passengerView(false);
+      passenger=null;
+    }
+
+    function ride() {
+      if(!passenger) return null;
+      const {actor,route}=passenger;
+      const current=route.stations[actor.stop] || route.stations.at(-1);
+      const stopped=actor.dwell>0;
+      const next=stopped?route.stations[actor.stop+1]:current;
+      const open=doorsOpen(actor)>=.74;
+      const final=stopped&&!next;
+      const cabin=pose(route.line,actor.s-5.02);
+      const seatAlong=-1.43,seatAcross=-.63;
+      actor.display(stopped?current.name.toUpperCase():('NEXT  '+(next?.name || current.name).toUpperCase()));
+      return {x:cabin.x+cabin.dx*seatAlong+cabin.dz*seatAcross,
+        y:cabin.y+1.94+Math.sin(cabin.slope)*seatAlong,
+        z:cabin.z+cabin.dz*seatAlong-cabin.dx*seatAcross,yaw:Math.atan2(cabin.dx,-cabin.dz),
+        direction:route.direction>0?'Eastbound':'Westbound',station:stopped?current.name:null,next:next?.name,
+        final,open};
+    }
+
+    function exit() {
+      if(!passenger || doorsOpen(passenger.actor)<.74) return null;
+      const {actor,route}=passenger;
+      const stop=route.stations[actor.stop];
+      if(!stop) return null;
+      const point=platformPosition(stop,route.direction,5.75,false);
+      release();
+      return point;
+    }
+
+    function stationStatus(x,z) {
+      const platform=platformAt(x,z);
+      if(!platform) return null;
+      const offer=boardingAt(x,z);
+      return {name:platform.name,direction:offer?offer.route.direction>0?'Eastbound':'Westbound':null};
+    }
+
+    return {advance,render,blocked,buses,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release}};
   }
 
   window.MadisonTraffic={cycle,green,yellow,create};

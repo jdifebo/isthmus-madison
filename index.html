@@ -8,7 +8,7 @@
   <meta name="madison-aerial" content="assets/madison-aerial.jpg">
   <meta name="madison-region" content="assets/madison-region.jpg">
   <title>Isthmus · Downtown Madison</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <main id="game" aria-label="Downtown Madison open world">
@@ -32,6 +32,7 @@
         <button id="fly" type="button" class="primary" disabled>Take flight</button>
         <button id="walk" type="button" class="glass secondary" disabled>Explore on foot</button>
         <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
+        <button id="ride-start" type="button" class="glass secondary" disabled>Ride Metro Rapid</button>
       </div>
       <p id="loading" role="status">Loading downtown…</p>
     </section>
@@ -44,8 +45,12 @@
       <div class="reticle" aria-hidden="true"></div>
       <div id="speedometer" class="speedometer glass" hidden><strong id="speed">0</strong><span>MPH</span></div>
       <div id="altimeter" class="speedometer glass" aria-label="Height above the surface" hidden><strong id="altitude">0</strong><span>M ABOVE<br>GROUND</span></div>
+      <section id="transit-panel" class="transit-panel glass" aria-label="Metro Rapid boarding" hidden>
+        <div><p id="transit-route" class="eyebrow">Route A</p><p id="transit-status" aria-live="polite"></p></div>
+        <button id="transit-action" type="button" class="glass" hidden><span id="transit-action-label"></span><kbd>E</kbd></button>
+      </section>
       <div class="control-bar glass" aria-label="Keyboard shortcuts">
-        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
+        <span class="movement-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
         <span id="look-tip">Drag to look</span>
         <span class="flight-hint"><kbd>Space</kbd> Up <kbd>C</kbd> Down</span>
         <button id="reset" type="button"><kbd>R</kbd> Reset</button>
@@ -77,11 +82,12 @@
       <h2>Controls</h2>
       <dl>
         <div><dt>Move / steer</dt><dd>W A S D or arrow keys</dd></div>
-        <div><dt>Look on foot or in flight</dt><dd>Drag the view</dd></div>
+        <div><dt>Look around</dt><dd>Drag the view</dd></div>
         <div><dt>Ascend / descend</dt><dd>Space / C</dd></div>
         <div><dt>Sprint / fly faster</dt><dd>Shift</dd></div>
         <div><dt>Brake when driving</dt><dd>Space</dd></div>
         <div><dt>Walk / drive / fly</dt><dd>1 / 2 / 3</dd></div>
+        <div><dt>Board bus / request stop</dt><dd>E</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
         <div><dt>Map / reset</dt><dd>M / R</dd></div>
@@ -107,9 +113,9 @@
   <script src="homes.js?v=5"></script>
   <script src="places.js"></script>
   <script src="landscape.js?v=6"></script>
-  <script src="traffic.js"></script>
+  <script src="traffic.js?v=2"></script>
   <script src="streetscape.js?v=2"></script>
-  <script src="world.js?v=6"></script>
-  <script src="game.js?v=5"></script>
+  <script src="world.js?v=7"></script>
+  <script src="game.js?v=6"></script>
 </body>
 </html>

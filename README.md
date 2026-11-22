@@ -12,6 +12,7 @@ Walk, drive, or fly through downtown Madison, Wisconsin. [Play on GitHub Pages](
 | Sprint or boost in flight | Shift |
 | Brake in the car | Space |
 | Walk / drive / fly | 1 / 2 / 3 |
+| Board a bus or request a stop | E at a platform or onboard |
 | Take off / land | F |
 | Open the map and jump to a landmark | M |
 | Hide or restore the HUD | H |
@@ -27,6 +28,8 @@ Street trees vary in height and canopy shape using the City Forestry inventory. 
 Articulated Route A buses run both ways on East Washington Avenue and open their platform-side doors at stops. Cars use the general lanes and brake for traffic lights, queues, and the player. The field map tracks the simulated buses, which arrive more often than the real service. [City of Madison Metro Rapid and Route A](https://www.cityofmadison.com/metro/routes-schedules/route-a)
 
 Open the game with `?stop=paterson` to start at the station. The same shortcut works for Blair and Baldwin. [Start at Paterson](https://jdifebo.github.io/isthmus-madison/?stop=paterson)
+
+Choose **Ride Metro Rapid** at the title screen to start on Paterson's platform. Board when the doors open, drag to look around the cabin, and request a stop to step onto the next platform when the doors open. The playable ride ends at Baldwin eastbound and Blair westbound. [Start on the Paterson platform](https://jdifebo.github.io/isthmus-madison/?stop=paterson&platform=1)
 
 The field map also jumps to Orton Park and Breese Stevens Field. Nearby homes use mapped footprints and parcel boundaries, with generated roof shapes, siding, windows, doors, porches, paths, driveways, and planting beds. The house styles draw from the [Third Lake Ridge district](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/third-lake-ridge) and [Marquette Bungalows](https://www.cityofmadison.com/dpced/planning/historic-preservation/local-historic-districts/marquette-bungalows). Breese Stevens Field has a lined soccer pitch, stands, and a stone arcade inspired by its [historic grandstand](https://www.cityofmadison.com/parks/find-a-park/breese-stevens/history).
 
