@@ -8,6 +8,7 @@
     {name:'Capitol Square', x:-151, z:-4, yaw:Math.PI/2, pitch:.19},
     {name:'State Street', x:-474, z:-11, yaw:Math.PI/2},
     {name:'Memorial Union', x:-1234, z:-157, yaw:-.75},
+    {...MadisonCampaign.sites.union,above:29,flyPitch:-.43},
     {name:'Monona Terrace', x:238, z:229, yaw:2.35},
     {name:'James Madison Park', x:135, z:-777, yaw:-.65},
     {name:'East Washington Avenue', x:806, z:-775, yaw:-2.35},
@@ -17,6 +18,11 @@
   const stationPoints=[];
   const query=new URLSearchParams(window.location.search);
   const marketDay=query.get('market')==='1';
+  const storyMode=!marketDay && query.get('story')==='1';
+  let storage;
+  try { storage=window.localStorage; } catch {}
+  const campaign=MadisonCampaign.open(storage);
+  let story;
   const marketBasket=new Set();
   const stallDialog=$('stall-dialog');
   const stopQuery=query.get('stop')?.toLowerCase();
@@ -37,6 +43,7 @@
   let altitude=0, airX=0, airY=0, airZ=0, groundReturn=points[0];
   let pointer=null, previous=0, lastHUD=-1, lastRender=0, snap=true;
   let rideView=null,rideLook=0,stopRequested=false;
+  let seated=false;
   const mapBase=document.createElement('canvas');
   mapBase.width=map.width;
   mapBase.height=map.height;
@@ -152,6 +159,25 @@
       ctx.strokeRect(-2,-4,4,8);
       ctx.restore();
     }
+    const target=state!=='intro' && story?.target();
+    if(target) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(mapX(x),mapY(z));
+      ctx.lineTo(mapX(target.x),mapY(target.z));
+      ctx.setLineDash([2.5,3.5]);
+      ctx.strokeStyle='#ffcd7f8c';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.translate(mapX(target.x),mapY(target.z));
+      ctx.rotate(Math.PI/4);
+      ctx.lineWidth=1.4;
+      ctx.fillStyle='#ffcd7f';
+      ctx.strokeStyle='#253b43';
+      ctx.fillRect(-4,-4,8,8);
+      ctx.strokeRect(-4,-4,8,8);
+      ctx.restore();
+    }
     const px=mapX(x),py=mapY(z);
     ctx.save();
     ctx.translate(px,py);
@@ -185,6 +211,29 @@
     $('toast').hidden=false;
     clearTimeout(toastTimer);
     toastTimer=setTimeout(()=>{$('toast').hidden=true;},2400);
+  }
+
+  function setTime(next) {
+    light=next;
+    engine.setLight(light);
+    $('light-label').textContent=lightNames[light];
+  }
+
+  function storyNearby() {
+    return state==='walk' && !seated && !engine.transit.platformAt(x,z)?campaign.nearby(x,z):null;
+  }
+
+  function storyStart() {
+    const {last,hasSave}=campaign.view();
+    return hasSave?MadisonCampaign.sites[last]:MadisonCampaign.arrival;
+  }
+
+  function storyInteract() {
+    if(seated) {
+      seated=false;
+      snap=true;
+      updateHUD();
+    } else story.openEncounter();
   }
 
   function heading(dx,dz) {
@@ -238,6 +287,7 @@
 
   function changeMode(next,point) {
     if (!engine) return;
+    seated=false;
     const previousMode=state;
     if(previousMode==='ride' && next!=='ride') {
       engine.transit.release();
@@ -439,7 +489,7 @@
     const base=world.ground(x,z), dx=Math.sin(yaw), dz=-Math.cos(yaw);
     if(state!=='drive') {
       const bob=walkAmount*(reducedMotion.matches?0:.041)*Math.sin(walkTime);
-      const y=state==='fly'?altitude:base+1.86+(engine.transit.platformAt(x,z)?.height || 0);
+      const y=state==='fly'?altitude:base+(seated?1.23:1.86)+(engine.transit.platformAt(x,z)?.height || 0);
       camera.position.set(x,state==='fly' || snap?y:smooth(camera.position.y,y+bob,18,dt),z);
       camera.lookAt(x+dx*Math.cos(pitch),camera.position.y+Math.sin(pitch),z+dz*Math.cos(pitch));
     } else {
@@ -464,7 +514,9 @@
     const nearby=points.reduce((best,p)=>Math.hypot(x-p.x,z-p.z)<Math.hypot(x-best.x,z-best.z)?p:best,points[0]);
     const distance=Math.hypot(x-nearby.x,z-nearby.z);
     const lake=state==='fly'?world.lakeName(x,z):'';
-    const name=lake || (distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
+    const milestone=story && storyNearby();
+    const name=lake || (milestone?MadisonCampaign.sites[milestone].name:
+      distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
     $('place-name').textContent=rideView?'Metro Rapid':name;
     $('location-name').textContent=rideView?(road?.distance<40?roadText(road):'Madison, Wisconsin'):
       road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
@@ -477,6 +529,8 @@
     const stall=state==='walk' && $('transit-panel').hidden && engine.market?.nearby(x,z);
     $('market-panel').hidden=!stall;
     if(stall && $('market-stall-name').textContent!==stall.name) $('market-stall-name').textContent=stall.name;
+    story?.update(x,z,state!=='intro',seated);
+    if(story) engine.siteTarget(state==='intro'?null:story.target());
     drawMap();
   }
 
@@ -485,8 +539,8 @@
     const dt=Math.min((stamp-(previous || stamp))/1000,.35);
     previous=stamp;
     if(document.hidden) return;
-    if(!expanded && $('help').hidden && !stallDialog.open) {
-      if(state==='walk') walk(dt);
+    if(!expanded && $('help').hidden && !stallDialog.open && !story?.modalOpen()) {
+      if(state==='walk' && !seated) walk(dt);
       if(state==='drive') drive(dt);
       if(state==='fly') fly(dt);
     }
@@ -555,15 +609,42 @@
   }
 
   function bind() {
-    const walkStart=engine.market?.start || points[0];
-    $('walk').addEventListener('click',()=>changeMode('walk',walkStart));
+    const walkStart=()=>story?storyStart():engine.market?.start || points[0];
+    $('walk').addEventListener('click',()=>changeMode('walk',walkStart()));
     $('drive').addEventListener('click',()=>changeMode('drive',points[0]));
     $('fly').addEventListener('click',()=>changeMode('fly',flyover));
     $('ride-start').addEventListener('click',()=>visitPlatform(firstRide));
     $('transit-action').addEventListener('click',busAction);
     $('market-browse').addEventListener('click',()=>browseMarket());
     $('market-close').addEventListener('click',()=>stallDialog.close());
+    $('encounter-action').addEventListener('click',storyInteract);
     $('home').addEventListener('click',()=>changeMode('intro',points[0]));
+    if(storyMode) {
+      story=MadisonCampaignUI.create(campaign,{
+        nearby:storyNearby,
+        pause() {
+          setMap(false);
+          $('help').hidden=true;
+          $('help-toggle').setAttribute('aria-expanded','false');
+        },
+        onAction(result,site) {
+          if(result.rest) {
+            changeMode('walk',site);
+            setTime(1);
+          } else {
+            if(result.seat) {
+              ({x,z,yaw}=result.seat);
+              pitch=-.03;
+              seated=snap=true;
+            }
+            updateHUD();
+          }
+          toast(result.message);
+        },
+        onReturn:site=>changeMode('walk',site),
+        capture:engine.capture
+      });
+    }
     const selectMode=mode=>{
       if(mode===state) return;
       if(state==='ride') {
@@ -572,18 +653,14 @@
         return;
       }
       if(state==='drive' && mode==='walk' && Math.abs(speed)>2.3) { toast('Brake before stepping out.'); return; }
-      changeMode(mode,state==='intro'?(mode==='fly'?flyover:mode==='walk'?walkStart:points[0]):undefined);
+      changeMode(mode,state==='intro'?(mode==='fly'?flyover:mode==='walk'?walkStart():points[0]):undefined);
     };
     const reset=()=>{
       if(state!=='intro') { changeMode(state==='ride'?'walk':state,focus); toast('Back at '+focus.name); }
     };
     for(const mode of travelModes) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
     $('reset').addEventListener('click',reset);
-    $('light').addEventListener('click',()=>{
-      light=(light+1)%lightNames.length;
-      engine.setLight(light);
-      $('light-label').textContent=lightNames[light];
-    });
+    $('light').addEventListener('click',()=>setTime((light+1)%lightNames.length));
     $('map-toggle').addEventListener('click',()=>setMap(!expanded));
     $('map-close').addEventListener('click',()=>setMap(false));
     $('map-expand').addEventListener('click',()=>setMap(true));
@@ -617,6 +694,15 @@
     window.addEventListener('keydown',event=>{
       if(event.altKey || event.ctrlKey || event.metaKey || stallDialog.open) return;
       const key=remap[event.code] || event.code;
+      if(story && state!=='intro' && !event.repeat && (key==='KeyJ'||key==='KeyI')) {
+        if(key==='KeyJ' && story.journalOpen()) story.closeJournal();
+        else if(!story.modalOpen() || story.journalOpen()) {
+          game.classList.remove('hud-free');
+          story.openJournal(key==='KeyI'?'inventory':'quests');
+        }
+        return;
+      }
+      if(story?.modalOpen()) return;
       if(event.code==='Escape') {
         if(game.classList.contains('hud-free')) game.classList.remove('hud-free');
         else if(expanded) setMap(false);
@@ -642,6 +728,7 @@
         const stall=state==='walk' && engine.market?.nearby(x,z);
         if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
         else if(stall) browseMarket(stall);
+        else if(story && (seated || storyNearby())) storyInteract();
         else selectMode(state==='drive'?'walk':'drive');
       }
       if(!event.repeat && key==='KeyR') reset();
@@ -689,10 +776,15 @@
           $(id).textContent='Regular day';
         }
       }
+      if(campaign.view().hasSave) $('story-start').textContent='Continue story';
+      if(storyMode) {
+        game.classList.add('story-mode');
+        for(const id of ['story-balance','story-exit','story-help']) $(id).hidden=false;
+      }
       loadingProgress(5,'Reading the map');
       drawMapBase();
       drawMap();
-      engine=await world.create($('scene'),{marketDay,progress:loadingProgress});
+      engine=await world.create($('scene'),{marketDay,storyMode,progress:loadingProgress});
       if(engine.market) points.splice(1,0,engine.market.start);
       loadStationPoints();
       drawMapBase();
@@ -702,10 +794,12 @@
       if(openingStop) {
         if(query.get('platform')==='1') visitPlatform(openingStop);
         else changeMode('walk',openingStop);
-      } else if(engine.market) changeMode('walk',engine.market.start);
+      } else if(story) changeMode('walk',storyStart());
+      else if(engine.market) changeMode('walk',engine.market.start);
       setCamera(0,0);
       engine.render(0,state==='intro'?null:[x,z,0]);
       loadingProgress(100,'Ready to explore');
+      $('journal-toggle').hidden=!story;
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;
       $('ride-start').disabled=!firstRide;
       $('ride-start').hidden=!firstRide;

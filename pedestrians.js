@@ -31,7 +31,7 @@
     return lanes;
   }
 
-  function create(scene,geo,layout,market) {
+  function create(scene,geo,layout,market,contacts=[]) {
     const shelters=layout.stops.filter(([name])=>name==='State Street').map(([,x,z,dx,dz])=>{
       const position=(px,pz)=>[(px-x)*dx+(pz-z)*dz,(px-x)*dz-(pz-z)*dx];
       return {
@@ -71,6 +71,7 @@
       const along=(i+rng()*.62)*market.loop.length/132;
       person({along,market:true,lateral:(rng()-.5)*2.92,pause:rng()*120});
     }
+    for(const fixed of contacts) person({fixed});
     if(!walkers.length) return ()=>{};
     const crossings=layout.signals.filter(({x,z})=>x>=-1004&&x<=-191&&Math.abs(z-(.021*x-1.8))<11)
       .map(signal=>({signal,axis:Math.abs(signal.axes[0].dx)>Math.abs(signal.axes[1].dx)?0:1}));
@@ -112,7 +113,11 @@
       for(const walker of walkers) {
         const {points,height,pace,side}=walker;
         let x,z,dx,dz,lift;
-        if(walker.market) {
+        if(walker.fixed) {
+          [x,z,dx,dz]=walker.fixed;
+          walker.progress=0;
+          lift=.19;
+        } else if(walker.market) {
           const moving=(seconds+walker.pause)%29>2.8;
           walker.progress+=(Number(moving)-walker.progress)*Math.min(1,dt*4);
           walker.along=(walker.along+pace*.75*walker.progress*dt)%market.loop.length;

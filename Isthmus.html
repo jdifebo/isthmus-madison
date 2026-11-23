@@ -84,6 +84,8 @@ h1, h2, p { margin: 0; }
 .start-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .start-actions :is(button,a) { min-height: 50px; font-weight: 700; padding: 12px 17px; }
 .start-actions a { display: inline-flex; align-items: center; text-decoration: none; color: #ffe0ae; }
+.start-actions a.primary { color: #2c2221; }
+.story-mode #scene-toggle { display: none; }
 .primary { border-radius: 8px; background: linear-gradient(145deg,#ffe0ae,var(--accent)); color: #2c2221; }
 .primary:hover { background: #ffd2a8; }
 #loading { color: var(--dim); margin-top: 17px; width: min(320px, 100%); font-size: 14px; }
@@ -154,6 +156,50 @@ h1, h2, p { margin: 0; }
 #transit-action, #market-browse { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
 #market-panel { border-left-color: var(--accent); }
 #market-panel .eyebrow { color: var(--accent); }
+.story-balance { color: #ffe0ae; margin-top: 8px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.story-objective {
+  position: absolute; top: 31px; right: clamp(18px, 3.3vw, 55px); margin-top: 60px;
+  width: min(305px, calc(100% - 36px)); padding: 11px 13px; border-left: 3px solid var(--accent);
+}
+.story-objective > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+#objective-title { font-weight: 750; }
+#objective-distance { color: var(--accent); white-space: nowrap; font-size: 13px; font-variant-numeric: tabular-nums; }
+#objective-step { font-size: 13px; margin-top: 4px; color: #e8e1d3; }
+#encounter-panel { border-left-color: var(--accent); font-size: 14px; font-weight: 700; }
+#encounter-action { padding: 7px 9px; font-weight: 500; white-space: nowrap; }
+.journal {
+  width: min(680px, calc(100% - 32px)); max-height: min(760px, calc(100% - 32px));
+  padding: clamp(15px, 3vw, 28px); border: 1px solid var(--line); border-radius: 13px;
+  background: #1b2b35; color: var(--ink); box-shadow: 0 18px 55px #071016a6;
+}
+.journal::backdrop { background: #0b161f9c; }
+.journal header, .journal-header-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.journal-header-actions { align-items: center; }
+.journal-header-actions strong { color: #ffe0ae; }
+.journal h2 { font: 39px/1.02 var(--serif); margin-top: 6px; letter-spacing: -.035em; }
+#journal-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin: 15px 0 3px; }
+#journal-tabs button { padding: 8px clamp(7px, 1.5vw, 15px); border-bottom: 2px solid transparent; font-size: 14px; color: var(--dim); }
+#journal-tabs button[aria-pressed="true"] { border-bottom-color: var(--accent); color: var(--ink); background: #ffc18c12; }
+.journal-list { list-style: none; margin: 0; padding: 0; }
+.journal-row, .encounter-row, .journal-photos { padding: 11px 9px; border-bottom: 1px solid #e9dec325; }
+.journal-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 16px; align-items: start; }
+.journal-row.tracked { background: #ffcd7f0d; box-shadow: inset 2px 0 var(--accent); }
+.journal-row h3, .journal-photos h3 { margin: 3px 0 4px; font: 21px/1.1 var(--serif); }
+.journal-row p:not(.eyebrow), .encounter-row p:not(.eyebrow), .journal-empty, .save-status { font-size: 13px; color: var(--dim); }
+.journal-row .journal-goal { color: var(--ink); margin-top: 4px; }
+.journal-actions { display: grid; gap: 6px; justify-items: end; }
+.journal-status { color: #f7c48d; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.journal-actions button, .encounter-row button { white-space: normal; }
+.journal button:disabled { cursor: default; }
+.journal-empty, .save-status { margin-top: 12px; }
+#journal-complete { padding: 9px; color: #c7ebca; font-size: 14px; }
+.encounter { width: min(510px, calc(100% - 32px)); }
+.encounter header { margin-bottom: 12px; }
+.encounter-row { padding-inline: 0; }
+.encounter-row button { text-align: left; margin: 5px 0; }
+.postcard-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(112px,1fr)); gap: 8px; }
+.postcard-grid figure { margin: 0; font-size: 12px; color: var(--dim); }
+.postcard-grid img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; margin-bottom: 3px; }
 .market-dialog {
   width: min(450px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 22px;
   border: 1px solid var(--line); border-radius: 13px; background: #202e35; color: var(--ink);
@@ -234,6 +280,16 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .rail-actions { gap: 5px; }
   .rail-actions .small { padding-inline: 8px; }
 }
+@media (max-width: 660px) {
+  .story-objective { top: 161px; right: 18px; margin: 0; width: min(260px, calc(100% - 36px)); }
+  .story-mode .place h2 { font-size: clamp(23px, 6vw, 33px); }
+  .story-mode .place { top: 65px; }
+  .story-mode .story-balance { font-size: 13px; }
+  #encounter-action kbd { display: none; }
+}
+@media (max-height: 430px) and (max-width: 755px) {
+  .story-objective { top: 70px; width: min(218px, 40vw); }
+}
 @media (max-width: 570px) and (max-height: 650px) {
   .map-card:not(.expanded) { display: none; }
 }
@@ -260,6 +316,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <span>ISTHMUS</span>
       </button>
       <div class="rail-actions">
+        <button id="journal-toggle" class="glass small" type="button" aria-haspopup="dialog" hidden>Journal <kbd>J</kbd></button>
         <a id="scene-toggle" class="glass small" href="?market=1">Market</a>
         <button id="light" class="glass small" type="button" aria-label="Change time of day"><span aria-hidden="true">☀</span> <span id="light-label">Golden hour</span></button>
         <button id="map-toggle" class="glass small" type="button" aria-expanded="false"><span aria-hidden="true">⌖</span> Map <kbd>M</kbd></button>
@@ -268,13 +325,15 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
     <section id="intro" class="intro" aria-labelledby="title">
       <p class="eyebrow"><span></span> 43°04′ N &nbsp; 89°23′ W</p>
       <h1 id="title">Downtown<br><em>Madison</em></h1>
-      <p class="lede">Follow the streets or take to the air between Lake Mendota and Lake Monona.</p>
+      <p class="lede">Take your first shift, buy a place of your own, or explore Madison at your own pace.</p>
       <div class="start-actions">
-        <button id="fly" type="button" class="primary" disabled>Take flight</button>
+        <a id="story-start" class="primary" href="?story=1">Start the story</a>
+        <button id="fly" type="button" class="glass secondary" disabled>Take flight</button>
         <button id="walk" type="button" class="glass secondary" disabled>Explore on foot</button>
         <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
         <button id="ride-start" type="button" class="glass secondary" disabled>Ride Metro Rapid</button>
         <a id="market-start" class="glass secondary" href="?market=1">Saturday Market</a>
+        <a id="story-exit" class="glass secondary" href="?" hidden>Free roam</a>
       </div>
       <div id="loading">
         <div class="loading-heading"><span id="loading-status" role="status">Reading the map…</span><span id="loading-percent" aria-hidden="true">0%</span></div>
@@ -286,7 +345,12 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <div id="mode-label" class="eyebrow"><span></span> WALKING</div>
         <h2 id="place-name">Capitol Square</h2>
         <div id="location-name"></div>
+        <p id="story-balance" class="story-balance" aria-label="Cash" hidden>$0</p>
       </div>
+      <section id="story-objective" class="story-objective glass" aria-label="Tracked objective" hidden>
+        <div><p id="objective-title"></p><span id="objective-distance"></span></div>
+        <p id="objective-step"></p>
+      </section>
       <div class="reticle" aria-hidden="true"></div>
       <div id="speedometer" class="speedometer glass" hidden><strong id="speed">0</strong><span>MPH</span></div>
       <div id="altimeter" class="speedometer glass" aria-label="Height above the surface" hidden><strong id="altitude">0</strong><span>M ABOVE<br>GROUND</span></div>
@@ -297,6 +361,10 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
       <section id="market-panel" class="transit-panel glass" aria-label="Market stall" hidden>
         <div><p class="eyebrow">Market stall</p><p id="market-stall-name"></p></div>
         <button id="market-browse" class="glass" type="button">Browse <kbd>E</kbd></button>
+      </section>
+      <section id="encounter-panel" class="transit-panel glass" aria-label="Nearby interaction" hidden>
+        <p id="encounter-place"></p>
+        <button id="encounter-action" class="glass" type="button"><span id="encounter-label">Interact</span> <kbd>E</kbd></button>
       </section>
       <div class="control-bar glass" aria-label="Keyboard shortcuts">
         <span class="movement-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
@@ -336,7 +404,8 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <div><dt>Sprint / fly faster</dt><dd>Shift</dd></div>
         <div><dt>Brake when driving</dt><dd>Space</dd></div>
         <div><dt>Walk / drive / fly</dt><dd>1 / 2 / 3</dd></div>
-        <div><dt>Board bus / browse stall</dt><dd>E</dd></div>
+        <div><dt>Interact / board bus</dt><dd>E</dd></div>
+        <div id="story-help" hidden><dt>Journal / inventory</dt><dd>J / I</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
         <div><dt>Map / reset</dt><dd>M / R</dd></div>
@@ -350,6 +419,28 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
       </header>
       <ul id="market-items"></ul>
       <p id="market-basket" aria-live="polite"></p>
+    </dialog>
+    <dialog id="journal" class="journal" aria-labelledby="journal-title">
+      <header>
+        <div><p class="eyebrow">Chapter One · A Place of Your Own</p><h2 id="journal-title">Journal</h2></div>
+        <div class="journal-header-actions"><strong id="journal-balance">$0</strong><button id="journal-close" type="button" class="glass small" aria-label="Close journal" autofocus>×</button></div>
+      </header>
+      <nav id="journal-tabs" aria-label="Journal sections">
+        <button type="button" data-page="quests" aria-pressed="true">Quests</button>
+        <button type="button" data-page="jobs" aria-pressed="false">Jobs</button>
+        <button type="button" data-page="inventory" aria-pressed="false">Inventory</button>
+        <button type="button" data-page="properties" aria-pressed="false">Properties</button>
+      </nav>
+      <p id="journal-complete" hidden>Chapter complete. You have a home on the isthmus.</p>
+      <ul id="journal-list" class="journal-list"></ul>
+      <p id="save-status" class="save-status"></p>
+    </dialog>
+    <dialog id="encounter" class="journal encounter" aria-labelledby="encounter-title">
+      <header>
+        <div><p id="encounter-address" class="eyebrow"></p><h2 id="encounter-title"></h2></div>
+        <button id="encounter-close" type="button" class="glass small" aria-label="Close interaction" autofocus>×</button>
+      </header>
+      <ul id="encounter-list" class="journal-list"></ul>
     </dialog>
     <div id="toast" class="glass toast" role="status" hidden></div>
     <footer class="credits"><button id="credits-toggle" type="button" aria-expanded="false">Map credits</button>
@@ -3161,6 +3252,697 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 (() => {
   'use strict';
 
+  const sites={
+    books:{name:'University Book Store',address:'711 State Street',x:-1130.5,z:-19.6,yaw:3.12,reach:5.2},
+    union:{name:'Memorial Union Terrace',address:'Lake Mendota',x:-1249,z:-230,yaw:-.13,reach:7},
+    cheese:{name:'Fromagination',address:'12 South Carroll Street',x:-65.1,z:132.9,yaw:-2.34,reach:4.5},
+    monona:{name:'Monona Terrace',address:'East Wilson Street approach',x:238,z:229,yaw:2.35,reach:7},
+    capitol:{name:'Capitol Square',address:'State Street approach',x:-151,z:-4,yaw:1.57,reach:8},
+    park:{name:'James Madison Park',address:'East Gorham Street',x:135,z:-777,yaw:-.65,reach:8},
+    field:{name:'Breese Stevens Field',address:'North Paterson Street',x:839,z:-886,yaw:.73,reach:8},
+    studio:{name:'Bassett Studio',address:'West Dayton Street · fictional property',x:-557,z:262,yaw:-.56,reach:5},
+    workshop:{name:'East Wash Workshop',address:'Livingston Street · fictional property',x:716,z:-733,yaw:-.57,reach:5}
+  };
+  const arrival={...sites.books,x:-1120,z:-27.8,yaw:-2.47};
+  const items={
+    guides:['Neighborhood guides','A carton of printed guides for the Terrace welcome table.'],
+    samples:['Tasting box','A boxed Wisconsin cheese tasting for the Monona Terrace gathering.'],
+    film:['Disposable camera','A loaner camera for the postcard project.'],
+    postcards:['Isthmus postcard set','Your views of Lake Mendota, the Capitol and Lake Monona.'],
+    notes:['Tasting notes','A handwritten introduction to Wisconsin cheese.'],
+    pairing:['Picnic recipe card','A small keepsake from the Terrace table.'],
+    books:['Library donation box','A donation for the community book table at James Madison Park.'],
+    cooler:['Insulated cheese crate','A catering drop for the crew at Breese Stevens Field.'],
+    studioKey:['Bassett Studio key','Your home base on West Dayton Street.'],
+    shopKey:['Workshop key','The keys to your East Wash Workshop.']
+  };
+  const quests={
+    first:{kind:'Main',title:'A First Shift',brief:'Help put together a lakeside welcome table.',steps:[
+      {site:'books',objective:'Meet the volunteer at the University Book Store',label:'Pick up the neighborhood guides',detail:'Mara has a carton of guides headed to the Terrace welcome table.',give:'guides'},
+      {site:'union',objective:'Bring the guides to Memorial Union Terrace',label:'Drop off the guides',detail:'Mara’s friend Jules is setting up near the lake.',take:'guides',pay:45}
+    ]},
+    across:{kind:'Main',title:'Across the Isthmus',requires:'first',brief:'Help stock a community gathering on the Monona side.',steps:[
+      {site:'cheese',objective:'Pick up the tasting at Fromagination',label:'Collect the tasting box',detail:'A tasting box is ready for the community gathering across the isthmus.',give:'samples'},
+      {site:'monona',objective:'Take the tasting box to Monona Terrace',label:'Deliver the tasting box',detail:'Meet the event volunteer at the East Wilson Street approach.',take:'samples',pay:70}
+    ]},
+    home:{kind:'Main',title:'A Place of Your Own',requires:'across',brief:'Finish a side quest or some shifts to put together $140 for a home base.',steps:[
+      {site:'studio',objective:'Buy Bassett Studio',property:'studio'}
+    ]},
+    views:{kind:'Side',title:'Three Good Views',requires:'first',brief:'Make a set of postcards from places the guides sent people to.',steps:[
+      {site:'union',objective:'Ask Jules about the postcard project',label:'Borrow a camera',detail:'Jules has a camera and a short list of views to capture.',give:'film'},
+      {site:'union',objective:'Photograph the Lake Mendota waterfront',label:'Take the Lake Mendota photo',detail:'Frame the boats and the shoreline from the Terrace.',photo:true},
+      {site:'capitol',objective:'Photograph the Capitol from the end of State Street',label:'Take the Capitol photo',detail:'Use the view up the Capitol steps.',photo:true},
+      {site:'monona',objective:'Photograph Monona Terrace',label:'Take the Monona Terrace photo',detail:'Finish the set with the curve of the convention center.',photo:true,take:'film',give:'postcards',pay:55}
+    ]},
+    picnic:{kind:'Side',title:'The Picnic List',requires:'across',brief:'Put together a Wisconsin picnic card for the welcome table.',steps:[
+      {site:'cheese',objective:'Ask about the picnic list at Fromagination',label:'Collect the tasting notes',detail:'Pick up a few ideas for a simple cheese picnic.',give:'notes'},
+      {site:'union',objective:'Share the tasting notes with Jules',label:'Put together the picnic card',detail:'Jules adds the finishing touches to the picnic list.',take:'notes',give:'pairing',pay:50}
+    ]}
+  };
+  const jobs={
+    bookRun:{title:'Little Library Run',site:'books',destination:'park',item:'books',pay:32,
+      brief:'Carry a donation box from the book store to the community table at James Madison Park.'},
+    cheeseRun:{title:'Match Day Catering',site:'cheese',destination:'field',item:'cooler',pay:46,
+      brief:'Bring an insulated delivery to the crew at Breese Stevens Field.'}
+  };
+  const properties={
+    studio:{price:140,key:'studioKey',requires:'across',brief:'A small home base with a bed and a return point.'},
+    workshop:{price:265,key:'shopKey',requires:'home',brief:'A second return point. Owning it adds $12 to every delivery job.'}
+  };
+  const terraceSeat={x:-1249.4,z:-236.5,yaw:-.20};
+  const contacts=[[-1127.4,-18.1,0,-1],[-1251.3,-227.5,0,-1],[-63.6,135.3,.72,-.69],
+    [235.8,231.6,0,-1],[132.8,-774.4,0,-1],[836.8,-883.4,.2,-1]];
+  const saveKey='isthmus-campaign-v1';
+  const count=(n,max=999999)=>Number.isFinite(n)?Math.min(max,Math.max(0,Math.floor(n))):0;
+  const money=n=>'$'+n.toLocaleString('en-US');
+  const jpeg=value=>typeof value==='string' && value.length<85000 && /^data:image\/jpeg;base64,[a-z0-9+/]+=*$/i.test(value);
+
+  function open(storage) {
+    let canSave=Boolean(storage);
+    function read() {
+      try { return JSON.parse(storage?.getItem(saveKey)) || {}; }
+      catch { return {}; }
+    }
+    function normalize(raw) {
+      const state={cash:count(raw.cash),steps:{},pack:{},photos:{},owned:{},runs:{},job:null,tracked:null,last:'books'};
+      for(const [id,quest] of Object.entries(quests)) state.steps[id]=count(raw.steps?.[id],quest.steps.length);
+      for(const id of Object.keys(items)) if(count(raw.pack?.[id],99)) state.pack[id]=count(raw.pack[id],99);
+      for(const id of Object.keys(properties)) if(raw.owned?.[id]===true) state.owned[id]=true;
+      for(const id of Object.keys(jobs)) state.runs[id]=count(raw.runs?.[id]);
+      for(const {site,photo} of quests.views.steps) if(photo && jpeg(raw.photos?.[site])) state.photos[site]=raw.photos[site];
+      if(Object.hasOwn(jobs,raw.job)) state.job=raw.job;
+      if(typeof raw.tracked==='string') state.tracked=raw.tracked;
+      if(Object.hasOwn(sites,raw.last)) state.last=raw.last;
+      return state;
+    }
+    let state=normalize(read());
+    function sync() { if(canSave) state=normalize(read()); }
+    function commit(next) {
+      state=next;
+      try { storage?.setItem(saveKey,JSON.stringify(state)); }
+      catch { canSave=false; }
+    }
+    const done=(id,s=state)=>s.steps[id]===quests[id].steps.length;
+    const unlocked=(entry,s=state)=>!entry.requires || done(entry.requires,s);
+    const main=()=>Object.keys(quests).find(id=>quests[id].kind==='Main'&&!done(id));
+    const payFor=job=>job.pay+(state.owned.workshop?12:0);
+
+    function entries() {
+      const rows={quests:[],jobs:[],properties:[]};
+      for(const [id,quest] of Object.entries(quests)) {
+        const step=quest.steps[state.steps[id]],available=Boolean(step)&&unlocked(quest);
+        const target=available?step.site:null;
+        let objective=available?step.objective:done(id)?'Completed':'Unlocks after '+quests[quest.requires].title;
+        if(available && step.property && state.cash<properties[step.property].price) {
+          objective+=' · '+money(properties[step.property].price-state.cash)+' still needed';
+        }
+        rows.quests.push({key:'q:'+id,title:quest.title,kind:quest.kind,brief:quest.brief,objective,target,
+          status:done(id)?'Complete':available?`${state.steps[id]+1} / ${quest.steps.length}`:'Locked'});
+      }
+      for(const [id,job] of Object.entries(jobs)) {
+        const active=state.job===id;
+        rows.jobs.push({key:'j:'+id,title:job.title,kind:'Odd job',brief:job.brief,active,
+          objective:active?'Deliver to '+sites[job.destination].name:'Pick up at '+sites[job.site].name,
+          target:active?job.destination:job.site,status:active?'On shift':money(payFor(job))+' per run',runs:state.runs[id]});
+      }
+      for(const [id,property] of Object.entries(properties)) {
+        const owned=Boolean(state.owned[id]),available=unlocked(property);
+        rows.properties.push({key:'p:'+id,title:sites[id].name,kind:'Property',brief:property.brief,owned,
+          objective:owned?sites[id].address:available?'Visit the property to buy it':'Unlocks after '+quests[property.requires].title,
+          status:owned?'Owned':available?money(property.price):'Locked',target:available?id:null});
+      }
+      return rows;
+    }
+
+    function view() {
+      const list=entries(),all=Object.values(list).flat();
+      const tracked=all.find(row=>row.key===state.tracked && row.target)
+        || list.quests.find(row=>row.key==='q:'+main() && row.target)
+        || list.jobs.find(row=>row.active) || null;
+      return {...list,tracked,cash:state.cash,job:state.job,last:state.last,canSave,hasSave:state.last!=='books'||
+        Object.values(state.steps).some(Boolean)||Boolean(state.job)||Object.values(state.runs).some(Boolean),chapterComplete:done('home'),
+        photos:Object.entries(state.photos).map(([site,src])=>({src,name:sites[site].name})),
+        pack:Object.entries(state.pack).map(([id,quantity])=>({id,quantity,name:items[id][0],detail:items[id][1]}))};
+    }
+
+    function actionsAt(site) {
+      const actions=[];
+      for(const [id,quest] of Object.entries(quests)) {
+        const index=state.steps[id],step=quest.steps[index];
+        if(step?.site!==site || !step.label || !unlocked(quest)) continue;
+        actions.push({id:`q:${id}:${index}`,title:step.label,detail:step.detail,kind:quest.kind,photo:step.photo});
+      }
+      for(const [id,job] of Object.entries(jobs)) {
+        if(state.job===id && site===job.destination) actions.push({id:`j:${id}:deliver`,title:'Complete '+job.title,
+          detail:'Hand over your delivery and earn '+money(payFor(job))+'.',kind:'Odd job'});
+        else if(site===job.site && !state.job) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
+          detail:job.brief+' Earn '+money(payFor(job))+'.',kind:'Odd job'});
+      }
+      const property=properties[site];
+      if(property && unlocked(property)) {
+        if(state.owned[site]) actions.push({id:`p:${site}:rest`,title:'Rest until golden hour',detail:'Set your return point here and advance the light.',kind:'Property'});
+        else actions.push({id:`p:${site}:buy`,title:'Buy '+sites[site].name+' · '+money(property.price),
+          detail:state.cash>=property.price?property.brief:money(property.price-state.cash)+' still needed. Try the job board in your journal.',
+          kind:'Property',disabled:state.cash<property.price});
+      }
+      if(site==='union') actions.push({id:'seat:union:sit',title:'Sit in a Terrace chair',
+        detail:'Take a moment to watch the boats on Lake Mendota.',kind:'Terrace'});
+      return actions;
+    }
+
+    function nearby(x,z) {
+      let nearest=null,distance=Infinity;
+      for(const [id,site] of Object.entries(sites)) {
+        const d=Math.hypot(site.x-x,site.z-z);
+        if(d>site.reach || d>=distance || !actionsAt(id).length) continue;
+        nearest=id;
+        distance=d;
+      }
+      return nearest;
+    }
+
+    function perform(site,action,photo) {
+      sync();
+      const choice=actionsAt(site).find(entry=>entry.id===action && !entry.disabled);
+      if(!choice) return null;
+      const [kind,id,verb]=choice.id.split(':');
+      if(kind==='seat') return {seat:terraceSeat,message:'Press E to stand up'};
+      const next={...state,steps:{...state.steps},pack:{...state.pack},owned:{...state.owned},runs:{...state.runs},last:site};
+      let award=0,message,rest=false;
+      function put(item) { if(item) next.pack[item]=(next.pack[item] || 0)+1; }
+      function take(item) {
+        if(!item) return true;
+        if(!next.pack[item]) return false;
+        if(--next.pack[item]===0) delete next.pack[item];
+        return true;
+      }
+      if(kind==='q') {
+        const quest=quests[id],step=quest.steps[Number(verb)];
+        if(!take(step.take)) return null;
+        put(step.give);
+        if(step.photo && jpeg(photo)) next.photos={...next.photos,[site]:photo};
+        next.steps[id]++;
+        award=step.pay || 0;
+        if(quest.kind==='Side') next.tracked=done(id,next)?null:'q:'+id;
+        else if(state.tracked==='q:'+id && done(id,next)) next.tracked=null;
+        message=done(id,next)?quest.title+' complete':step.label.replace(/^Pick up /,'Picked up ');
+      } else if(kind==='j') {
+        const job=jobs[id];
+        if(verb==='accept') {
+          put(job.item);
+          next.job=id;
+          next.tracked='j:'+id;
+          message='Shift started · '+job.title;
+        } else {
+          if(!take(job.item)) return null;
+          next.job=null;
+          next.runs[id]++;
+          next.tracked=state.tracked==='j:'+id?null:state.tracked;
+          award=payFor(job);
+          message='Delivery complete';
+        }
+      } else if(verb==='buy') {
+        const property=properties[id];
+        next.cash-=property.price;
+        next.owned[id]=true;
+        if(next.tracked==='p:'+id) next.tracked=null;
+        put(property.key);
+        const firstHome=id==='studio'&&!done('home');
+        if(firstHome) next.steps.home=quests.home.steps.length;
+        message=firstHome?'You have a home on the isthmus · Chapter complete':sites[id].name+' purchased';
+      } else {
+        message='Rested at '+sites[id].name;
+        rest=true;
+      }
+      next.cash=count(next.cash+award);
+      commit(next);
+      return {message:message+(award?' · +'+money(award):''),rest};
+    }
+
+    function track(key) {
+      sync();
+      if(!Object.values(entries()).flat().some(entry=>entry.key===key && entry.target)) return false;
+      if(key!==state.tracked) commit({...state,tracked:key});
+      return true;
+    }
+
+    function abandonJob() {
+      sync();
+      if(!state.job) return false;
+      const pack={...state.pack};
+      delete pack[jobs[state.job].item];
+      commit({...state,pack,tracked:state.tracked==='j:'+state.job?null:state.tracked,job:null});
+      return true;
+    }
+
+    function returnHome(site) {
+      sync();
+      if(!state.owned[site]) return false;
+      if(state.last!==site) commit({...state,last:site});
+      return true;
+    }
+
+    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome};
+  }
+
+  window.MadisonCampaign={sites,arrival,open,money,saveKey,terraceSeat,contacts};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const {sites,money,saveKey}=MadisonCampaign;
+  const $=id=>document.getElementById(id);
+
+  function create(model,{nearby,pause,onAction,onReturn,capture}) {
+    const journal=$('journal'),encounter=$('encounter');
+    const tabs=[...$('journal-tabs').querySelectorAll('button')];
+    let page='quests',snapshot=model.view();
+    function text(tag,content,className) {
+      const node=document.createElement(tag);
+      node.textContent=content;
+      if(className) node.className=className;
+      return node;
+    }
+    function set(id,value) {
+      const node=$(id);
+      if(node.textContent!==value) node.textContent=value;
+    }
+    function button(label,handler,disabled=false) {
+      const node=text('button',label,'glass small');
+      node.type='button';
+      node.disabled=disabled;
+      node.addEventListener('click',handler);
+      return node;
+    }
+    function refresh() {
+      snapshot=model.view();
+      set('story-balance',money(snapshot.cash));
+      set('story-start',snapshot.hasSave?'Continue story':'Start the story');
+      set('journal-balance',money(snapshot.cash));
+      set('save-status',snapshot.canSave?'Progress saves in this browser.':'Progress is available for this session.');
+    }
+    function renderJournal() {
+      const list=$('journal-list');
+      list.replaceChildren();
+      $('journal-complete').hidden=!snapshot.chapterComplete || page!=='quests';
+      for(const tab of tabs) tab.setAttribute('aria-pressed',String(tab.dataset.page===page));
+      if(page==='inventory') {
+        if(!snapshot.pack.length) list.append(text('li','Your bag is empty.','journal-empty'));
+        for(const item of snapshot.pack) {
+          const row=text('li','','journal-row'),details=text('div','');
+          details.append(text('h3',item.name),text('p',item.detail));
+          row.append(details,text('span','×'+item.quantity,'journal-status'));
+          list.append(row);
+        }
+        if(snapshot.photos.length) {
+          const row=text('li','','journal-photos');
+          row.append(text('h3','Postcard photos'));
+          const photos=text('div','','postcard-grid');
+          for(const photo of snapshot.photos) {
+            const figure=document.createElement('figure'),image=document.createElement('img');
+            image.src=photo.src;
+            image.alt=photo.name;
+            figure.append(image,text('figcaption',photo.name));
+            photos.append(figure);
+          }
+          row.append(photos);
+          list.append(row);
+        }
+        return;
+      }
+      for(const entry of snapshot[page]) {
+        const selected=snapshot.tracked?.key===entry.key;
+        const row=text('li','','journal-row'),details=text('div','');
+        if(selected) row.classList.add('tracked');
+        details.append(text('p',entry.kind,'eyebrow'),text('h3',entry.title),text('p',entry.brief),
+          text('p',entry.objective,'journal-goal'));
+        if(entry.runs) details.append(text('p',entry.runs+' completed','journal-runs'));
+        const aside=text('div','','journal-actions');
+        aside.append(text('span',entry.status,'journal-status'));
+        if(entry.owned) {
+          aside.append(button('Return here',()=>{
+            if(!model.returnHome(entry.target)) return;
+            journal.close();
+            refresh();
+            onReturn(sites[entry.target]);
+          }));
+        } else if(entry.target) {
+          const track=button(selected?'Tracked':'Track',()=>{
+            if(model.track(entry.key)) {
+              refresh();
+              journal.close();
+            }
+          },selected);
+          track.setAttribute('aria-label',(selected?'Tracking ':'Track ')+entry.title);
+          aside.append(track);
+        }
+        if(entry.active) aside.append(button('Cancel shift',()=>{
+          if(!model.abandonJob()) return;
+          refresh();
+          renderJournal();
+        }));
+        row.append(details,aside);
+        list.append(row);
+      }
+    }
+    function openJournal(section='quests') {
+      page=section;
+      pause();
+      model.sync();
+      refresh();
+      renderJournal();
+      if(!journal.open) journal.showModal();
+    }
+    function openEncounter() {
+      const id=nearby();
+      if(!id || encounter.open) return;
+      const site=sites[id],actions=model.actionsAt(id);
+      if(!actions.length) return;
+      pause();
+      set('encounter-title',site.name);
+      set('encounter-address',site.address);
+      const list=$('encounter-list');
+      list.replaceChildren();
+      for(const choice of actions) {
+        const row=text('li','','encounter-row');
+        const description=text('p',choice.detail);
+        description.id='choice-'+choice.id.replaceAll(':','-');
+        const action=button(choice.title,()=>{
+          if(nearby()!==id) return;
+          const result=model.perform(id,choice.id,choice.photo?capture():undefined);
+          encounter.close();
+          refresh();
+          if(result) onAction(result,site);
+        },choice.disabled);
+        action.setAttribute('aria-describedby',description.id);
+        row.append(text('p',choice.kind,'eyebrow'),action,description);
+        list.append(row);
+      }
+      encounter.showModal();
+    }
+    function update(x,z,playing,seated=false) {
+      const entry=playing?snapshot.tracked:null,site=entry && sites[entry.target],near=playing?nearby():null;
+      $('story-objective').hidden=!entry;
+      if(entry) {
+        set('objective-title',entry.title);
+        set('objective-step',entry.objective);
+        const distance=Math.hypot(site.x-x,site.z-z);
+        set('objective-distance',distance>=1000?(distance/1000).toFixed(1)+' km':Math.round(distance)+' m');
+      }
+      $('encounter-panel').hidden=!near && !seated;
+      if(near || seated) {
+        set('encounter-place',seated?'Terrace chair':sites[near].name);
+        set('encounter-label',seated?'Stand up':'Interact');
+      }
+    }
+    $('journal-toggle').addEventListener('click',()=>openJournal());
+    $('journal-close').addEventListener('click',()=>journal.close());
+    $('encounter-close').addEventListener('click',()=>encounter.close());
+    for(const tab of tabs) tab.addEventListener('click',()=>openJournal(tab.dataset.page));
+    window.addEventListener('storage',event=>{
+      if(event.key!==null && event.key!==saveKey) return;
+      model.sync();
+      refresh();
+      if(journal.open) renderJournal();
+    });
+    refresh();
+    return {openJournal,openEncounter,update,closeJournal:()=>journal.close(),
+      modalOpen:()=>journal.open||encounter.open,journalOpen:()=>journal.open,target:()=>snapshot.tracked && sites[snapshot.tracked.target]};
+  }
+
+  window.MadisonCampaignUI={create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const T=THREE;
+
+  function create(scene,geo) {
+    const {box,cylinder,ground,batch,mergeLandmark,pavingMaterial}=geo;
+    const root=new T.Group();
+    root.name='Campaign places';
+    scene.add(root);
+    const matte=color=>new T.MeshLambertMaterial({color});
+    const brick=matte(0xb7aca0),charcoal=matte(0x282b2d),steel=matte(0x838c86);
+    const cream=matte(0xd6c6aa),wood=matte(0x806244),red=matte(0xa62d35),blue=matte(0x263a47);
+    const warm=new T.MeshLambertMaterial({color:0xfbe4a4,emissive:0xf4a75d,emissiveIntensity:.22});
+
+    function texture(width,height,draw) {
+      const canvas=document.createElement('canvas');
+      canvas.width=width;
+      canvas.height=height;
+      draw(canvas.getContext('2d'),width,height);
+      const map=new T.CanvasTexture(canvas);
+      map.colorSpace=T.SRGBColorSpace;
+      map.anisotropy=4;
+      return new T.MeshBasicMaterial({map});
+    }
+
+    function sign(text,sub,background,ink,serif=false,aspect=4.8) {
+      return texture(1024,Math.round(1024/aspect),(ctx,w,h)=>{
+        ctx.fillStyle=background;
+        ctx.fillRect(0,0,w,h);
+        ctx.textAlign='center';
+        ctx.fillStyle=ink;
+        ctx.font=(serif?'600 ':'700 ')+Math.round(h*(sub?.56:.67))+(serif?'px Georgia':'px system-ui');
+        ctx.fillText(text,w/2,h*(sub?.59:.73),w*.91);
+        if(sub) {
+          ctx.font='700 '+Math.round(h*.23)+'px system-ui';
+          ctx.fillText(sub,w/2,h*.90,w*.89);
+        }
+      });
+    }
+
+    function display(cheese,variant) {
+      const random=geo.random((cheese?387:815)+variant*67);
+      return texture(384,320,(ctx,w,h)=>{
+        const wall=ctx.createLinearGradient(0,0,0,h);
+        wall.addColorStop(0,cheese?'#4a362c':'#3c4440');
+        wall.addColorStop(.65,cheese?'#b08050':'#775349');
+        wall.addColorStop(1,'#382924');
+        ctx.fillStyle=wall;
+        ctx.fillRect(0,0,w,h);
+        for(const x of [76,206,314]) {
+          const light=ctx.createRadialGradient(x,57,1,x,60,83);
+          light.addColorStop(0,'#fff2b8e0');
+          light.addColorStop(1,'#edc28400');
+          ctx.fillStyle=light;
+          ctx.fillRect(x-90,0,180,150);
+          ctx.fillStyle='#ffefbe';
+          ctx.beginPath();
+          ctx.arc(x,50,11,0,Math.PI*2);
+          ctx.fill();
+        }
+        const palette=cheese?['#e9c171','#e9d19a','#da9a52','#edbc85','#af7245']:['#9b353a','#e5d2ab','#a25c54','#74726c','#aab5b6','#bb8944'];
+        for(const y of variant===3?[156]:[151,225,295]) {
+          for(let x=18;x<w-17;x+=cheese?27:18) {
+            ctx.fillStyle=palette[Math.floor(random()*palette.length)];
+            const height=(cheese?14:28)+random()*21;
+            ctx.fillRect(x,y-height,cheese?22:14,height);
+            ctx.fillStyle='#fbebba50';
+            ctx.fillRect(x+3,y-height+5,cheese?15:8,3);
+          }
+          ctx.fillStyle='#2d2422';
+          ctx.fillRect(0,y,w,9);
+        }
+        if(variant===3) {
+          ctx.fillStyle='#d0ac8790';
+          ctx.beginPath();ctx.moveTo(w*.38,169);ctx.lineTo(w*.62,169);ctx.lineTo(w*.90,h);ctx.lineTo(w*.10,h);ctx.fill();
+          ctx.fillStyle='#6e504570';
+          for(const y of [198,225,264,309]) ctx.fillRect(w*.16,y,w*.68,3);
+        }
+        ctx.fillStyle='#a6c6d217';
+        ctx.beginPath();
+        ctx.moveTo(0,110);ctx.lineTo(w,22);ctx.lineTo(w,80);ctx.lineTo(0,205);ctx.fill();
+      });
+    }
+
+    function groupAt(x,z,heading=0) {
+      const group=new T.Group();
+      group.position.set(x,ground(x,z)+.14,z);
+      group.rotation.y=heading;
+      root.add(group);
+      return group;
+    }
+
+    function plane(parent,w,h,x,y,z,material) {
+      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),material);
+      mesh.position.set(x,y,z);
+      parent.add(mesh);
+      return mesh;
+    }
+
+    function storefront({x,z,heading,width,cheese,lettering}) {
+      const facade=groupAt(x,z,heading),solids=new T.Group();
+      facade.add(solids);
+      const put=(w,h,d,x,y,z,material)=>box(solids,w,h,d,x,y,z,material);
+      const frame=cheese?charcoal:steel,awning=cheese?blue:red;
+      const displays=[0,1,2,3].map(variant=>display(cheese,variant)),cols=cheese?4:6,bay=(width-.45)/cols;
+      put(width,3.5,.16,0,1.78,.09,frame);
+      for(let i=0;i<cols;i++) {
+        const u=(i-(cols-1)*.5)*bay,door=cheese?i===2:i===0||i===cols-1;
+        const bottom=door?.15:.66;
+        const height=2.78-bottom;
+        plane(facade,bay-.13,height,u,bottom+height*.5,.184,displays[door?3:i%3]);
+        put(.054,height,.075,u,bottom+height*.5,.211,frame);
+        put(bay-.09,.072,.07,u,2.34,.217,frame);
+        put(bay-.09,.095,.075,u,bottom,.212,frame);
+        if(door) {
+          put(.08,.30,.104,u-.14,1.13,.26,steel);
+          put(bay-.15,.043,.07,u,1.05,.23,frame);
+        } else put(bay-.13,.18,.23,u,.57,.20,cheese?charcoal:brick);
+      }
+      put(width+.2,.23,.4,0,3.68,.17,cheese?cream:brick);
+      const awningTop=put(width+.27,.10,1.58,0,3.40,.70,awning);
+      awningTop.rotation.x=.20;
+      put(width+.27,.49,.095,0,3.11,1.45,awning);
+      plane(facade,width*.82,.57,0,3.13,1.504,lettering);
+      for(const u of [-width*.41,-width*.16,width*.16,width*.41]) {
+        put(.13,.09,.12,u,3.00,1.06,warm);
+      }
+      if(!cheese) {
+        put(width,1.48,.095,0,4.55,.068,brick);
+        for(let i=0;i<=cols;i++) put(.12,1.48,.19,(i-cols*.5)*bay,4.55,.124,cream);
+        put(width+.2,.16,.23,0,5.29,.125,cream);
+      } else {
+        put(.61,.98,.07,width*.36,.51,2.24,wood).rotation.x=-.28;
+        put(.61,.98,.07,width*.36,.51,2.49,wood).rotation.x=.28;
+        plane(facade,.55,.65,width*.36,.65,2.482,sign('CHEESE','WISCONSIN','#343a37','#f6e8bd')).rotation.x=-.28;
+      }
+      mergeLandmark(solids);
+    }
+
+    storefront({x:-1130.3,z:-14.75,heading:3.119,width:17.7,cheese:false,
+      lettering:sign('the university book store','711 STATE STREET','#a62d35','#fff5e3',false,25.5)});
+    storefront({x:-68.15,z:135.8,heading:2.372,width:9.6,cheese:true,
+      lettering:sign('fromagination','ARTISANAL CHEESES & PERFECT COMPANIONS','#263a47','#fbedd6',true,13.8)});
+
+    const {sites}=MadisonCampaign;
+    for(const [name,x,z,facing,width] of [['studio',-559.45,256.69,.836,1.48],['workshop',722.96,-740.6,2.377,2.45]]) {
+      const property=groupAt(x,z,facing);
+      box(property,width,2.32,.17,0,1.18,.11,wood);
+      box(property,width-.17,1.99,.05,0,1.16,.205,blue);
+      box(property,.07,.12,.06,width*.28,1.09,.26,cream);
+      box(property,width+.18,.14,.42,0,.09,.17,cream);
+      plane(property,width*1.55,.44,0,2.57,.20,sign(sites[name].name,'ISTHMUS PROPERTIES','#253c40','#ffe8b4'));
+    }
+
+    const paving=batch(),stone=new T.Color(0xaea797);
+    function terracePaved(x,z) { return x>-1262 && x<-1236 && z>-241 && z<-220; }
+    for(let x=-1262;x<-1236;x+=2) for(let z=-241;z<-220;z+=3) {
+      const at=(px,pz)=>[px,ground(px,pz)+.19,pz];
+      paving.quad(at(x,z),at(x,z+3),at(x+2,z+3),at(x+2,z),stone,3,2);
+    }
+    const plaza=paving.mesh(pavingMaterial(true,true));
+    plaza.receiveShadow=true;
+    root.add(plaza);
+    const terraceSet=new T.Group();
+    root.add(terraceSet);
+    const colors=[matte(0xcab643),matte(0xce662f),matte(0x587c51)];
+    function tube(a,b,r,material) {
+      const v=new T.Vector3().subVectors(b,a),center=a.clone().addScaledVector(v,.5);
+      const mesh=cylinder(terraceSet,r,r,v.length(),center.x,center.y,center.z,material,8);
+      mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),v.normalize());
+    }
+    function chair(x,z,angle,color) {
+      const y=ground(x,z)+.19;
+      const p=(u,v,w)=>new T.Vector3(x+Math.cos(angle)*u+Math.sin(angle)*w,y+v,z-Math.sin(angle)*u+Math.cos(angle)*w);
+      const seat=cylinder(terraceSet,.29,.29,.064,x,y+.47,z,color,16);
+      seat.rotation.y=angle;
+      for(const u of [-.21,.21]) for(const w of [-.20,.20]) tube(p(u,.02,w),p(u*.80,.47,w*.82),.024,color);
+      for(const u of [-.23,.23]) tube(p(u,.48,-.16),p(u,.87,-.26),.025,color);
+      const center=p(0,.86,-.28);
+      const ring=new T.Mesh(new T.TorusGeometry(.227,.022,6,18),color);
+      ring.position.copy(center);
+      ring.rotation.y=angle;
+      terraceSet.add(ring);
+      for(let j=0;j<10;j++) {
+        const a=j*Math.PI/5;
+        tube(center,p(Math.cos(a)*.222,.86+Math.sin(a)*.222,-.28),.009,color);
+      }
+    }
+    for(const [i,[x,z]] of [[-1256,-225],[-1245,-226],[-1255,-235],[-1242,-235]].entries()) {
+      const y=ground(x,z)+.19;
+      cylinder(terraceSet,.54,.54,.07,x,y+.75,z,colors[i%3],24);
+      cylinder(terraceSet,.036,.21,.71,x,y+.37,z,colors[i%3],12);
+      for(let c=0;c<3;c++) {
+        const angle=c*Math.PI*2/3+i*.47;
+        chair(x+Math.sin(angle)*.89,z+Math.cos(angle)*.89,angle+Math.PI,colors[(i+c)%3]);
+      }
+    }
+    const seat=MadisonCampaign.terraceSeat;
+    chair(seat.x,seat.z,Math.PI-seat.yaw,colors[1]);
+    mergeLandmark(terraceSet);
+
+    const desks=new T.Group();
+    root.add(desks);
+    for(const [id,title] of [['union','WELCOME TABLE'],['monona','COMMUNITY TABLE'],['park','LITTLE LIBRARY'],['field','CREW CHECK-IN']]) {
+      const {x,z}=sites[id],desk=groupAt(x-2.2,z+1.65,.15);
+      const top=box(desk,1.43,.079,.68,0,.93,0,wood);
+      desks.attach(top);
+      for(const a of [-.62,.62]) for(const b of [-.25,.25]) desks.attach(box(desk,.072,.90,.072,a,.48,b,wood));
+      desks.attach(box(desk,.45,.19,.42,-.38,1.07,.08,cream));
+      plane(desk,1.27,.30,0,.70,.357,sign(title,'','#ece0bb','#273a3a'));
+    }
+    mergeLandmark(desks);
+
+    const boats=[];
+    const sail=matte(0xfff2d6);
+    for(let i=0;i<3;i++) {
+      const boat=new T.Group();
+      const hull=new T.Mesh(new T.SphereGeometry(1,12,7),[red,blue,cream][i]);
+      hull.scale.set(.82,.39,2.36);
+      hull.position.y=.18;
+      boat.add(hull);
+      cylinder(boat,.042,.045,5.29,0,2.77,-.37,steel,8);
+      const rig=batch(),cloth=new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide});
+      const white=new T.Color(0xffe9c4),stripe=new T.Color([0xc85d38,0x788e98,0xc9a852][i]);
+      rig.triangle([0,5.24,-.36],[.07,1.38,-.36],[.18,1.38,1.67],white);
+      rig.triangle([0,4.46,-.43],[.025,1.30,-.46],[-.09,1.27,-2.13],stripe);
+      boat.add(rig.mesh(cloth));
+      box(boat,1.03,.085,2.21,0,.43,.10,sail);
+      root.add(boat);
+      boats.push(boat);
+    }
+
+    const marker=new T.Group();
+    const body=new T.Mesh(new T.OctahedronGeometry(.57),new T.MeshBasicMaterial({color:0xffcd7f}));
+    marker.add(body);
+    const footing=new T.Mesh(new T.RingGeometry(.75,.84,26).rotateX(-Math.PI/2),
+      new T.MeshBasicMaterial({color:0xffcd7f,side:T.DoubleSide}));
+    marker.add(footing);
+    root.add(marker);
+    marker.visible=false;
+    function target(site) {
+      marker.visible=Boolean(site);
+      if(site) marker.position.set(site.x,ground(site.x,site.z)+.3,site.z);
+    }
+    function update(time) {
+      body.position.y=2.65+Math.sin(time*2.6)*.17;
+      body.rotation.y=time*.85;
+      for(const [i,boat] of boats.entries()) {
+        const phase=time*.009+i*2.099;
+        boat.position.set(-1240+128*Math.cos(phase),3.4+Math.sin(time*1.8+i)*.075,-383+59*Math.sin(phase));
+        boat.rotation.set(Math.sin(time*1.3+i)*.025,Math.atan2(-128*Math.sin(phase),59*Math.cos(phase)),Math.cos(time*1.5+i)*.09,'YXZ');
+      }
+    }
+    return {target,update,paved:terracePaved,light:evening=>{ warm.emissiveIntensity=.22+evening*.62; }};
+  }
+
+  window.MadisonStorefronts={create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
   const T=THREE;
 
   function sidewalks(geo,shelters) {
@@ -3191,7 +3973,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return lanes;
   }
 
-  function create(scene,geo,layout,market) {
+  function create(scene,geo,layout,market,contacts=[]) {
     const shelters=layout.stops.filter(([name])=>name==='State Street').map(([,x,z,dx,dz])=>{
       const position=(px,pz)=>[(px-x)*dx+(pz-z)*dz,(px-x)*dz-(pz-z)*dx];
       return {
@@ -3231,6 +4013,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const along=(i+rng()*.62)*market.loop.length/132;
       person({along,market:true,lateral:(rng()-.5)*2.92,pause:rng()*120});
     }
+    for(const fixed of contacts) person({fixed});
     if(!walkers.length) return ()=>{};
     const crossings=layout.signals.filter(({x,z})=>x>=-1004&&x<=-191&&Math.abs(z-(.021*x-1.8))<11)
       .map(signal=>({signal,axis:Math.abs(signal.axes[0].dx)>Math.abs(signal.axes[1].dx)?0:1}));
@@ -3272,7 +4055,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       for(const walker of walkers) {
         const {points,height,pace,side}=walker;
         let x,z,dx,dz,lift;
-        if(walker.market) {
+        if(walker.fixed) {
+          [x,z,dx,dz]=walker.fixed;
+          walker.progress=0;
+          lift=.19;
+        } else if(walker.market) {
           const moving=(seconds+walker.pause)%29>2.8;
           walker.progress+=(Number(moving)-walker.progress)*Math.min(1,dt*4);
           walker.along=(walker.along+pace*.75*walker.progress*dt)%market.loop.length;
@@ -4642,7 +5429,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return group;
   }
 
-  async function create(host,{marketDay=false,progress=()=>{}}={}) {
+  async function create(host,{marketDay=false,storyMode=false,progress=()=>{}}={}) {
     async function stage(value,label) {
       progress(value,label);
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -4699,12 +5486,13 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     cityBlocks(scene,photos,evening,homes,stadium);
     capitol(scene);
     terrace(scene);
+    const storefronts=MadisonStorefronts.create(scene,geo);
     await stage(78,marketDay?'Setting up the market':'Adding trees and traffic');
     const market=marketDay?MadisonMarket.create(scene,geo):null;
-    const yards=market?{...homes,paved:(x,z)=>homes.paved(x,z)||market.paved(x,z)}:homes;
+    const yards={...homes,paved:(x,z)=>homes.paved(x,z)||storefronts.paved(x,z)||market?.paved(x,z)};
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,yards);
     const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes);
-    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market);
+    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[]);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -4729,6 +5517,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       lightStreet(evening.value);
       stationLighting(evening.value);
       stadium?.(evening.value);
+      storefronts.light(evening.value);
     }
     function resize() {
       renderer.setSize(host.clientWidth,host.clientHeight,false);
@@ -4742,6 +5531,16 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
     return {camera,car,market,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+      siteTarget:storefronts.target,capture() {
+        try {
+          renderer.render(scene,camera);
+          const canvas=document.createElement('canvas'),source=renderer.domElement;
+          canvas.width=320;
+          canvas.height=Math.min(340,Math.max(100,Math.round(320*source.height/source.width)));
+          canvas.getContext('2d').drawImage(source,0,0,canvas.width,canvas.height);
+          return canvas.toDataURL('image/jpeg',.78);
+        } catch { return null; }
+      },
       transit:traffic.transit,advanceTraffic:traffic.advance,platforms:layout.stops,
       rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
@@ -4787,6 +5586,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
+      storefronts.update(seconds);
       traffic.render(camera);
       pedestrians(seconds,camera,software || frameTime>.063);
       if(frameTime>.073) reflectionQuality=false;
@@ -4811,6 +5611,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     {name:'Capitol Square', x:-151, z:-4, yaw:Math.PI/2, pitch:.19},
     {name:'State Street', x:-474, z:-11, yaw:Math.PI/2},
     {name:'Memorial Union', x:-1234, z:-157, yaw:-.75},
+    {...MadisonCampaign.sites.union,above:29,flyPitch:-.43},
     {name:'Monona Terrace', x:238, z:229, yaw:2.35},
     {name:'James Madison Park', x:135, z:-777, yaw:-.65},
     {name:'East Washington Avenue', x:806, z:-775, yaw:-2.35},
@@ -4820,6 +5621,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   const stationPoints=[];
   const query=new URLSearchParams(window.location.search);
   const marketDay=query.get('market')==='1';
+  const storyMode=!marketDay && query.get('story')==='1';
+  let storage;
+  try { storage=window.localStorage; } catch {}
+  const campaign=MadisonCampaign.open(storage);
+  let story;
   const marketBasket=new Set();
   const stallDialog=$('stall-dialog');
   const stopQuery=query.get('stop')?.toLowerCase();
@@ -4840,6 +5646,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   let altitude=0, airX=0, airY=0, airZ=0, groundReturn=points[0];
   let pointer=null, previous=0, lastHUD=-1, lastRender=0, snap=true;
   let rideView=null,rideLook=0,stopRequested=false;
+  let seated=false;
   const mapBase=document.createElement('canvas');
   mapBase.width=map.width;
   mapBase.height=map.height;
@@ -4955,6 +5762,25 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       ctx.strokeRect(-2,-4,4,8);
       ctx.restore();
     }
+    const target=state!=='intro' && story?.target();
+    if(target) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(mapX(x),mapY(z));
+      ctx.lineTo(mapX(target.x),mapY(target.z));
+      ctx.setLineDash([2.5,3.5]);
+      ctx.strokeStyle='#ffcd7f8c';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.translate(mapX(target.x),mapY(target.z));
+      ctx.rotate(Math.PI/4);
+      ctx.lineWidth=1.4;
+      ctx.fillStyle='#ffcd7f';
+      ctx.strokeStyle='#253b43';
+      ctx.fillRect(-4,-4,8,8);
+      ctx.strokeRect(-4,-4,8,8);
+      ctx.restore();
+    }
     const px=mapX(x),py=mapY(z);
     ctx.save();
     ctx.translate(px,py);
@@ -4988,6 +5814,29 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('toast').hidden=false;
     clearTimeout(toastTimer);
     toastTimer=setTimeout(()=>{$('toast').hidden=true;},2400);
+  }
+
+  function setTime(next) {
+    light=next;
+    engine.setLight(light);
+    $('light-label').textContent=lightNames[light];
+  }
+
+  function storyNearby() {
+    return state==='walk' && !seated && !engine.transit.platformAt(x,z)?campaign.nearby(x,z):null;
+  }
+
+  function storyStart() {
+    const {last,hasSave}=campaign.view();
+    return hasSave?MadisonCampaign.sites[last]:MadisonCampaign.arrival;
+  }
+
+  function storyInteract() {
+    if(seated) {
+      seated=false;
+      snap=true;
+      updateHUD();
+    } else story.openEncounter();
   }
 
   function heading(dx,dz) {
@@ -5041,6 +5890,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
   function changeMode(next,point) {
     if (!engine) return;
+    seated=false;
     const previousMode=state;
     if(previousMode==='ride' && next!=='ride') {
       engine.transit.release();
@@ -5242,7 +6092,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const base=world.ground(x,z), dx=Math.sin(yaw), dz=-Math.cos(yaw);
     if(state!=='drive') {
       const bob=walkAmount*(reducedMotion.matches?0:.041)*Math.sin(walkTime);
-      const y=state==='fly'?altitude:base+1.86+(engine.transit.platformAt(x,z)?.height || 0);
+      const y=state==='fly'?altitude:base+(seated?1.23:1.86)+(engine.transit.platformAt(x,z)?.height || 0);
       camera.position.set(x,state==='fly' || snap?y:smooth(camera.position.y,y+bob,18,dt),z);
       camera.lookAt(x+dx*Math.cos(pitch),camera.position.y+Math.sin(pitch),z+dz*Math.cos(pitch));
     } else {
@@ -5267,7 +6117,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const nearby=points.reduce((best,p)=>Math.hypot(x-p.x,z-p.z)<Math.hypot(x-best.x,z-best.z)?p:best,points[0]);
     const distance=Math.hypot(x-nearby.x,z-nearby.z);
     const lake=state==='fly'?world.lakeName(x,z):'';
-    const name=lake || (distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
+    const milestone=story && storyNearby();
+    const name=lake || (milestone?MadisonCampaign.sites[milestone].name:
+      distance<(nearby.transit?53:165)?nearby.name:road?.distance<42?road.name:'Downtown Madison');
     $('place-name').textContent=rideView?'Metro Rapid':name;
     $('location-name').textContent=rideView?(road?.distance<40?roadText(road):'Madison, Wisconsin'):
       road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
@@ -5280,6 +6132,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const stall=state==='walk' && $('transit-panel').hidden && engine.market?.nearby(x,z);
     $('market-panel').hidden=!stall;
     if(stall && $('market-stall-name').textContent!==stall.name) $('market-stall-name').textContent=stall.name;
+    story?.update(x,z,state!=='intro',seated);
+    if(story) engine.siteTarget(state==='intro'?null:story.target());
     drawMap();
   }
 
@@ -5288,8 +6142,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const dt=Math.min((stamp-(previous || stamp))/1000,.35);
     previous=stamp;
     if(document.hidden) return;
-    if(!expanded && $('help').hidden && !stallDialog.open) {
-      if(state==='walk') walk(dt);
+    if(!expanded && $('help').hidden && !stallDialog.open && !story?.modalOpen()) {
+      if(state==='walk' && !seated) walk(dt);
       if(state==='drive') drive(dt);
       if(state==='fly') fly(dt);
     }
@@ -5358,15 +6212,42 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   }
 
   function bind() {
-    const walkStart=engine.market?.start || points[0];
-    $('walk').addEventListener('click',()=>changeMode('walk',walkStart));
+    const walkStart=()=>story?storyStart():engine.market?.start || points[0];
+    $('walk').addEventListener('click',()=>changeMode('walk',walkStart()));
     $('drive').addEventListener('click',()=>changeMode('drive',points[0]));
     $('fly').addEventListener('click',()=>changeMode('fly',flyover));
     $('ride-start').addEventListener('click',()=>visitPlatform(firstRide));
     $('transit-action').addEventListener('click',busAction);
     $('market-browse').addEventListener('click',()=>browseMarket());
     $('market-close').addEventListener('click',()=>stallDialog.close());
+    $('encounter-action').addEventListener('click',storyInteract);
     $('home').addEventListener('click',()=>changeMode('intro',points[0]));
+    if(storyMode) {
+      story=MadisonCampaignUI.create(campaign,{
+        nearby:storyNearby,
+        pause() {
+          setMap(false);
+          $('help').hidden=true;
+          $('help-toggle').setAttribute('aria-expanded','false');
+        },
+        onAction(result,site) {
+          if(result.rest) {
+            changeMode('walk',site);
+            setTime(1);
+          } else {
+            if(result.seat) {
+              ({x,z,yaw}=result.seat);
+              pitch=-.03;
+              seated=snap=true;
+            }
+            updateHUD();
+          }
+          toast(result.message);
+        },
+        onReturn:site=>changeMode('walk',site),
+        capture:engine.capture
+      });
+    }
     const selectMode=mode=>{
       if(mode===state) return;
       if(state==='ride') {
@@ -5375,18 +6256,14 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         return;
       }
       if(state==='drive' && mode==='walk' && Math.abs(speed)>2.3) { toast('Brake before stepping out.'); return; }
-      changeMode(mode,state==='intro'?(mode==='fly'?flyover:mode==='walk'?walkStart:points[0]):undefined);
+      changeMode(mode,state==='intro'?(mode==='fly'?flyover:mode==='walk'?walkStart():points[0]):undefined);
     };
     const reset=()=>{
       if(state!=='intro') { changeMode(state==='ride'?'walk':state,focus); toast('Back at '+focus.name); }
     };
     for(const mode of travelModes) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
     $('reset').addEventListener('click',reset);
-    $('light').addEventListener('click',()=>{
-      light=(light+1)%lightNames.length;
-      engine.setLight(light);
-      $('light-label').textContent=lightNames[light];
-    });
+    $('light').addEventListener('click',()=>setTime((light+1)%lightNames.length));
     $('map-toggle').addEventListener('click',()=>setMap(!expanded));
     $('map-close').addEventListener('click',()=>setMap(false));
     $('map-expand').addEventListener('click',()=>setMap(true));
@@ -5420,6 +6297,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     window.addEventListener('keydown',event=>{
       if(event.altKey || event.ctrlKey || event.metaKey || stallDialog.open) return;
       const key=remap[event.code] || event.code;
+      if(story && state!=='intro' && !event.repeat && (key==='KeyJ'||key==='KeyI')) {
+        if(key==='KeyJ' && story.journalOpen()) story.closeJournal();
+        else if(!story.modalOpen() || story.journalOpen()) {
+          game.classList.remove('hud-free');
+          story.openJournal(key==='KeyI'?'inventory':'quests');
+        }
+        return;
+      }
+      if(story?.modalOpen()) return;
       if(event.code==='Escape') {
         if(game.classList.contains('hud-free')) game.classList.remove('hud-free');
         else if(expanded) setMap(false);
@@ -5445,6 +6331,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         const stall=state==='walk' && engine.market?.nearby(x,z);
         if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
         else if(stall) browseMarket(stall);
+        else if(story && (seated || storyNearby())) storyInteract();
         else selectMode(state==='drive'?'walk':'drive');
       }
       if(!event.repeat && key==='KeyR') reset();
@@ -5492,10 +6379,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           $(id).textContent='Regular day';
         }
       }
+      if(campaign.view().hasSave) $('story-start').textContent='Continue story';
+      if(storyMode) {
+        game.classList.add('story-mode');
+        for(const id of ['story-balance','story-exit','story-help']) $(id).hidden=false;
+      }
       loadingProgress(5,'Reading the map');
       drawMapBase();
       drawMap();
-      engine=await world.create($('scene'),{marketDay,progress:loadingProgress});
+      engine=await world.create($('scene'),{marketDay,storyMode,progress:loadingProgress});
       if(engine.market) points.splice(1,0,engine.market.start);
       loadStationPoints();
       drawMapBase();
@@ -5505,10 +6397,12 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(openingStop) {
         if(query.get('platform')==='1') visitPlatform(openingStop);
         else changeMode('walk',openingStop);
-      } else if(engine.market) changeMode('walk',engine.market.start);
+      } else if(story) changeMode('walk',storyStart());
+      else if(engine.market) changeMode('walk',engine.market.start);
       setCamera(0,0);
       engine.render(0,state==='intro'?null:[x,z,0]);
       loadingProgress(100,'Ready to explore');
+      $('journal-toggle').hidden=!story;
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;
       $('ride-start').disabled=!firstRide;
       $('ride-start').hidden=!firstRide;

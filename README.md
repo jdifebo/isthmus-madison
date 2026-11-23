@@ -1,6 +1,17 @@
 # Isthmus
 
-Walk, drive, or fly through downtown Madison, Wisconsin. [Play on GitHub Pages](https://jdifebo.github.io/isthmus-madison/) or open the standalone `Isthmus.html` in a WebGL-enabled desktop browser.
+Make a life for yourself in downtown Madison, Wisconsin, or explore on foot, by car, in the air, and aboard Metro Rapid. [Play on GitHub Pages](https://jdifebo.github.io/isthmus-madison/) or open the standalone `Isthmus.html` in a WebGL-enabled desktop browser.
+
+## Story mode
+
+Choose **Start the story** to begin *A Place of Your Own*. You start outside the University Book Store with a volunteer shift to pick up. Follow the tracked objective, press **E** to interact on foot, and check the **Journal** with **J**. The **I** shortcut opens your inventory.
+
+- Three main quests lead to your first property. Two side quests and two repeatable delivery jobs let you earn cash along the way.
+- Your inventory carries quest items, souvenirs, keys, and the in-game photos you take during the postcard quest.
+- Buy Bassett Studio or East Wash Workshop with in-game earnings. Return to an owned property from the journal. The studio completes the chapter and the workshop increases delivery pay.
+- Progress saves in your current browser. **Continue story** returns you to your most recent story interaction. Free roam and Saturday Market are also available from the title screen.
+
+The current chapter uses fictional characters, events, and purchasable properties. The University Book Store and Fromagination have handcrafted storefronts at their mapped locations. Memorial Union Terrace has sunburst chairs and sailboats on Lake Mendota. [Start the story](https://jdifebo.github.io/isthmus-madison/?story=1) · [University Book Store exterior](https://strategiccommunication.wisc.edu/contact-us/) · [Fromagination storefront design](https://www.cricketdesignworks.com/portfolio/fromagination) · [Wisconsin Union Terrace](https://union.wisc.edu/visit/terrace-at-the-memorial-union)
 
 ## Controls
 
@@ -12,7 +23,8 @@ Walk, drive, or fly through downtown Madison, Wisconsin. [Play on GitHub Pages](
 | Sprint or boost in flight | Shift |
 | Brake in the car | Space |
 | Walk / drive / fly | 1 / 2 / 3 |
-| Board a bus, request a stop, or browse a stall | E at a platform, onboard, or beside a stall |
+| Interact, browse a stall, or board or exit the bus | E near an interaction or on the bus |
+| Open the journal or inventory in story mode | J / I |
 | Take off / land | F |
 | Open the map and jump to a landmark | M |
 | Hide or restore the HUD | H |

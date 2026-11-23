@@ -8,7 +8,7 @@
   <meta name="madison-aerial" content="assets/madison-aerial.jpg">
   <meta name="madison-region" content="assets/madison-region.jpg">
   <title>Isthmus · Downtown Madison</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <main id="game" aria-label="Downtown Madison open world">
@@ -20,6 +20,7 @@
         <span>ISTHMUS</span>
       </button>
       <div class="rail-actions">
+        <button id="journal-toggle" class="glass small" type="button" aria-haspopup="dialog" hidden>Journal <kbd>J</kbd></button>
         <a id="scene-toggle" class="glass small" href="?market=1">Market</a>
         <button id="light" class="glass small" type="button" aria-label="Change time of day"><span aria-hidden="true">☀</span> <span id="light-label">Golden hour</span></button>
         <button id="map-toggle" class="glass small" type="button" aria-expanded="false"><span aria-hidden="true">⌖</span> Map <kbd>M</kbd></button>
@@ -28,13 +29,15 @@
     <section id="intro" class="intro" aria-labelledby="title">
       <p class="eyebrow"><span></span> 43°04′ N &nbsp; 89°23′ W</p>
       <h1 id="title">Downtown<br><em>Madison</em></h1>
-      <p class="lede">Follow the streets or take to the air between Lake Mendota and Lake Monona.</p>
+      <p class="lede">Take your first shift, buy a place of your own, or explore Madison at your own pace.</p>
       <div class="start-actions">
-        <button id="fly" type="button" class="primary" disabled>Take flight</button>
+        <a id="story-start" class="primary" href="?story=1">Start the story</a>
+        <button id="fly" type="button" class="glass secondary" disabled>Take flight</button>
         <button id="walk" type="button" class="glass secondary" disabled>Explore on foot</button>
         <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
         <button id="ride-start" type="button" class="glass secondary" disabled>Ride Metro Rapid</button>
         <a id="market-start" class="glass secondary" href="?market=1">Saturday Market</a>
+        <a id="story-exit" class="glass secondary" href="?" hidden>Free roam</a>
       </div>
       <div id="loading">
         <div class="loading-heading"><span id="loading-status" role="status">Reading the map…</span><span id="loading-percent" aria-hidden="true">0%</span></div>
@@ -46,7 +49,12 @@
         <div id="mode-label" class="eyebrow"><span></span> WALKING</div>
         <h2 id="place-name">Capitol Square</h2>
         <div id="location-name"></div>
+        <p id="story-balance" class="story-balance" aria-label="Cash" hidden>$0</p>
       </div>
+      <section id="story-objective" class="story-objective glass" aria-label="Tracked objective" hidden>
+        <div><p id="objective-title"></p><span id="objective-distance"></span></div>
+        <p id="objective-step"></p>
+      </section>
       <div class="reticle" aria-hidden="true"></div>
       <div id="speedometer" class="speedometer glass" hidden><strong id="speed">0</strong><span>MPH</span></div>
       <div id="altimeter" class="speedometer glass" aria-label="Height above the surface" hidden><strong id="altitude">0</strong><span>M ABOVE<br>GROUND</span></div>
@@ -57,6 +65,10 @@
       <section id="market-panel" class="transit-panel glass" aria-label="Market stall" hidden>
         <div><p class="eyebrow">Market stall</p><p id="market-stall-name"></p></div>
         <button id="market-browse" class="glass" type="button">Browse <kbd>E</kbd></button>
+      </section>
+      <section id="encounter-panel" class="transit-panel glass" aria-label="Nearby interaction" hidden>
+        <p id="encounter-place"></p>
+        <button id="encounter-action" class="glass" type="button"><span id="encounter-label">Interact</span> <kbd>E</kbd></button>
       </section>
       <div class="control-bar glass" aria-label="Keyboard shortcuts">
         <span class="movement-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
@@ -96,7 +108,8 @@
         <div><dt>Sprint / fly faster</dt><dd>Shift</dd></div>
         <div><dt>Brake when driving</dt><dd>Space</dd></div>
         <div><dt>Walk / drive / fly</dt><dd>1 / 2 / 3</dd></div>
-        <div><dt>Board bus / browse stall</dt><dd>E</dd></div>
+        <div><dt>Interact / board bus</dt><dd>E</dd></div>
+        <div id="story-help" hidden><dt>Journal / inventory</dt><dd>J / I</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
         <div><dt>Map / reset</dt><dd>M / R</dd></div>
@@ -110,6 +123,28 @@
       </header>
       <ul id="market-items"></ul>
       <p id="market-basket" aria-live="polite"></p>
+    </dialog>
+    <dialog id="journal" class="journal" aria-labelledby="journal-title">
+      <header>
+        <div><p class="eyebrow">Chapter One · A Place of Your Own</p><h2 id="journal-title">Journal</h2></div>
+        <div class="journal-header-actions"><strong id="journal-balance">$0</strong><button id="journal-close" type="button" class="glass small" aria-label="Close journal" autofocus>×</button></div>
+      </header>
+      <nav id="journal-tabs" aria-label="Journal sections">
+        <button type="button" data-page="quests" aria-pressed="true">Quests</button>
+        <button type="button" data-page="jobs" aria-pressed="false">Jobs</button>
+        <button type="button" data-page="inventory" aria-pressed="false">Inventory</button>
+        <button type="button" data-page="properties" aria-pressed="false">Properties</button>
+      </nav>
+      <p id="journal-complete" hidden>Chapter complete. You have a home on the isthmus.</p>
+      <ul id="journal-list" class="journal-list"></ul>
+      <p id="save-status" class="save-status"></p>
+    </dialog>
+    <dialog id="encounter" class="journal encounter" aria-labelledby="encounter-title">
+      <header>
+        <div><p id="encounter-address" class="eyebrow"></p><h2 id="encounter-title"></h2></div>
+        <button id="encounter-close" type="button" class="glass small" aria-label="Close interaction" autofocus>×</button>
+      </header>
+      <ul id="encounter-list" class="journal-list"></ul>
     </dialog>
     <div id="toast" class="glass toast" role="status" hidden></div>
     <footer class="credits"><button id="credits-toggle" type="button" aria-expanded="false">Map credits</button>
@@ -132,9 +167,12 @@
   <script src="landscape.js?v=7"></script>
   <script src="traffic.js?v=4"></script>
   <script src="market.js"></script>
-  <script src="pedestrians.js?v=2"></script>
+  <script src="campaign.js"></script>
+  <script src="campaign-ui.js"></script>
+  <script src="storefronts.js"></script>
+  <script src="pedestrians.js?v=3"></script>
   <script src="streetscape.js?v=4"></script>
-  <script src="world.js?v=9"></script>
-  <script src="game.js?v=8"></script>
+  <script src="world.js?v=10"></script>
+  <script src="game.js?v=9"></script>
 </body>
 </html>

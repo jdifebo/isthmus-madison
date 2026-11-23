@@ -1068,7 +1068,7 @@
     return group;
   }
 
-  async function create(host,{marketDay=false,progress=()=>{}}={}) {
+  async function create(host,{marketDay=false,storyMode=false,progress=()=>{}}={}) {
     async function stage(value,label) {
       progress(value,label);
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -1125,12 +1125,13 @@
     cityBlocks(scene,photos,evening,homes,stadium);
     capitol(scene);
     terrace(scene);
+    const storefronts=MadisonStorefronts.create(scene,geo);
     await stage(78,marketDay?'Setting up the market':'Adding trees and traffic');
     const market=marketDay?MadisonMarket.create(scene,geo):null;
-    const yards=market?{...homes,paved:(x,z)=>homes.paved(x,z)||market.paved(x,z)}:homes;
+    const yards={...homes,paved:(x,z)=>homes.paved(x,z)||storefronts.paved(x,z)||market?.paved(x,z)};
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,yards);
     const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes);
-    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market);
+    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[]);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -1155,6 +1156,7 @@
       lightStreet(evening.value);
       stationLighting(evening.value);
       stadium?.(evening.value);
+      storefronts.light(evening.value);
     }
     function resize() {
       renderer.setSize(host.clientWidth,host.clientHeight,false);
@@ -1168,6 +1170,16 @@
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
     return {camera,car,market,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+      siteTarget:storefronts.target,capture() {
+        try {
+          renderer.render(scene,camera);
+          const canvas=document.createElement('canvas'),source=renderer.domElement;
+          canvas.width=320;
+          canvas.height=Math.min(340,Math.max(100,Math.round(320*source.height/source.width)));
+          canvas.getContext('2d').drawImage(source,0,0,canvas.width,canvas.height);
+          return canvas.toDataURL('image/jpeg',.78);
+        } catch { return null; }
+      },
       transit:traffic.transit,advanceTraffic:traffic.advance,platforms:layout.stops,
       rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
@@ -1213,6 +1225,7 @@
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
+      storefronts.update(seconds);
       traffic.render(camera);
       pedestrians(seconds,camera,software || frameTime>.063);
       if(frameTime>.073) reflectionQuality=false;
