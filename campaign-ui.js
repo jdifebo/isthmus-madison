@@ -4,7 +4,7 @@
   const {sites,money,saveKey}=MadisonCampaign;
   const $=id=>document.getElementById(id);
 
-  function create(model,{nearby,pause,onAction,onReturn,capture}) {
+  function create(model,{nearby,pause,onAction,onReturn,canReturn,onTrack,capture}) {
     const journal=$('journal'),encounter=$('encounter');
     const tabs=[...$('journal-tabs').querySelectorAll('button')];
     let page='quests',snapshot=model.view();
@@ -76,11 +76,11 @@
             journal.close();
             refresh();
             onReturn(sites[entry.target]);
-          }));
-        } else if(entry.target) {
+          },!canReturn()));
+        } else if(entry.target || entry.needsRide) {
           const track=button(selected?'Tracked':'Track',()=>{
-            if(model.track(entry.key)) {
-              refresh();
+            if(track(entry.key)) {
+              onTrack();
               journal.close();
             }
           },selected);
@@ -137,8 +137,8 @@
       if(entry) {
         set('objective-title',entry.title);
         set('objective-step',entry.objective);
-        const distance=Math.hypot(site.x-x,site.z-z);
-        set('objective-distance',distance>=1000?(distance/1000).toFixed(1)+' km':Math.round(distance)+' m');
+        const distance=site?Math.hypot(site.x-x,site.z-z):null;
+        set('objective-distance',distance===null?'Route A':distance>=1000?(distance/1000).toFixed(1)+' km':Math.round(distance)+' m');
       }
       $('encounter-panel').hidden=!near && !seated;
       if(near || seated) {
@@ -157,8 +157,15 @@
       if(journal.open) renderJournal();
     });
     refresh();
-    return {openJournal,openEncounter,update,closeJournal:()=>journal.close(),
-      modalOpen:()=>journal.open||encounter.open,journalOpen:()=>journal.open,target:()=>snapshot.tracked && sites[snapshot.tracked.target]};
+    function track(key) {
+      if(!model.track(key)) return false;
+      refresh();
+      return true;
+    }
+    return {openJournal,openEncounter,update,refresh,track,tracked:()=>snapshot.tracked,
+      objectives:()=>[...snapshot.quests,...snapshot.jobs.filter(job=>job.active)].filter(row=>row.target || row.needsRide),
+      closeJournal:()=>journal.close(),modalOpen:()=>journal.open||encounter.open,journalOpen:()=>journal.open,
+      target:()=>snapshot.tracked && sites[snapshot.tracked.target]};
   }
 
   window.MadisonCampaignUI={create};

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.jpg':'image/jpeg' };
 const paths = new Set(['/index.html', '/Isthmus.html', '/style.css', '/atmosphere.js', '/homes.js', '/places.js', '/landscape.js',
-  '/streetscape.js', '/traffic.js', '/market.js', '/pedestrians.js', '/campaign.js', '/campaign-ui.js',
+  '/streetscape.js', '/traffic.js', '/parking.js', '/navigation.js', '/field-map.js', '/market.js', '/pedestrians.js', '/campaign.js', '/campaign-ui.js',
   '/storefronts.js', '/world.js', '/game.js',
   '/data/madison.js', '/assets/three.min.js', '/assets/madison-aerial.jpg', '/assets/madison-region.jpg']);
 const port = Number(process.argv[2] || 4173);

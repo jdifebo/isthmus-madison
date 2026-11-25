@@ -115,20 +115,38 @@ h1, h2, p { margin: 0; }
 .map-caption i { width: 7px; height: 7px; display: inline-block; background: var(--accent); border-radius: 50%; margin-right: 4px; }
 .map-caption button { font-weight: 700; color: var(--ink); }
 .map-caption button:hover, .credits button:hover { text-decoration: underline; }
-.map-card.expanded { width: min(600px, calc(100% - 36px)); max-height: calc(100% - 105px); overflow-y: auto; bottom: 46px; z-index: 4; }
-.map-card.expanded .map-heading { position: sticky; top: 0; background: #1a2b39; z-index: 1; }
-.map-card.expanded #map { max-height: 44vh; object-fit: contain; }
-.map-card.expanded #north, .map-card.expanded #map-expand { display: none; }
-#map-details { border-top: 1px solid var(--line); padding: 12px 13px 15px; }
-#coordinates { margin: 0 0 9px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
-.map-legend { margin: 0 0 10px; color: var(--dim); font-size: 13px; }
-.map-legend b { font-weight: inherit; }
-.map-legend span { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: #e48c74; margin: 0 5px 3px 0; }
-.map-legend i { display: inline-block; width: 5px; height: 8px; border-radius: 1px; background: #6cd6dc; margin: 0 4px 0 12px; transform: rotate(38deg); }
-#landmarks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
-#landmarks button { text-align: left; font-size: 14px; border: 1px solid var(--line); border-radius: 5px; padding: 8px; }
-#landmarks button:hover { background: #34475a; }
-#landmarks .transit-stop { border-left: 2px solid #e48c74; }
+.map-card:not(.expanded) #map { aspect-ratio: 1.65; }
+.map-card.expanded {
+  inset: 0; width: 100%; max-height: none; z-index: 9; display: flex; flex-direction: column;
+  border: 0; border-radius: 0; background: #182b36;
+}
+.map-card.expanded .map-heading { padding: 13px clamp(15px, 3vw, 38px); border-bottom: 1px solid var(--line); }
+.map-card.expanded .map-heading h2 { font-size: clamp(26px, 4vw, 38px); }
+.map-card.expanded :is(#map-expand,#map-orientation) { display: none; }
+#map-orientation { font-size: 11px; padding: 4px 7px; }
+.map-card.expanded .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) minmax(245px,31%); }
+.map-main { position: relative; min-width: 0; }
+.map-card.expanded .map-main { display: flex; flex-direction: column; min-height: 0; }
+.map-card.expanded #map { flex: 1; height: 0; min-height: 0; border: 0; touch-action: none; cursor: grab; }
+.map-card.expanded #map:active { cursor: grabbing; }
+.map-tools { position: absolute; bottom: 50px; left: 10px; display: flex; gap: 6px; align-items: center; padding: 5px; }
+.map-tools button { font-size: 13px; padding: 5px 8px; border-radius: 5px; }
+.map-tools button:hover, .map-locations button:hover { background: #365063; }
+#map-details { padding: 13px 16px; overflow: auto; border-left: 1px solid var(--line); }
+#map-details section, #map-details details { padding: 0 0 13px; margin: 0 0 13px; border-bottom: 1px solid var(--line); }
+#map-details h3 { font: 23px/1.2 var(--serif); margin: 3px 0 5px; }
+#map-details p:not(.eyebrow) { font-size: 13px; color: var(--dim); }
+#map-details summary { cursor: pointer; font-size: 14px; font-weight: 700; }
+.map-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.map-locations { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin-top: 8px; }
+.map-locations button { text-align: left; font-size: 13px; border: 1px solid var(--line); border-radius: 5px; padding: 7px; }
+.map-locations button[aria-current="true"] { background: #ffc18c19; border-color: #ffc18c72; }
+#map-objective-list { grid-template-columns: 1fr; }
+.map-key { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-bottom: 13px; }
+.map-key i { width: 7px; height: 7px; border-radius: 2px; background: #eaffff; display: inline-block; }
+.map-key i:nth-child(2) { background: #ffcb77; transform: rotate(45deg); }
+.map-key i:nth-child(3) { background: #93c8ff; }
+.map-key i:nth-child(4) { background: #80d5bc; border-radius: 50%; }
 .credits { position: absolute; bottom: 15px; right: clamp(18px, 3.3vw, 55px); font-size: 12px; color: #edf3e7; }
 .credits-popup { position: absolute; bottom: 26px; right: 0; padding: 12px; display: grid; gap: 6px; width: min(320px, 85vw); z-index: 6; }
 .place { position: absolute; left: clamp(18px, 3.3vw, 55px); top: 94px; text-shadow: 0 2px 9px #101620; pointer-events: none; }
@@ -153,7 +171,12 @@ h1, h2, p { margin: 0; }
 }
 .transit-panel .eyebrow { color: #a6edf2; letter-spacing: .14em; }
 #transit-status, #market-stall-name { margin-top: 3px; font-size: 14px; }
-#transit-action, #market-browse { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
+#transit-action, #transit-destinations, #market-browse, #car-action { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
+#car-panel { border-color: #93c8ff8a; }
+.driving #speedometer { left: auto; right: clamp(18px, 3.3vw, 55px); bottom: max(44vh,245px); }
+.transit-choices { display: grid; gap: 8px; }
+.transit-choices button { text-align: left; }
+.transit-choices p { font-size: 14px; color: var(--dim); }
 #market-panel { border-left-color: var(--accent); }
 #market-panel .eyebrow { color: var(--accent); }
 .story-balance { color: #ffe0ae; margin-top: 8px; font-weight: 750; font-variant-numeric: tabular-nums; }
@@ -165,6 +188,15 @@ h1, h2, p { margin: 0; }
 #objective-title { font-weight: 750; }
 #objective-distance { color: var(--accent); white-space: nowrap; font-size: 13px; font-variant-numeric: tabular-nums; }
 #objective-step { font-size: 13px; margin-top: 4px; color: #e8e1d3; }
+.gps-hint {
+  position: absolute; right: clamp(18px, 3.3vw, 55px); top: 168px; padding: 6px 9px;
+  color: #c7f2ee; font-size: 12px; max-width: min(305px, calc(100% - 36px));
+}
+body:has(#story-objective[hidden]) .gps-hint { top: 89px; }
+@media (max-width: 660px) {
+  .gps-hint { top: 245px; right: 18px; }
+  body:has(#story-objective[hidden]) .gps-hint { top: 154px; }
+}
 #encounter-panel { border-left-color: var(--accent); font-size: 14px; font-weight: 700; }
 #encounter-action { padding: 7px 9px; font-weight: 500; white-space: nowrap; }
 .journal {
@@ -259,6 +291,9 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .riding .transit-panel { bottom: 117px; }
   .help { bottom: 122px; }
   .credits { bottom: 9px; }
+  .map-card.expanded .map-layout { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(185px,57%) 1fr; }
+  #map-details { border-left: 0; border-top: 1px solid var(--line); }
+  .driving #speedometer { bottom: 138px; right: 18px; }
 }
 @media (max-height: 535px) {
   .intro h1 { font-size: clamp(42px, 13vh, 70px); margin: 12px 0; }
@@ -291,7 +326,8 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .story-objective { top: 70px; width: min(218px, 40vw); }
 }
 @media (max-width: 570px) and (max-height: 650px) {
-  .map-card:not(.expanded) { display: none; }
+  #game:not(.playing) .map-card:not(.expanded) { display: none; }
+  .playing .map-card:not(.expanded) { width: 142px; }
 }
 @media (max-width: 380px) {
   .wordmark { letter-spacing: .18em; }
@@ -351,12 +387,17 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <div><p id="objective-title"></p><span id="objective-distance"></span></div>
         <p id="objective-step"></p>
       </section>
+      <p id="gps-hint" class="gps-hint glass" hidden></p>
       <div class="reticle" aria-hidden="true"></div>
       <div id="speedometer" class="speedometer glass" hidden><strong id="speed">0</strong><span>MPH</span></div>
       <div id="altimeter" class="speedometer glass" aria-label="Height above the surface" hidden><strong id="altitude">0</strong><span>M ABOVE<br>GROUND</span></div>
       <section id="transit-panel" class="transit-panel glass" aria-label="Metro Rapid boarding" hidden>
         <div><p id="transit-route" class="eyebrow">Route A</p><p id="transit-status" aria-live="polite"></p></div>
         <button id="transit-action" type="button" class="glass" hidden><span id="transit-action-label"></span><kbd>E</kbd></button>
+        <button id="transit-destinations" type="button" class="glass" aria-haspopup="dialog" hidden>Express</button>
+      </section>
+      <section id="car-panel" class="transit-panel glass" aria-label="Your car" hidden>
+        <p>Your car</p><button id="car-action" class="glass" type="button"><span id="car-action-label">Get in</span> <kbd>E</kbd></button>
       </section>
       <section id="market-panel" class="transit-panel glass" aria-label="Market stall" hidden>
         <div><p class="eyebrow">Market stall</p><p id="market-stall-name"></p></div>
@@ -375,7 +416,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
       </div>
       <nav class="travel glass" aria-label="Travel mode">
         <button id="mode-walk" type="button" aria-pressed="true"><kbd>1</kbd> Walk</button>
-        <button id="mode-drive" type="button" aria-pressed="false"><kbd>2</kbd> Drive</button>
+        <button id="mode-drive" type="button" aria-pressed="false"><kbd>2</kbd> <span id="drive-label">Drive</span></button>
         <button id="mode-fly" type="button" aria-pressed="false"><kbd>3</kbd> Fly</button>
       </nav>
       <div class="touch-controls" aria-label="Touch movement">
@@ -385,14 +426,26 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
       </div>
     </section>
     <aside id="map-card" class="map-card glass" aria-labelledby="map-title">
-      <div class="map-heading"><div><p class="eyebrow">THE ISTHMUS</p><h2 id="map-title">Field map</h2></div><button id="map-close" class="small glass" aria-label="Close map" hidden>×</button><span id="north" aria-label="North is up">N ↑</span></div>
-      <canvas id="map" width="520" height="320" role="img" aria-label="North-up map of downtown Madison and its lakes"></canvas>
-      <div class="map-caption"><span><i></i> <span id="map-status">Capitol Square</span></span><button id="map-expand" type="button">Open map</button></div>
-      <div id="map-details" hidden>
-        <p id="coordinates"></p>
-        <p id="transit-legend" class="map-legend" hidden><span></span> <b id="transit-legend-label">Metro Rapid</b> <i></i> Moving buses</p>
-        <p class="eyebrow">JUMP TO A LANDMARK</p>
-        <div id="landmarks"></div>
+      <div class="map-heading"><h2 id="map-title">Field map</h2><button id="map-orientation" class="small glass" type="button" aria-pressed="true">North up</button><button id="map-close" class="small glass" type="button" hidden>Resume <kbd>Esc</kbd></button></div>
+      <div class="map-layout">
+        <div class="map-main">
+          <canvas id="map" width="520" height="320" role="img" aria-label="Map of downtown Madison with your location and destination"></canvas>
+          <div id="map-tools" class="map-tools glass" hidden>
+            <button id="map-minus" type="button" aria-label="Zoom out">−</button><button id="map-plus" type="button" aria-label="Zoom in">+</button>
+            <button id="map-recenter" type="button">Center on me</button>
+          </div>
+          <div class="map-caption"><span><i></i> <span id="map-status">Capitol Square</span></span><button id="map-expand" type="button">Open map</button></div>
+        </div>
+        <div id="map-details" hidden>
+          <section class="map-route" aria-labelledby="map-destination"><p class="eyebrow">Navigation</p><h3 id="map-destination">No destination</h3><p id="map-directions">Choose a place or objective.</p>
+            <div class="map-actions"><button id="map-find-car" class="glass small" type="button" hidden>Find my car</button><button id="map-clear" class="glass small" type="button" hidden>Clear waypoint</button></div>
+          </section>
+          <section id="map-objectives" hidden><h3>Objectives</h3><div id="map-objective-list" class="map-locations"></div></section>
+          <section><h3>Places</h3><div id="landmarks" class="map-locations"></div></section>
+          <details><summary>Metro Rapid stops</summary><div id="map-stops" class="map-locations"></div></details>
+          <p class="map-key"><i></i> You <i></i> Destination <i></i> Your car <i></i> Metro Rapid</p>
+          <button id="map-home" type="button" class="glass small">Return to title</button>
+        </div>
       </div>
     </aside>
     <section id="help" class="glass help" aria-label="All controls" hidden>
@@ -408,8 +461,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <div id="story-help" hidden><dt>Journal / inventory</dt><dd>J / I</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
-        <div><dt>Map / reset</dt><dd>M / R</dd></div>
-        <div><dt>Return to title</dt><dd>Esc</dd></div>
+        <div><dt>Pause map / reset</dt><dd>M or Esc / R</dd></div>
       </dl>
     </section>
     <dialog id="stall-dialog" class="market-dialog" aria-labelledby="stall-title">
@@ -441,6 +493,10 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <button id="encounter-close" type="button" class="glass small" aria-label="Close interaction" autofocus>×</button>
       </header>
       <ul id="encounter-list" class="journal-list"></ul>
+    </dialog>
+    <dialog id="transit-dialog" class="journal encounter" aria-labelledby="transit-title">
+      <header><div><p class="eyebrow">Metro Rapid · Route A</p><h2 id="transit-title"></h2></div><button id="transit-close" class="glass small" type="button" aria-label="Close transit menu" autofocus>×</button></header>
+      <div id="transit-choices" class="transit-choices"></div>
     </dialog>
     <div id="toast" class="glass toast" role="status" hidden></div>
     <footer class="credits"><button id="credits-toggle" type="button" aria-expanded="false">Map credits</button>
@@ -2248,6 +2304,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   function corridor(roads,direction) {
     const edges=roads.filter(([name,kind,width,,line])=>name===avenue && kind<=1 && width>=7.5 &&
       (line.at(-1)[0]-line[0][0])*direction>.12 && Math.min(line[0][0],line.at(-1)[0])>=162);
+    return longestChain(edges);
+  }
+
+  function longestChain(edges) {
     const key=point=>point.join(',');
     const starts=new Map(), tails=new Set();
     for(const edge of edges) {
@@ -2307,7 +2367,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const controls=[];
     for(const [, ,width,,line] of chain) {
       const bus=width/2-1.81;
-      const offset=kind==='bus'?bus:kind==='outer'?1.83-width/2:Math.min(0,1.83-width/2+3.31);
+      const offset=kind==='bus'?bus:kind==='outer'?1.83-width/2:kind==='local'?-Math.min(1.67,width*.19):Math.min(0,1.83-width/2+3.31);
       for(let i=1;i<line.length;i++) {
         const [a,b]=[line[i-1],line[i]],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);
         if(len<.025) continue;
@@ -2388,15 +2448,6 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         const highway=runningLane(chain,kind,layout.stops);
         const guide=bus && (approaches || []).find(part=>part[0]===direction)?.[1];
         const {line,downtown}=extendBusLane(highway,guide,direction,detour);
-        const signals=[];
-        for(const signal of layout.signals) {
-          const {s,distance,dx,dz}=line.project(signal.x,signal.z);
-          if(distance>17 || s<17 || s>line.length-16) continue;
-          const scores=signal.axes.map(road=>Math.abs(road.dx*dx+road.dz*dz));
-          const axis=scores[0]>=scores[1]?0:1;
-          if(scores[axis]<.80) continue;
-          signals.push({s:s-signal.axes[1-axis].extent-3.8,signal,axis});
-        }
         const stations=bus?layout.stops.flatMap(([name,x,z,dx,dz])=>{
           const stop=line.project(x,z);
           if(stop.distance>7 || stop.s<22 || stop.s>line.length-15) return [];
@@ -2413,13 +2464,35 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           stations.push({id,name,x:a,z:b,dx,dz,s:projection.s+7.4,curb:true});
         }
         stations.sort((a,b)=>a.s-b.s);
-        routes.push({kind,direction,line,downtown,signals:signals.sort((a,b)=>a.s-b.s),stations,vehicles:[]});
+        routes.push({kind,direction,line,downtown,signals:signalsAlong(line,layout),stations,vehicles:[]});
       }
+    }
+    const more=['West Johnson Street','East Johnson Street','West Gorham Street','East Gorham Street',
+      'West Washington Avenue','West Dayton Street','North Bassett Street','Williamson Street','East Wilson Street'];
+    for(const name of more) {
+      const edges=data.roads.filter(road=>road[0]===name && road[1]<2 && !road[3]);
+      const chain=longestChain(edges);
+      if(!chain.length) continue;
+      const line=runningLane(chain,'local',[]);
+      if(line.length<210) continue;
+      routes.push({kind:'local',name,direction:1,line,downtown:0,signals:signalsAlong(line,layout),stations:[],vehicles:[]});
     }
     return {routes,curbs};
   }
 
-  function updateRoute(route,dt,time,playerOnLane) {
+  function signalsAlong(line,layout) {
+    const stops=[];
+    for(const signal of layout.signals) {
+      const {s,distance,dx,dz}=line.project(signal.x,signal.z);
+      if(distance>17 || s<17 || s>line.length-16) continue;
+      const scores=signal.axes.map(road=>Math.abs(road.dx*dx+road.dz*dz));
+      const axis=scores[0]>=scores[1]?0:1;
+      if(scores[axis]>=.80) stops.push({s:s-signal.axes[1-axis].extent-3.8,signal,axis});
+    }
+    return stops.sort((a,b)=>a.s-b.s);
+  }
+
+  function updateRoute(route,dt,time,obstacles) {
     const {vehicles,line,stations,signals}=route;
     vehicles.sort((a,b)=>b.s-a.s);
     for(let index=0;index<vehicles.length;index++) {
@@ -2448,8 +2521,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         if(phase>=yellow || phase>=green && gap>=car.speed*car.speed/8.4) barrier=Math.min(barrier,upcoming.s);
       }
       if(leader) barrier=Math.min(barrier,leader.s-leader.length-2.4);
-      if(playerOnLane && playerOnLane.distance<1.95 && playerOnLane.s>car.s && playerOnLane.s-car.s<84) {
-        barrier=Math.min(barrier,playerOnLane.s-3.7);
+      for(const obstacle of obstacles) {
+        if(obstacle.distance<1.95 && obstacle.s>car.s && obstacle.s-car.s<84) barrier=Math.min(barrier,obstacle.s-3.7);
       }
       const space=Math.max(0,barrier-car.s);
       let limit=car.cruise;
@@ -2755,18 +2828,46 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       return {body,trailer,bellows,doors,brakeLights,passengerView,display,length:18.30};
     }
 
-    return {bus,car};
+    function parked(slots) {
+      const orient=new T.Object3D();
+      for(let i=0;i<sedans.length;i++) {
+        const parts=sedans[i].group.children;
+        const groups=new Map();
+        for(const slot of slots) {
+          if(slot.style!==i) continue;
+          const key=Math.floor(slot.x/360)+','+Math.floor(slot.z/360);
+          if(!groups.has(key)) groups.set(key,[]);
+          groups.get(key).push(slot);
+        }
+        for(const group of groups.values()) for(const part of parts) {
+          const mesh=new T.InstancedMesh(part.geometry,part.material,group.length);
+          for(const [n,slot] of group.entries()) {
+            orient.position.set(slot.x,slot.y+.244,slot.z);
+            orient.rotation.y=Math.atan2(slot.dx,slot.dz);
+            orient.updateMatrix();
+            mesh.setMatrixAt(n,orient.matrix);
+          }
+          mesh.computeBoundingSphere();
+          mesh.userData.range=480;
+          scene.add(mesh);
+        }
+      }
+    }
+    return {bus,car,parked};
   }
 
-  function create(scene,geo,layout,routes) {
+  function create(scene,geo,layout,routes,parking) {
     const models=vehicleModels(scene,geo);
+    if(parking) models.parked(parking.parked);
     const rng=geo.random(421433);
     let model=0,lastTime,passenger=null;
     for(const route of routes) {
       const bus=route.kind==='bus';
       const paterson=route.stations.find(stop=>stop.name==='Paterson');
       const stateStreet=route.stations.find(stop=>stop.name==='State Street');
-      const offsets=bus?(route.direction>0?[.08,.28,.46,.70,.86,.94]:[.08,.24,.37,.57,.77,.91]):
+      const locals=Math.max(2,Math.min(10,Math.floor(route.line.length/135)));
+      const offsets=route.kind==='local'?Array.from({length:locals},(_,i)=>(i+.25+rng()*.44)/locals):
+        bus?(route.direction>0?[.08,.28,.46,.70,.86,.94]:[.08,.24,.37,.57,.77,.91]):
         route.kind==='outer'?[.07,.20,.31,.43,.55,.65,.77,.87,.94]:[.11,.262,.38,.49,.58,.73,.80,.96];
       for(let slot=0;slot<offsets.length;slot++) {
         const actor=bus?models.bus(route.direction):models.car(model++);
@@ -2774,7 +2875,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         const docked=Boolean(startingStop);
         const target=startingStop?startingStop.s:route.line.length*offsets[slot];
         const stop=route.stations.findIndex(marker=>marker.s>=target-.015);
-        const cruise=bus?11.7+rng()*2.5:12.2+rng()*3.7;
+        const cruise=route.kind==='local'?7.6+rng()*2.5:bus?11.7+rng()*2.5:12.2+rng()*3.7;
         const dwellTime=docked?10.4:6.3+rng()*2.7;
         route.vehicles.push({...actor,bus,s:target,stop:stop<0?route.stations.length:stop,cruise,
           speed:docked?0:cruise*(.59+rng()*.29),dwell:docked?dwellTime:0,dwellTime,braking:Boolean(docked)});
@@ -2819,7 +2920,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       shadows.setMatrixAt(shadowCount,shadow.matrix);
     }
 
-    function advance(time,player) {
+    function advance(time,player,parked) {
       const elapsed=lastTime===undefined?0:Math.min(.25,Math.max(0,time-lastTime));
       lastTime=time;
       const steps=Math.ceil(elapsed*30);
@@ -2827,8 +2928,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const onPlatform=player && platformAt(player[0],player[1]);
       for(const route of routes) {
         const {line,vehicles}=route;
-        const occupied=player && !(onPlatform && route.kind==='bus')?line.project(player[0],player[1]):null;
-        for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),occupied);
+        const obstacles=[];
+        if(player && !(onPlatform && route.kind==='bus')) obstacles.push(line.project(player[0],player[1]));
+        if(parked) obstacles.push(line.project(parked.x,parked.z));
+        for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),obstacles);
         if(route.kind!=='bus') continue;
         for(const actor of vehicles) {
           const [x,z,dx,dz]=line.sample(actor.s-8);
@@ -2844,10 +2947,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     function render(camera) {
       blockers.length=0;
       let shadowCount=0;
-      for(const {line,vehicles,stations} of routes) {
+      for(const {line,vehicles,stations,kind} of routes) {
         for(const actor of vehicles) {
           const [x,z]=line.sample(actor.s-(actor.bus?8:0));
-          const within=Math.hypot(x-camera.position.x,z-camera.position.z)<(actor.bus?680:490);
+          const within=Math.hypot(x-camera.position.x,z-camera.position.z)<(actor.bus?680:kind==='local'?295:490);
           actor.body.visible=within;
           if(actor.bus) actor.trailer.visible=actor.bellows.visible=within;
           if(!within) continue;
@@ -2939,6 +3042,59 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       return offer.station;
     }
 
+    function services(id) {
+      return routes.filter(route=>route.kind==='bus').flatMap(route=>{
+        const index=route.stations.findIndex(station=>station.id===id);
+        if(index<0 || index===route.stations.length-1) return [];
+        return [{direction:route.direction,end:route.stations.at(-1).name,stops:route.stations.slice(index+1)}];
+      });
+    }
+
+    function dock(actor,route,index) {
+      const stop=route.stations[index];
+      actor.stop=index;
+      actor.s=stop.s;
+      actor.dwellTime=12;
+      actor.dwell=10;
+      actor.speed=0;
+      actor.braking=true;
+    }
+
+    function summon(id,direction) {
+      if(passenger) return null;
+      const route=routes.find(r=>r.kind==='bus' && r.direction===direction);
+      const index=route?.stations.findIndex(station=>station.id===id) ?? -1;
+      if(index<0 || index>=route.stations.length-1) return null;
+      const station=route.stations[index];
+      const sorted=route.vehicles.slice().sort((a,b)=>Math.abs(a.s-station.s)-Math.abs(b.s-station.s));
+      const actor=sorted[0] && Math.abs(sorted[0].s-station.s)<28?sorted[0]:sorted.at(-1);
+      if(!actor) return null;
+      dock(actor,route,index);
+      passenger={actor,route,station:station.name};
+      actor.passengerView(true);
+      return station.name;
+    }
+
+    function destinations() {
+      if(!passenger) return [];
+      const {actor,route}=passenger;
+      return route.stations.slice(actor.stop+Number(actor.dwell>0));
+    }
+
+    function express(id) {
+      if(!passenger || !destinations().some(stop=>stop.id===id)) return null;
+      const {actor,route}=passenger;
+      // A coach already at the arrival platform can remain there. The passenger
+      // still disembarks on its correct side without overlapping another coach.
+      const index=route.stations.findIndex(stop=>stop.id===id);
+      const stop=route.stations[index];
+      const occupied=route.vehicles.some(other=>other!==actor && Math.abs(other.s-stop.s)<20);
+      if(!occupied) dock(actor,route,index);
+      const point=platformPosition(stop,route.direction,5.75,false);
+      release();
+      return point;
+    }
+
     function release() {
       if(!passenger) return;
       passenger.actor.passengerView(false);
@@ -2982,10 +3138,91 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       return {name:platform.name,boarding:Boolean(offer),direction:direction?direction>0?'Eastbound':'Westbound':null};
     }
 
-    return {advance,render,blocked,buses,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release}};
+    return {advance,render,blocked,buses,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release,
+      services,summon,destinations,express}};
   }
 
   window.MadisonTraffic={cycle,green,yellow,signalPhase,network,create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const laneSize=32;
+  const key=(x,z)=>Math.floor(x/laneSize)+','+Math.floor(z/laneSize);
+  const blockedStreet=/East Washington|University Avenue|West Johnson|East Johnson|East Gorham|West Gorham/;
+
+  function create(geo,layout,market,routes=[]) {
+    const {data,streetCandidates,segmentDistance,ground,inBuilding,onWater,random}=geo;
+    const rng=random(81396),slots=[],parked=[],spatial=new Map(),districts=new Map();
+    const lanes=new Map(routes.filter(route=>route.name).map(route=>[route.name,route.line]));
+    for(const [name,kind,width,bridge,line,rapid,driveway] of data.roads) {
+      if(!name || kind>1 || width<7.1 || width>17.7 || bridge || rapid || driveway || blockedStreet.test(name)) continue;
+      for(let i=1;i<line.length;i++) {
+        const [ax,az]=line[i-1],[bx,bz]=line[i],length=Math.hypot(bx-ax,bz-az);
+        if(length<14) continue;
+        const dx=(bx-ax)/length,dz=(bz-az)/length;
+        for(let along=5.2;along<=length-4.8;along+=8.9) for(const side of [1,-1]) {
+          const offset=(width*.5-1.13)*side;
+          const x=ax+dx*along-dz*offset,z=az+dz*along+dx*offset;
+          if(onWater(x,z) || inBuilding(x,z,1.28) || market?.drivingBlocked(x,z,2)) continue;
+          const lane=lanes.get(name);
+          if(lane && lane.project(x,z).distance<2.26) continue;
+          if(layout.signals.some(s=>Math.hypot(x-s.x,z-s.z)<20) ||
+            layout.stops.some(([,a,b])=>Math.hypot(x-a,z-b)<16)) continue;
+          if(streetCandidates(x,z).some(road=>{
+            if(road.name===name || road.kind>2 || road.kind===2 && !road.name) return false;
+            const {ax,az,bx,bz,width}=road;
+            return segmentDistance(x,z,ax,az,bx,bz)<(width*.5+3.9)**2;
+          })) continue;
+          const sx=dx*side,sz=dz*side;
+          if([-2.24,2.24].some(d=>inBuilding(x+sx*d,z+sz*d,1.06) || onWater(x+sx*d,z+sz*d))) continue;
+          const slot={x,z,yaw:Math.atan2(sx,-sz),name,dx:sx,dz:sz,y:ground(x,z)};
+          slots.push(slot);
+          const district=Math.floor(x/132)+','+Math.floor(z/132);
+          const used=districts.get(district) || 0;
+          if(used>=3 || rng()>(Math.hypot(x*.71,z*.65)<1100?.065:.028) ||
+            parked.some(p=>Math.abs(p.x-x)<5.8 && Math.abs(p.z-z)<5.8 && Math.hypot(p.x-x,p.z-z)<5.8)) continue;
+          slot.occupied=true;
+          const car={...slot,style:Math.floor(rng()*8)};
+          parked.push(car);
+          districts.set(district,used+1);
+          const id=key(x,z);
+          if(!spatial.has(id)) spatial.set(id,[]);
+          spatial.get(id).push(car);
+        }
+      }
+    }
+
+    function collision(x,z,radius) {
+      for(const a of [x-radius-2.6,x+radius+2.6]) for(const b of [z-radius-2.6,z+radius+2.6]) {
+        for(const car of spatial.get(key(a,b)) || []) if(overlaps(car,x,z,radius)) return true;
+      }
+      return false;
+    }
+    function nearest(x,z,accept=()=>true) {
+      let best=null,distance=260;
+      for(const slot of slots) {
+        if(slot.occupied) continue;
+        const length=Math.hypot(x-slot.x,z-slot.z);
+        if(length>distance || length<4 || collision(slot.x,slot.z,1.9) || !accept(slot)) continue;
+        best=slot;
+        distance=length;
+      }
+      return best;
+    }
+    return {parked,nearest,collision};
+  }
+
+  function overlaps(car,x,z,radius) {
+    const dx=Math.sin(car.yaw),dz=-Math.cos(car.yaw),vx=x-car.x,vz=z-car.z;
+    const across=Math.max(0,Math.abs(vx*dz-vz*dx)-.96),along=Math.max(0,Math.abs(vx*dx+vz*dz)-2.37);
+    return across*across+along*along<radius*radius;
+  }
+
+  window.MadisonParking={create,overlaps};
 })();
 
 </script>
@@ -3273,6 +3510,12 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     pairing:['Picnic recipe card','A small keepsake from the Terrace table.'],
     books:['Library donation box','A donation for the community book table at James Madison Park.'],
     cooler:['Insulated cheese crate','A catering drop for the crew at Breese Stevens Field.'],
+    tickets:['Route A field card','Collect a ride stamp by boarding and stepping off at a different stop.'],
+    stamp:['Metro Rapid ride stamp','Proof you rode between two stops. Express rides count.'],
+    blueprint:['Community-room plan','A marked-up plan for the neighborhood open house.'],
+    banner:['Open house banner','A hand-painted banner to bring back to Bassett Studio.'],
+    eventPass:['Neighborhood open house pass','A keepsake from the first open house you helped organize.'],
+    chairs:['Folding-chair bundle','A delivery for the community table on Lake Monona.'],
     studioKey:['Bassett Studio key','Your home base on West Dayton Street.'],
     shopKey:['Workshop key','The keys to your East Wash Workshop.']
   };
@@ -3297,13 +3540,24 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     picnic:{kind:'Side',title:'The Picnic List',requires:'across',brief:'Put together a Wisconsin picnic card for the welcome table.',steps:[
       {site:'cheese',objective:'Ask about the picnic list at Fromagination',label:'Collect the tasting notes',detail:'Pick up a few ideas for a simple cheese picnic.',give:'notes'},
       {site:'union',objective:'Share the tasting notes with Jules',label:'Put together the picnic card',detail:'Jules adds the finishing touches to the picnic list.',take:'notes',give:'pairing',pay:50}
+    ]},
+    line:{kind:'Side',title:'Take the A',requires:'first',brief:'Try Metro Rapid, then compare notes with the crew at Breese Stevens Field.',steps:[
+      {site:'union',objective:'Pick up the Route A field card at the Terrace',label:'Pick up the Route A field card',detail:'Jules wants you to learn which stops are useful for a visitor coming across town.',give:'tickets'},
+      {site:'field',objective:'Bring your stamped card to Breese Stevens Field',label:'Turn in the ride survey',detail:'Tell the crew which stop you used and how far you walked.',take:'tickets',consume:'stamp',pay:68}
+    ]},
+    openHouse:{kind:'Main',title:'Open House',requires:'home',brief:'Put your new place on the neighborhood’s open-house list.',steps:[
+      {site:'studio',objective:'Meet the organizer at Bassett Studio',label:'Pick up the room plan',detail:'A neighbor wants to use the studio for a small book swap.',give:'blueprint'},
+      {site:'field',objective:'Bring the room plan to Breese Stevens Field',label:'Trade the plan for the banner',detail:'The crew has made a banner sized for your place.',take:'blueprint',give:'banner'},
+      {site:'studio',objective:'Bring your banner back to Bassett Studio',label:'Hang up the banner',detail:'Your neighbors have a place to meet and trade books.',take:'banner',give:'eventPass',pay:110}
     ]}
   };
   const jobs={
     bookRun:{title:'Little Library Run',site:'books',destination:'park',item:'books',pay:32,
       brief:'Carry a donation box from the book store to the community table at James Madison Park.'},
     cheeseRun:{title:'Match Day Catering',site:'cheese',destination:'field',item:'cooler',pay:46,
-      brief:'Bring an insulated delivery to the crew at Breese Stevens Field.'}
+      brief:'Bring an insulated delivery to the crew at Breese Stevens Field.'},
+    chairRun:{title:'Folding Chairs',site:'studio',destination:'monona',item:'chairs',pay:38,requires:'home',
+      brief:'Help set up a neighborhood event by bringing spare chairs to Monona Terrace.'}
   };
   const properties={
     studio:{price:140,key:'studioKey',requires:'across',brief:'A small home base with a bed and a return point.'},
@@ -3351,19 +3605,21 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const rows={quests:[],jobs:[],properties:[]};
       for(const [id,quest] of Object.entries(quests)) {
         const step=quest.steps[state.steps[id]],available=Boolean(step)&&unlocked(quest);
-        const target=available?step.site:null;
+        const needsRide=available && step.consume==='stamp' && !state.pack.stamp;
+        const target=needsRide?null:available?step.site:null;
         let objective=available?step.objective:done(id)?'Completed':'Unlocks after '+quests[quest.requires].title;
+        if(needsRide) objective='Ride Route A and get off at another stop';
         if(available && step.property && state.cash<properties[step.property].price) {
           objective+=' · '+money(properties[step.property].price-state.cash)+' still needed';
         }
-        rows.quests.push({key:'q:'+id,title:quest.title,kind:quest.kind,brief:quest.brief,objective,target,
+        rows.quests.push({key:'q:'+id,title:quest.title,kind:quest.kind,brief:quest.brief,objective,target,available,needsRide,
           status:done(id)?'Complete':available?`${state.steps[id]+1} / ${quest.steps.length}`:'Locked'});
       }
       for(const [id,job] of Object.entries(jobs)) {
-        const active=state.job===id;
+        const active=state.job===id,available=unlocked(job);
         rows.jobs.push({key:'j:'+id,title:job.title,kind:'Odd job',brief:job.brief,active,
-          objective:active?'Deliver to '+sites[job.destination].name:'Pick up at '+sites[job.site].name,
-          target:active?job.destination:job.site,status:active?'On shift':money(payFor(job))+' per run',runs:state.runs[id]});
+          objective:active?'Deliver to '+sites[job.destination].name:available?'Pick up at '+sites[job.site].name:'Unlocks after '+quests[job.requires].title,
+          target:active?job.destination:available?job.site:null,status:active?'On shift':available?money(payFor(job))+' per run':'Locked',runs:state.runs[id]});
       }
       for(const [id,property] of Object.entries(properties)) {
         const owned=Boolean(state.owned[id]),available=unlocked(property);
@@ -3376,7 +3632,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
     function view() {
       const list=entries(),all=Object.values(list).flat();
-      const tracked=all.find(row=>row.key===state.tracked && row.target)
+      const tracked=all.find(row=>row.key===state.tracked && (row.target || row.needsRide))
         || list.quests.find(row=>row.key==='q:'+main() && row.target)
         || list.jobs.find(row=>row.active) || null;
       return {...list,tracked,cash:state.cash,job:state.job,last:state.last,canSave,hasSave:state.last!=='books'||
@@ -3391,11 +3647,14 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         const index=state.steps[id],step=quest.steps[index];
         if(step?.site!==site || !step.label || !unlocked(quest)) continue;
         actions.push({id:`q:${id}:${index}`,title:step.label,detail:step.detail,kind:quest.kind,photo:step.photo});
+        if(step.consume && !state.pack[step.consume]) {
+          Object.assign(actions.at(-1),{detail:'First ride Route A and get off at a different stop.',disabled:true});
+        }
       }
       for(const [id,job] of Object.entries(jobs)) {
         if(state.job===id && site===job.destination) actions.push({id:`j:${id}:deliver`,title:'Complete '+job.title,
           detail:'Hand over your delivery and earn '+money(payFor(job))+'.',kind:'Odd job'});
-        else if(site===job.site && !state.job) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
+        else if(site===job.site && !state.job && unlocked(job)) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
           detail:job.brief+' Earn '+money(payFor(job))+'.',kind:'Odd job'});
       }
       const property=properties[site];
@@ -3428,7 +3687,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const [kind,id,verb]=choice.id.split(':');
       if(kind==='seat') return {seat:terraceSeat,message:'Press E to stand up'};
       const next={...state,steps:{...state.steps},pack:{...state.pack},owned:{...state.owned},runs:{...state.runs},last:site};
-      let award=0,message,rest=false;
+      let award=0,message,rest=false,repark=false;
       function put(item) { if(item) next.pack[item]=(next.pack[item] || 0)+1; }
       function take(item) {
         if(!item) return true;
@@ -3438,15 +3697,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       if(kind==='q') {
         const quest=quests[id],step=quest.steps[Number(verb)];
-        if(!take(step.take)) return null;
+        if(!take(step.take) || !take(step.consume)) return null;
         put(step.give);
         if(step.photo && jpeg(photo)) next.photos={...next.photos,[site]:photo};
         next.steps[id]++;
+        repark=Number(verb)===0 || done(id,next);
         award=step.pay || 0;
         if(quest.kind==='Side') next.tracked=done(id,next)?null:'q:'+id;
         else if(state.tracked==='q:'+id && done(id,next)) next.tracked=null;
         message=done(id,next)?quest.title+' complete':step.label.replace(/^Pick up /,'Picked up ');
       } else if(kind==='j') {
+        repark=true;
         const job=jobs[id];
         if(verb==='accept') {
           put(job.item);
@@ -3468,7 +3729,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         if(next.tracked==='p:'+id) next.tracked=null;
         put(property.key);
         const firstHome=id==='studio'&&!done('home');
-        if(firstHome) next.steps.home=quests.home.steps.length;
+        if(firstHome) {next.steps.home=quests.home.steps.length;repark=true;}
         message=firstHome?'You have a home on the isthmus · Chapter complete':sites[id].name+' purchased';
       } else {
         message='Rested at '+sites[id].name;
@@ -3476,12 +3737,12 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       next.cash=count(next.cash+award);
       commit(next);
-      return {message:message+(award?' · +'+money(award):''),rest};
+      return {message:message+(award?' · +'+money(award):''),rest,repark};
     }
 
     function track(key) {
       sync();
-      if(!Object.values(entries()).flat().some(entry=>entry.key===key && entry.target)) return false;
+      if(!Object.values(entries()).flat().some(entry=>entry.key===key && (entry.target || entry.needsRide))) return false;
       if(key!==state.tracked) commit({...state,tracked:key});
       return true;
     }
@@ -3502,7 +3763,14 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       return true;
     }
 
-    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome};
+    function recordTransit(origin,arrival) {
+      sync();
+      if(!origin || origin===arrival || state.steps.line!==1 || state.pack.stamp) return false;
+      commit({...state,pack:{...state.pack,stamp:1}});
+      return true;
+    }
+
+    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome,recordTransit};
   }
 
   window.MadisonCampaign={sites,arrival,open,money,saveKey,terraceSeat,contacts};
@@ -3516,7 +3784,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   const {sites,money,saveKey}=MadisonCampaign;
   const $=id=>document.getElementById(id);
 
-  function create(model,{nearby,pause,onAction,onReturn,capture}) {
+  function create(model,{nearby,pause,onAction,onReturn,canReturn,onTrack,capture}) {
     const journal=$('journal'),encounter=$('encounter');
     const tabs=[...$('journal-tabs').querySelectorAll('button')];
     let page='quests',snapshot=model.view();
@@ -3588,11 +3856,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
             journal.close();
             refresh();
             onReturn(sites[entry.target]);
-          }));
-        } else if(entry.target) {
+          },!canReturn()));
+        } else if(entry.target || entry.needsRide) {
           const track=button(selected?'Tracked':'Track',()=>{
-            if(model.track(entry.key)) {
-              refresh();
+            if(track(entry.key)) {
+              onTrack();
               journal.close();
             }
           },selected);
@@ -3649,8 +3917,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(entry) {
         set('objective-title',entry.title);
         set('objective-step',entry.objective);
-        const distance=Math.hypot(site.x-x,site.z-z);
-        set('objective-distance',distance>=1000?(distance/1000).toFixed(1)+' km':Math.round(distance)+' m');
+        const distance=site?Math.hypot(site.x-x,site.z-z):null;
+        set('objective-distance',distance===null?'Route A':distance>=1000?(distance/1000).toFixed(1)+' km':Math.round(distance)+' m');
       }
       $('encounter-panel').hidden=!near && !seated;
       if(near || seated) {
@@ -3669,8 +3937,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(journal.open) renderJournal();
     });
     refresh();
-    return {openJournal,openEncounter,update,closeJournal:()=>journal.close(),
-      modalOpen:()=>journal.open||encounter.open,journalOpen:()=>journal.open,target:()=>snapshot.tracked && sites[snapshot.tracked.target]};
+    function track(key) {
+      if(!model.track(key)) return false;
+      refresh();
+      return true;
+    }
+    return {openJournal,openEncounter,update,refresh,track,tracked:()=>snapshot.tracked,
+      objectives:()=>[...snapshot.quests,...snapshot.jobs.filter(job=>job.active)].filter(row=>row.target || row.needsRide),
+      closeJournal:()=>journal.close(),modalOpen:()=>journal.open||encounter.open,journalOpen:()=>journal.open,
+      target:()=>snapshot.tracked && sites[snapshot.tracked.target]};
   }
 
   window.MadisonCampaignUI={create};
@@ -3973,6 +4248,44 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return lanes;
   }
 
+  function neighborhoodTracks(geo,layout) {
+    const names=new Set(['North Park Street','Langdon Street','Howard Temin Lakeshore Path','West Dayton Street',
+      'West Gilman Street','West Mifflin Street','South Carroll Street','East Main Street','East Wilson Street',
+      'East Gorham Street','East Washington Avenue','Williamson Street','North Paterson Street','Rutledge Street']);
+    const tracks=[],occupied=new Set();
+    for(const [name,kind,width,bridge,line,rapid] of geo.data.roads) {
+      if(!names.has(name) || kind===4 || bridge || rapid && width<9) continue;
+      for(let i=1;i<line.length;i++) {
+        const [ax,az]=line[i-1],[bx,bz]=line[i],length=Math.hypot(bx-ax,bz-az);
+        if(length<23) continue;
+        const dx=(bx-ax)/length,dz=(bz-az)/length;
+        for(const side of kind===3?[0]:[1,-1]) {
+          const offset=(width*.5+1.06)*side;
+          let start=null;
+          for(let along=3;along<=length-2;along+=2.5) {
+            const x=ax+dx*along-dz*offset,z=az+dz*along+dx*offset;
+            const clear=!geo.inBuilding(x,z,.29) && !geo.onWater(x,z) && !layout.stops.some(([,sx,sz])=>Math.hypot(sx-x,sz-z)<9);
+            if(clear) start??=along;
+            const end=clear?along:along-2.5;
+            if((!clear || along+2.5>length-2) && start!==null) {
+              const span=end-start;
+              const tx=ax+dx*start-dz*offset,tz=az+dz*start+dx*offset;
+              const spacing=kind===3?23:rapid?46:35;
+              for(let s=7;s<span-5;s+=spacing) {
+                const key=Math.floor((tx+dx*s)/9)+','+Math.floor((tz+dz*s)/9);
+                if(occupied.has(key) || tracks.length>=162) continue;
+                occupied.add(key);
+                tracks.push({tx,tz,dx,dz,span,s,path:kind===3});
+              }
+              start=null;
+            }
+          }
+        }
+      }
+    }
+    return tracks;
+  }
+
   function create(scene,geo,layout,market,contacts=[]) {
     const shelters=layout.stops.filter(([name])=>name==='State Street').map(([,x,z,dx,dz])=>{
       const position=(px,pz)=>[(px-x)*dx+(pz-z)*dz,(px-x)*dz-(pz-z)*dx];
@@ -4014,6 +4327,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       person({along,market:true,lateral:(rng()-.5)*2.92,pause:rng()*120});
     }
     for(const fixed of contacts) person({fixed});
+    for(const lane of neighborhoodTracks(geo,layout)) {
+      const s=lane.s+rng()*4;
+      const signals=layout.signals.flatMap(signal=>{
+        const vx=signal.x-lane.tx,vz=signal.z-lane.tz;
+        const point=vx*lane.dx+vz*lane.dz;
+        if(Math.abs(vx*lane.dz-vz*lane.dx)>19 || point<1 || point>lane.span-1) return [];
+        const scores=signal.axes.map(axis=>Math.abs(axis.dx*lane.dx+axis.dz*lane.dz));
+        return [{signal,point,axis:Number(scores[1]>scores[0])}];
+      });
+      person({lane,signals,along:s,direction:rng()<.5?-1:1});
+    }
     if(!walkers.length) return ()=>{};
     const crossings=layout.signals.filter(({x,z})=>x>=-1004&&x<=-191&&Math.abs(z-(.021*x-1.8))<11)
       .map(signal=>({signal,axis:Math.abs(signal.axes[0].dx)>Math.abs(signal.axes[1].dx)?0:1}));
@@ -4067,6 +4391,22 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           const [nextX,nextZ]=market.loop.sample(walker.along+.61,walker.lateral);
           dx=nextX-x; dz=nextZ-z;
           lift=.114;
+        } else if(walker.lane) {
+          const {tx,tz,dx:ux,dz:uz,span}=walker.lane;
+          const next=walker.signals.find(signal=>{
+            const approach=(signal.point-walker.along)*walker.direction;
+            return approach>4.5 && approach<7.3;
+          });
+          const moving=!next || MadisonTraffic.signalPhase(next.signal,next.axis,seconds)<MadisonTraffic.green;
+          walker.progress+=(Number(moving)-walker.progress)*Math.min(1,dt*6);
+          walker.along+=pace*walker.direction*walker.progress*dt;
+          if(walker.along<=0 || walker.along>=span) {
+            walker.along=geo.clamp(walker.along,0,span);
+            walker.direction*=-1;
+          }
+          x=tx+ux*walker.along;z=tz+uz*walker.along;
+          dx=ux*walker.direction;dz=uz*walker.direction;
+          lift=.105;
         } else {
           const px=points[0][0]+walker.along;
           const cross=crossings.find(({signal})=>{
@@ -4355,6 +4695,452 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   }
 
   window.MadisonStreetscape={create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const cellSize=55;
+  const cell=(x,z)=>Math.floor(x/cellSize)+','+Math.floor(z/cellSize);
+  const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+
+  function create(roads) {
+    const nodes=[],edges=[],cells=new Map(),shared=new Map();
+    function node(x,z) {
+      const tag=Math.round(x*3)+','+Math.round(z*3);
+      if(shared.has(tag)) return shared.get(tag);
+      const out={x,z,id:nodes.length,links:[]};
+      nodes.push(out);
+      shared.set(tag,out);
+      return out;
+    }
+    for(const [name,kind,,bridge,line,rapid,driveway] of roads) {
+      if(driveway) continue;
+      let prior;
+      for(const [x,z] of line) {
+        const next=node(x,z);
+        if(prior && prior!==next) {
+          const edge={a:prior,b:next,name,kind,bridge,oneWay:Boolean(rapid),splits:[]};
+          edges.push(edge);
+          for(let ix=Math.floor(Math.min(prior.x,x)/cellSize);ix<=Math.floor(Math.max(prior.x,x)/cellSize);ix++) {
+            for(let iz=Math.floor(Math.min(prior.z,z)/cellSize);iz<=Math.floor(Math.max(prior.z,z)/cellSize);iz++) {
+              const key=ix+','+iz;
+              if(!cells.has(key)) cells.set(key,[]);
+              cells.get(key).push(edge);
+            }
+          }
+        }
+        prior=next;
+      }
+    }
+    function project(x,z,edge) {
+      const {a,b}=edge,dx=b.x-a.x,dz=b.z-a.z;
+      const t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz)));
+      const px=a.x+t*dx,pz=a.z+t*dz;
+      return {edge,t,x:px,z:pz,offset:Math.hypot(x-px,z-pz)};
+    }
+    function link(a,b,edge,both=true) {
+      if(a===b) return;
+      const length=distance(a,b);
+      a.links.push({to:b,length,...edge});
+      if(both) b.links.push({to:a,length,...edge,car:edge.car && !edge.oneWay});
+    }
+
+    // Municipal paths sometimes end a few meters short of an OSM centerline.
+    const degree=new Uint16Array(nodes.length),roadEnds=new Uint16Array(nodes.length);
+    for(const edge of edges) {
+      for(const end of [edge.a,edge.b]) {
+        degree[end.id]++;
+        if(edge.kind<2 && !edge.bridge) roadEnds[end.id]++;
+      }
+    }
+    for(const end of nodes.slice()) {
+      if(degree[end.id]!==1) continue;
+      let nearest;
+      for(const edge of cells.get(cell(end.x,end.z)) || []) {
+        if(edge.bridge || edge.a===end || edge.b===end || roadEnds[end.id] && edge.kind>=2) continue;
+        const hit=project(end.x,end.z,edge);
+        if(hit.offset>4.2 || nearest && hit.offset>=nearest.offset) continue;
+        nearest=hit;
+      }
+      if(!nearest) continue;
+      const {edge,t,x,z}=nearest;
+      const join=t<.001?edge.a:t>.999?edge.b:node(x,z);
+      if(join!==edge.a && join!==edge.b) edge.splits.push({t,node:join});
+      link(end,join,{name:edge.name,car:roadEnds[end.id]>0 && edge.kind<2});
+    }
+    for(const edge of edges) {
+      const cuts=[edge.a,...edge.splits.sort((a,b)=>a.t-b.t).map(cut=>cut.node),edge.b];
+      edge.sections=[];
+      const style={name:edge.name,car:edge.kind<2 || edge.kind===4,oneWay:edge.oneWay};
+      for(let i=1;i<cuts.length;i++) {
+        const a=cuts[i-1],b=cuts[i];
+        if(a===b) continue;
+        link(a,b,style);
+        edge.sections.push({a,b,...style});
+      }
+    }
+    function nearby(point,car) {
+      const seen=new Set(),results=[];
+      const cx=Math.floor(point.x/cellSize),cz=Math.floor(point.z/cellSize);
+      for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++) for(const edge of cells.get((cx+dx)+','+(cz+dz)) || []) {
+        if(seen.has(edge) || car && edge.kind>=2 && edge.kind!==4) continue;
+        seen.add(edge);
+        for(const section of edge.sections) {
+          const hit=project(point.x,point.z,section);
+          if(hit.offset<105) results.push(hit);
+        }
+      }
+      const sorted=results.sort((a,b)=>a.offset-b.offset),result=[];
+      const limit=Math.min(105,(sorted[0]?.offset ?? 0)+(car?16:21));
+      for(const pick of sorted) {
+        if(result.length===9 || pick.offset>limit) break;
+        result.push(pick);
+      }
+      return result;
+    }
+    function push(heap,item) {
+      let i=heap.length;
+      heap.push(item);
+      while(i>0) {
+        const parent=(i-1)>>1;
+        if(heap[parent].score<=item.score) break;
+        heap[i]=heap[parent];
+        i=parent;
+      }
+      heap[i]=item;
+    }
+    function pop(heap) {
+      const first=heap[0],tail=heap.pop();
+      if(!heap.length) return first;
+      let i=0;
+      while(i*2+1<heap.length) {
+        let child=i*2+1;
+        if(child+1<heap.length && heap[child+1].score<heap[child].score) child++;
+        if(heap[child].score>=tail.score) break;
+        heap[i]=heap[child];
+        i=child;
+      }
+      heap[i]=tail;
+      return first;
+    }
+    function plan(start,end,mode) {
+      if(distance(start,end)<20) return {points:[start,end],distance:distance(start,end),hint:'Destination nearby'};
+      const car=mode==='drive',access=car?2.6:1.5;
+      const from=nearby(start,car),to=nearby(end,car);
+      if(!from.length || !to.length) return null;
+      const costs=new Float64Array(nodes.length).fill(Infinity),previous=new Array(nodes.length),queue=[],terminal=new Map();
+      for(const hit of to) {
+        const {a,b,oneWay}=hit.edge;
+        for(const node of car && oneWay?[a]:[a,b]) {
+          const cost=distance(node,hit)+hit.offset*access;
+          if(cost<(terminal.get(node)?.cost ?? Infinity)) terminal.set(node,{cost,hit});
+        }
+      }
+      for(const hit of from) {
+        const {a,b,oneWay}=hit.edge;
+        for(const node of car && oneWay?[b]:[a,b]) {
+          const cost=distance(node,hit)+hit.offset*access;
+          if(cost>=costs[node.id]) continue;
+          costs[node.id]=cost;
+          previous[node.id]={hit};
+          push(queue,{node,cost,score:cost+distance(node,end)});
+        }
+      }
+      let winner,best=Infinity;
+      for(const first of from) for(const last of to) {
+        if(first.edge!==last.edge || car && first.edge.oneWay && first.t>last.t) continue;
+        const cost=(first.offset+last.offset)*access+distance(first,last);
+        if(cost<best) {winner={direct:[first,last]};best=cost;}
+      }
+      while(queue.length) {
+        const {node,cost,score}=pop(queue);
+        if(score>=best) break;
+        if(cost!==costs[node.id]) continue;
+        const candidate=terminal.get(node);
+        if(candidate && cost+candidate.cost<best) { winner={node,hit:candidate.hit};best=cost+candidate.cost; }
+        for(const link of node.links) {
+          const {to,length,name}=link;
+          if(car && !link.car || cost+length>=costs[to.id]) continue;
+          const next=cost+length;
+          costs[to.id]=next;
+          previous[to.id]={node,name};
+          push(queue,{node:to,cost:next,score:next+distance(to,end)});
+        }
+      }
+      if(!winner) return null;
+      if(winner.direct) {
+        const [first,last]=winner.direct;
+        const length=first.offset+last.offset+distance(first,last);
+        return {points:[start,first,last,end],distance:length,hint:first.edge.name?'Follow '+first.edge.name:'Follow the highlighted route'};
+      }
+      const points=[end,winner.hit];
+      let current=winner.node,firstRoad='';
+      while(current) {
+        const p=previous[current.id];
+        points.push({x:current.x,z:current.z,street:p.name});
+        if(p.name) firstRoad=p.name;
+        if(p.hit) points.push(p.hit);
+        current=p.node;
+      }
+      points.push(start);
+      points.reverse();
+      let total=0,hint=firstRoad?'Follow '+firstRoad:'Follow the highlighted route';
+      for(let i=1;i<points.length;i++) total+=distance(points[i-1],points[i]);
+      let ahead=distance(points[0],points[1]);
+      for(let i=2;i<points.length-2;i++) {
+        const a=points[i-1],b=points[i],c=points[i+1];
+        ahead+=distance(a,b);
+        const before=Math.atan2(b.x-a.x,-(b.z-a.z)),after=Math.atan2(c.x-b.x,-(c.z-b.z));
+        const angle=Math.atan2(Math.sin(after-before),Math.cos(after-before));
+        if(ahead>7 && b.street && c.street && b.street!==c.street && Math.abs(angle)>.53) {
+          hint=`${Math.round(ahead/5)*5} m · ${angle>0?'Right':'Left'} onto ${c.street}`;
+          break;
+        }
+      }
+      return {points,distance:total,hint};
+    }
+
+    return {plan};
+  }
+
+  window.MadisonNavigation={create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const colors={route:'#ffcb77',walk:'#63e0de',player:'#eaffff',bus:'#80d5bc',parked:'#93c8ff',place:'#e9cfab'};
+  const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+
+  function create(canvas,data,storage) {
+    const ctx=canvas.getContext('2d');
+    const [west,north,east,south]=data.bounds;
+    const base=document.createElement('canvas');
+    const textureScale=.78;
+    base.width=Math.ceil((east-west)*textureScale);
+    base.height=Math.ceil((south-north)*textureScale);
+    const ink=base.getContext('2d');
+    const labels=new Map();
+    let northUp=true;
+    try { northUp=storage?.getItem('isthmus-map-heading')!=='forward'; } catch {}
+    let expanded=false,view,center=[0,0],zoom=1,last,drag=null,streetLayer=[];
+
+    function path(g,points,close=false) {
+      if(!points.length) return;
+      g.moveTo(...points[0]);
+      for(let i=1;i<points.length;i++) g.lineTo(...points[i]);
+      if(close) g.closePath();
+    }
+
+    function build(routes) {
+      ink.setTransform(1,0,0,1,0,0);
+      ink.fillStyle='#2b3e3a';
+      ink.fillRect(0,0,base.width,base.height);
+      ink.setTransform(textureScale,0,0,textureScale,-west*textureScale,-north*textureScale);
+      for(const [,poly] of data.parks) {
+        ink.fillStyle='#415741';
+        ink.beginPath();
+        for(const ring of poly) path(ink,ring,true);
+        ink.fill('evenodd');
+      }
+      for(const poly of data.water) {
+        ink.fillStyle='#193d4a';
+        ink.strokeStyle='#638587';
+        ink.lineWidth=2;
+        ink.beginPath();
+        for(const ring of poly) path(ink,ring,true);
+        ink.fill('evenodd');
+        ink.stroke();
+      }
+      ink.fillStyle='#26332f';
+      for(const [,,kind,,poly] of data.houses) {
+        if(kind===2) continue;
+        ink.beginPath();
+        for(const ring of poly) path(ink,ring,true);
+        ink.fill('evenodd');
+      }
+      for(const [name,kind,width,,line] of data.roads) {
+        ink.lineJoin=ink.lineCap='round';
+        ink.strokeStyle=['#b79d7d','#938a74','#d4bd91','#71846f','#687568'][kind] || '#687568';
+        ink.lineWidth=kind===3?1.7:kind===4?1.2:Math.max(3,width*.60);
+        ink.beginPath();
+        path(ink,line);
+        ink.stroke();
+        if(!name || kind>2) continue;
+        const spacing=kind===0?95:130;
+        for(let i=1;i<line.length;i++) {
+          const a=line[i-1],b=line[i],d=Math.hypot(b[0]-a[0],b[1]-a[1]);
+          if(d<12) continue;
+          const count=Math.max(1,Math.floor(d/spacing));
+          for(let j=0;j<count;j++) {
+            const t=(j+.5)/count,x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t;
+            const key=Math.round(x/88)+','+Math.round(z/88)+','+name;
+            if(!labels.has(key)) labels.set(key,{name,x,z,importance:kind===2?0:kind});
+          }
+        }
+      }
+      streetLayer=Array.from(labels.values()).sort((a,b)=>a.importance-b.importance);
+      ink.strokeStyle='#bc826a';
+      ink.lineWidth=3.5;
+      for(const line of routes) {
+        ink.beginPath();
+        path(ink,line);
+        ink.stroke();
+      }
+    }
+
+    function orientation() { return northUp; }
+    function toggle() {
+      northUp=!northUp;
+      try { storage?.setItem('isthmus-map-heading',northUp?'north':'forward'); } catch {}
+      if(last) draw(last);
+      return northUp;
+    }
+    function size() {
+      const rect=canvas.getBoundingClientRect(),ratio=Math.min(1.6,window.devicePixelRatio || 1);
+      const w=Math.max(240,Math.round(rect.width*ratio)),h=Math.max(144,Math.round(rect.height*ratio));
+      if(canvas.width!==w || canvas.height!==h) {canvas.width=w;canvas.height=h;}
+    }
+    function open(isOpen,player,target) {
+      expanded=isOpen;
+      if(!expanded) return;
+      center=target?[(player.x+target.x)/2,(player.z+target.z)/2]:[player.x,player.z];
+      const span=Math.max(830, target?Math.hypot(target.x-player.x,target.z-player.z)*1.32:1200);
+      zoom=Math.floor(Math.min(canvas.clientWidth || 700,canvas.clientHeight || 540))/span;
+      zoom=clamp(zoom,.18,1.6);
+    }
+    function recenter() {
+      if(last) {
+        center=[last.player.x,last.player.z];
+        draw(last);
+      }
+    }
+    function magnify(multiplier) {
+      zoom=clamp(zoom*multiplier,.13,2.2);
+      if(last) draw(last);
+    }
+    function project(x,z) {
+      const dx=x-view.x,dz=z-view.z;
+      return [view.cx+(dx*view.cos-dz*view.sin)*view.scale,view.cz+(dx*view.sin+dz*view.cos)*view.scale];
+    }
+    function flag(x,z,shape,color,edge=false,angle=0) {
+      const [px,pz]=project(x,z),{width:w,height:h}=canvas;
+      const border=13,s=expanded?1.25:1;
+      let a=px,b=pz,off=false;
+      if(edge && (px<border || pz<border || px>w-border || pz>h-border)) {
+        const dx=px-w/2,dz=pz-h/2;
+        const scale=Math.min((w/2-border)/Math.max(1,Math.abs(dx)),(h/2-border)/Math.max(1,Math.abs(dz)));
+        a=w/2+dx*scale;b=h/2+dz*scale;
+        angle=Math.atan2(dx,-dz);
+        shape='pointer';off=true;
+      } else if(px<0 || pz<0 || px>w || pz>h) return null;
+      ctx.save();
+      ctx.translate(a,b);
+      ctx.rotate(angle);
+      ctx.scale(s,s);
+      ctx.fillStyle=color;
+      ctx.strokeStyle='#182628';
+      ctx.lineWidth=1.6;
+      ctx.beginPath();
+      if(shape==='player' || shape==='pointer') {
+        ctx.moveTo(0,-10);ctx.lineTo(5,5);ctx.lineTo(0,shape==='player'?2.6:3);ctx.lineTo(-5,5);ctx.closePath();
+      } else if(shape==='goal') {
+        ctx.moveTo(0,-7);ctx.lineTo(7,0);ctx.lineTo(0,7);ctx.lineTo(-7,0);ctx.closePath();
+      } else if(shape==='car' || shape==='bus') {
+        ctx.roundRect(-4,-5,8,10,shape==='car'?2.5:1.5);
+      } else {
+        ctx.arc(0,0,shape==='stop'?4.2:2.8,0,Math.PI*2);
+      }
+      ctx.fill();ctx.stroke();
+      ctx.restore();
+      return [a,b,off];
+    }
+    function draw(state) {
+      last=state;
+      const {player,target,route,points,buses,car}=state;
+      size();
+      const {width:w,height:h}=canvas,angle=expanded || northUp?0:-player.yaw;
+      const scale=expanded?zoom*Math.min(1.6,window.devicePixelRatio || 1):w/(player.flying?1120:650);
+      view={x:expanded?center[0]:player.x,z:expanded?center[1]:player.z,cx:w/2,cz:h/2,
+        cos:Math.cos(angle),sin:Math.sin(angle),scale,angle};
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.fillStyle='#193640';
+      ctx.fillRect(0,0,w,h);
+      ctx.save();
+      ctx.translate(w/2,h/2);
+      ctx.rotate(angle);
+      ctx.scale(scale,scale);
+      ctx.drawImage(base,west-view.x,north-view.z,east-west,south-north);
+      ctx.restore();
+
+      if(route?.points.length) {
+        const locations=route.points.map(point=>project(point.x,point.z));
+        locations[0]=project(player.x,player.z);
+        ctx.lineJoin=ctx.lineCap='round';
+        ctx.beginPath();path(ctx,locations);
+        ctx.strokeStyle='#1d3537';ctx.lineWidth=expanded?8:5.6;ctx.stroke();
+        ctx.strokeStyle=player.mode==='drive'?colors.route:colors.walk;ctx.lineWidth=expanded?4.3:3;ctx.stroke();
+      }
+      if(expanded || w>=250) {
+        const used=[];
+        ctx.font=`${expanded?12:10}px system-ui`;
+        ctx.textAlign='center';
+        ctx.lineWidth=2.3;
+        ctx.strokeStyle='#243b3a';
+        ctx.fillStyle='#e4ddc6';
+        for(const row of streetLayer) {
+          if(!expanded && row.importance>0) continue;
+          const [px,pz]=project(row.x,row.z);
+          if(px<28 || pz<12 || px>w-28 || pz>h-10 || Math.hypot(px-w/2,pz-h/2)<15) continue;
+          const label=row.name.replace(/\b(North|East|South|West)\b/g,n=>n[0]+'.').replace(' Avenue',' Ave').replace(' Street',' St');
+          const half=ctx.measureText(label).width/2+4;
+          if(used.some(([x,z,right,name])=>name===row.name && Math.hypot(px-x,pz-z)<(expanded?350:160)
+            || Math.abs(pz-z)<14 && Math.abs(px-x)<half+right)) continue;
+          used.push([px,pz,half,row.name]);
+          ctx.strokeText(label,px,pz);ctx.fillText(label,px,pz);
+          if(used.length>=(expanded?26:5)) break;
+        }
+      }
+      for(const p of points) flag(p.x,p.z,p.transit?'stop':'place',p.transit?colors.bus:colors.place);
+      for(const [x,z,dx,dz,boarding] of buses) flag(x,z,'bus',boarding?'#b7f1db':colors.bus,false,Math.atan2(dx,-dz)+angle);
+      if(car) flag(car.x,car.z,'car',colors.parked,true,car.yaw+angle);
+      if(target) flag(target.x,target.z,'goal',colors.route,true);
+      flag(player.x,player.z,'player',colors.player,true,player.yaw+angle);
+
+      ctx.fillStyle='#182c34d9';
+      ctx.fillRect(7,7,35,25);
+      ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillStyle='#ffe2ab';ctx.fillText('N',18,23);
+      ctx.save();ctx.translate(31,20);ctx.rotate(angle);
+      ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(4,5);ctx.lineTo(0,3);ctx.lineTo(-4,5);ctx.closePath();ctx.fill();
+      ctx.restore();
+    }
+
+    canvas.addEventListener('pointerdown',event=>{
+      if(!expanded || event.button!==0) return;
+      drag={id:event.pointerId,x:event.clientX,y:event.clientY};
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointermove',event=>{
+      if(drag?.id!==event.pointerId) return;
+      center[0]=clamp(center[0]-(event.clientX-drag.x)/zoom,west,east);
+      center[1]=clamp(center[1]-(event.clientY-drag.y)/zoom,north,south);
+      drag.x=event.clientX;drag.y=event.clientY;
+      if(last) draw(last);
+    });
+    canvas.addEventListener('lostpointercapture',()=>{drag=null;});
+    canvas.addEventListener('wheel',event=>{
+      if(!expanded) return;
+      event.preventDefault();magnify(event.deltaY>0?.86:1.16);
+    },{passive:false});
+    return {build,draw,open,toggle,orientation,recenter,magnify};
+  }
+
+  window.MadisonFieldMap={create};
 })();
 
 </script>
@@ -5491,7 +6277,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const market=marketDay?MadisonMarket.create(scene,geo):null;
     const yards={...homes,paved:(x,z)=>homes.paved(x,z)||storefronts.paved(x,z)||market?.paved(x,z)};
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,yards);
-    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes);
+    const parking=MadisonParking.create(geo,layout,market,rapid.routes);
+    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes,parking);
     const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[]);
     const car=carModel(scene);
     const detail=[];
@@ -5530,7 +6317,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
-    return {camera,car,market,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+    return {camera,car,market,parking,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
       siteTarget:storefronts.target,capture() {
         try {
           renderer.render(scene,camera);
@@ -5605,7 +6392,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   'use strict';
 
   const $=id=>document.getElementById(id);
-  const game=$('game'), map=$('map'), ctx=map.getContext('2d');
+  const game=$('game'), map=$('map');
   const data=window.MADISON, world=window.MadisonWorld;
   const points=[
     {name:'Capitol Square', x:-151, z:-4, yaw:Math.PI/2, pitch:.19},
@@ -5627,7 +6414,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   const campaign=MadisonCampaign.open(storage);
   let story;
   const marketBasket=new Set();
-  const stallDialog=$('stall-dialog');
+  const stallDialog=$('stall-dialog'),transitDialog=$('transit-dialog');
   const stopQuery=query.get('stop')?.toLowerCase();
   let openingStop,firstRide;
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
@@ -5647,13 +6434,12 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   let pointer=null, previous=0, lastHUD=-1, lastRender=0, snap=true;
   let rideView=null,rideLook=0,stopRequested=false;
   let seated=false;
-  const mapBase=document.createElement('canvas');
-  mapBase.width=map.width;
-  mapBase.height=map.height;
-  const chart=mapBase.getContext('2d');
-  const scale=.116;
-  const mapX=x=>map.width*.505+x*scale, mapY=z=>map.height*.543+z*scale;
+  const fieldMap=MadisonFieldMap.create(map,data,storage);
   const roadText=road=>road.name.replace(/\b(North|South|East|West)\b/g,word=>word[0]+'.');
+  const carSave='isthmus-parked-car-v1';
+  const carName='Your parked car';
+  let navigation,manualTarget=null,gpsCache=null,parkedCar=null,boardingStop=null;
+  const player=()=>({x,z,yaw,mode:state,flying:state==='fly'});
 
   function loadStationPoints() {
     for(const [name,x,z,,,info] of engine.platforms) {
@@ -5669,144 +6455,93 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     firstRide=stationPoints.find(point=>point.stationId==='state-east') || stationPoints.find(point=>point.stationId==='paterson') || stationPoints[0];
   }
 
-  function trace(context,line) {
-    for (let i=0;i<line.length;i++) {
-      const [px,pz]=line[i];
-      if (i) context.lineTo(mapX(px),mapY(pz));
-      else context.moveTo(mapX(px),mapY(pz));
+  function destination() {
+    if(state==='intro') return manualTarget;
+    if(manualTarget || story?.target()) return manualTarget || story.target();
+    if(story?.tracked()?.needsRide && state!=='ride') {
+      const origin=stationPoints.filter(point=>engine.transit.services(point.stationId).length)
+        .reduce((best,point)=>!best || Math.hypot(point.x-x,point.z-z)<Math.hypot(best.x-x,best.z-z)?point:best,null);
+      return origin;
     }
+    return null;
   }
 
-  function drawMapBase() {
-    chart.fillStyle='#364a3e';
-    chart.fillRect(0,0,map.width,map.height);
-    chart.strokeStyle='#ffffff0b';
-    chart.lineWidth=1;
-    for(let i=8;i<map.width;i+=24) {
-      chart.beginPath(); chart.moveTo(i,0); chart.lineTo(i,map.height); chart.stroke();
-    }
-    for(let i=5;i<map.height;i+=24) {
-      chart.beginPath(); chart.moveTo(0,i); chart.lineTo(map.width,i); chart.stroke();
-    }
-    chart.fillStyle='#526748';
-    for(const [,poly] of data.parks) {
-      chart.beginPath();
-      for(const ring of poly) { trace(chart,ring); chart.closePath(); }
-      chart.fill('evenodd');
-    }
-    chart.fillStyle='#203d45';
-    chart.strokeStyle='#85a9a66a';
-    chart.lineWidth=1.15;
-    for(const polygon of data.water) {
-      chart.beginPath();
-      for(const ring of polygon) { trace(chart,ring); chart.closePath(); }
-      chart.fill('evenodd');
-      chart.stroke();
-    }
-    chart.strokeStyle='#ac9f7f';
-    chart.lineJoin=chart.lineCap='round';
-    for(const [name,kind,width,,line] of data.roads) {
-      chart.globalAlpha=kind===0?.69:kind===2?.83:kind===1?.31:.16;
-      chart.strokeStyle=kind===2?'#dbc08d':kind===0?'#c1b293':'#d3c4a7';
-      chart.lineWidth=kind===2?1.8:Math.max(.65,width*.09);
-      chart.beginPath();
-      trace(chart,line);
-      chart.stroke();
-    }
-    chart.globalAlpha=.94;
-    chart.strokeStyle='#e48c74';
-    chart.lineWidth=1.75;
-    chart.beginPath();
-    if(engine?.rapidLines.length) {
-      for(const line of engine.rapidLines) trace(chart,line);
-    } else {
-      for(const [,,,,line,bus] of data.roads) if(bus) trace(chart,line);
-    }
-    chart.stroke();
-    chart.globalAlpha=1;
-    chart.font='italic 19px Georgia';
-    chart.fillStyle='#9cbeba';
-    chart.fillText('Lake Mendota',43,69);
-    chart.fillText('Lake Monona',316,279);
-    chart.fillStyle='#c9bda0';
-    chart.fillRect(18,290,58,1.3);
-    chart.fillRect(18,286,1.2,8);
-    chart.fillRect(75,286,1.2,8);
-    chart.font='13px system-ui';
-    chart.fillText('500 m',18,307);
-    chart.fillStyle='#e6c291';
-    for (const p of points) {
-      const [x,z]=p.marker || [p.x,p.z];
-      chart.beginPath();
-      chart.fillStyle=p.transit?'#ffbc9c':'#e6c291';
-      chart.arc(mapX(x),mapY(z),p.transit?3.1:2.25,0,Math.PI*2);
-      chart.fill();
-      if(p.transit) {
-        chart.strokeStyle='#263c44';
-        chart.lineWidth=1;
-        chart.stroke();
-      }
-    }
+  function gps(target) {
+    if(!target || !navigation || state==='ride' || state==='fly') return null;
+    const mode=state==='drive'?'drive':'walk';
+    if(gpsCache?.target===target && gpsCache.mode===mode && Math.hypot(x-gpsCache.x,z-gpsCache.z)<17) return gpsCache.route;
+    const route=navigation.plan({x,z},target,mode);
+    gpsCache={target,mode,x,z,route};
+    return route;
   }
 
   function drawMap() {
-    ctx.drawImage(mapBase,0,0);
-    for(const [bx,bz,dx,dz,boarding] of engine?.buses || []) {
-      ctx.save();
-      ctx.translate(mapX(bx),mapY(bz));
-      ctx.rotate(Math.atan2(dx,-dz));
-      ctx.fillStyle=boarding?'#e1faf5':'#6cd6dc';
-      ctx.strokeStyle='#1b3540';
-      ctx.lineWidth=1.05;
-      ctx.fillRect(-2,-4,4,8);
-      ctx.strokeRect(-2,-4,4,8);
-      ctx.restore();
-    }
-    const target=state!=='intro' && story?.target();
-    if(target) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(mapX(x),mapY(z));
-      ctx.lineTo(mapX(target.x),mapY(target.z));
-      ctx.setLineDash([2.5,3.5]);
-      ctx.strokeStyle='#ffcd7f8c';
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.translate(mapX(target.x),mapY(target.z));
-      ctx.rotate(Math.PI/4);
-      ctx.lineWidth=1.4;
-      ctx.fillStyle='#ffcd7f';
-      ctx.strokeStyle='#253b43';
-      ctx.fillRect(-4,-4,8,8);
-      ctx.strokeRect(-4,-4,8,8);
-      ctx.restore();
-    }
-    const px=mapX(x),py=mapY(z);
-    ctx.save();
-    ctx.translate(px,py);
-    ctx.rotate(yaw);
-    ctx.beginPath();
-    ctx.moveTo(0,-11); ctx.lineTo(5,5); ctx.lineTo(0,2.4); ctx.lineTo(-5,5); ctx.closePath();
-    ctx.fillStyle='#ffb57f';
-    ctx.strokeStyle='#172622';
-    ctx.lineWidth=1.4;
-    ctx.stroke();
-    ctx.fill();
-    ctx.restore();
+    const target=destination(),route=gps(target);
+    fieldMap.draw({player:player(),target,route,points:points.map(point=>{
+      const [x,z]=point.marker || [point.x,point.z];
+      return {x,z,transit:point.transit};
+    }),buses:engine?.buses || [],car:story && state!=='drive'?parkedCar:null});
+    const meters=target?route?.distance ?? Math.hypot(x-target.x,z-target.z):0;
+    const length=meters>=1000?(meters/1000).toFixed(1)+' km':Math.round(meters)+' m';
+    $('map-destination').textContent=target?.name || 'No destination';
+    $('map-directions').textContent=target?
+      (route?.hint || (state==='ride' || state==='fly'?'Distance to destination':'No connected route from here'))+' · '+length:
+      'Choose a place or objective.';
+    $('map-clear').hidden=!manualTarget;
+    $('map-find-car').hidden=!story || !parkedCar || state==='drive';
+    $('gps-hint').hidden=!route || state==='intro';
+    if(route) $('gps-hint').textContent=(manualTarget?manualTarget.name+' · ':'')+route.hint;
+  }
+
+  function mapButton(label,action) {
+    const button=document.createElement('button');
+    button.type='button';
+    button.textContent=label;
+    button.addEventListener('click',action);
+    return button;
+  }
+
+  function showObjectives() {
+    const rows=story?.objectives() || [];
+    $('map-objectives').hidden=!rows.length;
+    $('map-objective-list').replaceChildren(...rows.map(row=>{
+      const button=mapButton(row.title,()=>{
+        if(!story.track(row.key)) return;
+        manualTarget=null;
+        showObjectives();
+        fieldMap.open(true,player(),destination());
+        drawMap();
+      });
+      button.setAttribute('aria-current',String(story.tracked()?.key===row.key));
+      return button;
+    }));
+  }
+
+  function guide(point) {
+    manualTarget=point;
+    if(expanded) fieldMap.open(true,player(),destination());
+    drawMap();
   }
 
   function setMap(open) {
     expanded=open;
     $('map-card').classList.toggle('expanded',open);
+    game.classList.toggle('map-open',open);
     $('map-toggle').setAttribute('aria-expanded',String(open));
-    $('map-close').hidden=!open;
-    $('map-details').hidden=!open;
+    for(const id of ['map-close','map-details','map-tools']) $(id).hidden=!open;
+    for(const id of ['hud','intro']) $(id).inert=open;
+    game.querySelector('.rail').inert=open;
+    game.querySelector('.credits').inert=open;
     keys.clear();
     pointer=null;
-    if (open) {
+    fieldMap.open(open,player(),destination());
+    if(open) {
       $('help').hidden=true;
       $('help-toggle').setAttribute('aria-expanded','false');
+      showObjectives();
+      $('map-close').focus();
     }
+    drawMap();
   }
 
   function toast(message) {
@@ -5843,15 +6578,80 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return Math.atan2(dx,-dz);
   }
 
-  function carAllowed(cx,cz,angle) {
+  function carAllowed(cx,cz,angle,ignoreCar=false) {
     const dx=Math.sin(angle), dz=-Math.cos(angle);
-    const blocked=(x,z,radius)=>groundBlocked(x,z,radius)||engine.market?.drivingBlocked(x,z,radius);
+    const blocked=(x,z,radius)=>groundBlocked(x,z,radius,ignoreCar)||engine.market?.drivingBlocked(x,z,radius);
     return !blocked(cx,cz,1) && !blocked(cx+dx*1.42,cz+dz*1.42,.93)
       && !blocked(cx-dx*1.42,cz-dz*1.42,.93);
   }
 
-  function groundBlocked(x,z,radius) {
-    return world.blocked(x,z,radius) || engine.trafficBlocked(x,z,radius) || engine.market?.blocked(x,z,radius);
+  function groundBlocked(x,z,radius,ignoreCar=false) {
+    return world.blocked(x,z,radius) || engine.trafficBlocked(x,z,radius) || engine.parking.collision(x,z,radius)
+      || engine.market?.blocked(x,z,radius) || !ignoreCar && parkedCar && state!=='drive' && MadisonParking.overlaps(parkedCar,x,z,radius);
+  }
+
+  function keepCar(point) {
+    parkedCar={name:carName,x:point.x,z:point.z,yaw:point.yaw};
+    if(manualTarget?.name===carName) manualTarget=parkedCar;
+    try { storage?.setItem(carSave,JSON.stringify(parkedCar)); } catch {}
+  }
+
+  function curbNear(point) {
+    return engine.parking.nearest(point.x,point.z,slot=>{
+      if(!carAllowed(slot.x,slot.z,slot.yaw,true)) return false;
+      for(const side of [1,-1]) {
+        const dx=Math.cos(slot.yaw)*2.2*side,dz=Math.sin(slot.yaw)*2.2*side;
+        if(!groundBlocked(slot.x+dx,slot.z+dz,.4,true)) return true;
+      }
+      return false;
+    });
+  }
+
+  function restoreCar() {
+    let stored;
+    try { stored=JSON.parse(storage?.getItem(carSave)); } catch {}
+    if(stored && [stored.x,stored.z,stored.yaw].every(Number.isFinite) && carAllowed(stored.x,stored.z,stored.yaw,true)) keepCar(stored);
+    else {
+      const slot=curbNear(storyStart()) || curbNear(points[0]);
+      if(slot) keepCar(slot);
+    }
+  }
+
+  function carNear() {
+    return parkedCar && Math.hypot(x-parkedCar.x,z-parkedCar.z)<5;
+  }
+
+  function enterCar() {
+    if(!parkedCar) return;
+    if(state!=='walk' || seated || !carNear()) {
+      guide(parkedCar);
+      toast('Follow the route to your parked car.');
+      return;
+    }
+    if(engine.trafficBlocked(parkedCar.x,parkedCar.z,1)) { toast('Wait for traffic to clear.'); return; }
+    if(manualTarget===parkedCar) manualTarget=null;
+    changeMode('drive',parkedCar);
+  }
+
+  function leaveCar() {
+    if(Math.abs(speed)>1.25) { toast('Brake to a stop before getting out.'); return false; }
+    for(const side of [1,-1]) {
+      const px=x+Math.cos(yaw)*2.15*side,pz=z+Math.sin(yaw)*2.15*side;
+      if(groundBlocked(px,pz,.4,true)) continue;
+      keepCar({x,z,yaw});
+      changeMode('walk',{name:carName,x:px,z:pz,yaw});
+      return true;
+    }
+    toast('Leave a little room on either side of the car.');
+    return false;
+  }
+
+  function recallCar(site) {
+    if(!parkedCar || Math.hypot(parkedCar.x-site.x,parkedCar.z-site.z)<160) return false;
+    const curb=curbNear(site);
+    if(!curb) return false;
+    keepCar(curb);
+    return true;
   }
 
   function driveSpawn() {
@@ -5900,7 +6700,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     let landedAway=false;
     if(point) {
       focus=point;
-      const destination=next==='fly'?point:(safeDrop(point) || points[0]);
+      const destination=next==='fly' || next==='drive' && storyMode?point:(safeDrop(point) || points[0]);
       ({x,z,yaw}=destination);
       pitch=point.pitch ?? -.026;
       if(next==='fly') pitch=point===flyover?point.pitch:point.flyPitch ?? -.34;
@@ -5922,7 +6722,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     } else if(next!=='intro') {
       groundReturn={x,z,yaw};
     }
-    if(next==='drive') driveSpawn();
+    if(next==='drive' && !storyMode) driveSpawn();
     speed=steer=walkAmount=airX=airY=airZ=0;
     keys.clear();
     snap=true;
@@ -5941,7 +6741,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('motion-label').textContent={walk:'Move',drive:'Steer',fly:'Fly'}[next] || 'Move';
     $('look-tip').textContent=next==='drive'?'Space to brake':'Drag to look';
     for(const mode of travelModes) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
-    engine.car.visible=next==='drive';
+    engine.car.visible=next==='drive' || storyMode && Boolean(parkedCar) && next!=='intro';
     setMap(false);
     updateHUD();
     if(landedAway) toast('Returned to your last ground position.');
@@ -5954,10 +6754,58 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
   function stepOff() {
     const platform=engine.transit.exit();
-    if(!platform) return;
+    if(platform) arriveByBus(platform);
+  }
+
+  function arriveByBus(platform,express=false) {
     const station=stationPoints.find(point=>point.stationId===platform.id);
     changeMode('walk',{...station,...platform,name:station?.name || platform.name});
-    toast('Stepped off at '+platform.name+'.');
+    const stamp=story && campaign.recordTransit(boardingStop,platform.id);
+    boardingStop=null;
+    if(stamp) { manualTarget=null;story.refresh();updateHUD(); }
+    toast((express?'Express arrival · ':'Stepped off at ')+platform.name+(stamp?' · Route A card stamped':'')+'.');
+  }
+
+  function startRide(origin,direction=null) {
+    const boarded=direction===null?engine.transit.board(x,z):engine.transit.summon(origin,direction);
+    if(!boarded) { toast('No coach is available here.');return; }
+    boardingStop=origin;
+    rideView=engine.transit.ride();
+    rideLook=.10;
+    pitch=-.025;
+    stopRequested=false;
+    changeMode('ride');
+  }
+
+  function transitMenu() {
+    const onBus=state==='ride',platform=state==='walk'?engine.transit.platformAt(x,z):null;
+    if(!onBus && !platform) return;
+    setMap(false);
+    $('transit-title').textContent=onBus?'Express to a stop':platform.name;
+    const choices=$('transit-choices');
+    choices.replaceChildren();
+    function add(title,action) {
+      const entry=mapButton(title,()=>{transitDialog.close();action();});
+      entry.className='glass small';
+      choices.append(entry);
+    }
+    if(onBus) {
+      for(const stop of engine.transit.destinations()) add(stop.name,()=>{
+        const arrival=engine.transit.express(stop.id);
+        if(arrival) arriveByBus(arrival,true);
+      });
+    } else {
+      const waiting=engine.transit.stationStatus(x,z);
+      if(waiting?.boarding) add('Board the waiting bus',()=>startRide(platform.id));
+      for(const service of engine.transit.services(platform.id)) {
+        add('Summon '+(service.direction>0?'eastbound':'westbound')+' · '+service.end,()=>startRide(platform.id,service.direction));
+      }
+    }
+    const note=document.createElement('p');
+    note.textContent=onBus?'Choose a stop ahead for an instant arrival. Close this menu to continue the ride.':
+      choices.children.length?'Ride along or choose an express stop once aboard.':'This platform is an arrival terminus. Follow the map to a departing platform.';
+    choices.append(note);
+    transitDialog.showModal();
   }
 
   function busAction() {
@@ -5969,14 +6817,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       return;
     }
-    if(state!=='walk') return;
-    const boarded=engine.transit.board(x,z);
-    if(!boarded) { toast('Wait for the platform doors to open.'); return; }
-    rideView=engine.transit.ride();
-    rideLook=.10;
-    pitch=-.025;
-    stopRequested=false;
-    changeMode('ride');
+    if(state==='walk') transitMenu();
   }
 
   function updateTransitPanel() {
@@ -5985,6 +6826,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const direction=riding?.direction || waiting?.direction;
     const panel=$('transit-panel'),button=$('transit-action');
     panel.hidden=!riding&&!waiting;
+    $('transit-destinations').hidden=!riding || !engine.transit.destinations().length;
     if(panel.hidden) return;
     let action,status;
     if(riding) {
@@ -5994,8 +6836,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       else if(riding.station) status='At '+riding.station;
       else status='Next stop · '+riding.next;
     } else {
-      action=waiting.boarding?'Board bus':'';
-      status=waiting.boarding?'Doors open at '+waiting.name:'Waiting at '+waiting.name;
+      action='Travel';
+      status=waiting.boarding?'Doors open at '+waiting.name:waiting.name+' platform';
     }
     const labels={'transit-status':status,'transit-route':direction?'Route A · '+direction:'Route A','transit-action-label':action};
     for(const [id,label] of Object.entries(labels)) {
@@ -6073,8 +6915,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return 1.81-Math.min(Math.abs(velocity),31)*.031;
   }
 
+  function placeOwnCar(cx,cz,angle) {
+    const dx=Math.sin(angle),dz=-Math.cos(angle);
+    engine.car.position.set(cx,world.ground(cx,cz)+.235,cz);
+    const front=world.ground(cx+dx*1.7,cz+dz*1.7),back=world.ground(cx-dx*1.7,cz-dz*1.7);
+    engine.car.rotation.set(Math.atan2(front-back,3.4),-angle,0,'YXZ');
+  }
+
   function setCamera(seconds,dt) {
     const camera=engine.camera;
+    if(state==='drive') placeOwnCar(x,z,yaw);
+    else if(parkedCar) placeOwnCar(parkedCar.x,parkedCar.z,parkedCar.yaw);
     if(state==='intro') {
       const drift=Math.sin(seconds*.13);
       camera.position.set(480+drift*19,157+Math.sin(seconds*.08)*6,695-drift*17);
@@ -6096,11 +6947,6 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       camera.position.set(x,state==='fly' || snap?y:smooth(camera.position.y,y+bob,18,dt),z);
       camera.lookAt(x+dx*Math.cos(pitch),camera.position.y+Math.sin(pitch),z+dz*Math.cos(pitch));
     } else {
-      const car=engine.car;
-      car.position.set(x,base+.19,z);
-      const front=world.ground(x+dx*1.7,z+dz*1.7);
-      const back=world.ground(x-dx*1.7,z-dz*1.7);
-      car.rotation.set(Math.atan2(front-back,3.4),-yaw,0,'YXZ');
       const distance=7.7+Math.abs(speed)*.065;
       let cx=x-dx*distance,cz=z-dz*distance;
       if(world.blocked(cx,cz,.15) && !world.onWater(cx,cz)) { cx=x-dx*3.6; cz=z-dz*3.6; }
@@ -6124,8 +6970,6 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('location-name').textContent=rideView?(road?.distance<40?roadText(road):'Madison, Wisconsin'):
       road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
     $('map-status').textContent=state==='intro'?'Capitol Square':rideView?'Route A · '+(rideView.station || rideView.direction):name;
-    const [lon,lat]=data.origin,[mx,mz]=data.meters;
-    $('coordinates').textContent=(lat-z/mz).toFixed(5)+'° N  ·  '+Math.abs(lon+x/mx).toFixed(5)+'° W';
     $('speed').textContent=String(Math.round(Math.abs(speed)*2.23694));
     $('altitude').textContent=String(Math.round(Math.max(0,altitude-world.ground(x,z))));
     updateTransitPanel();
@@ -6134,6 +6978,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     if(stall && $('market-stall-name').textContent!==stall.name) $('market-stall-name').textContent=stall.name;
     story?.update(x,z,state!=='intro',seated);
     if(story) engine.siteTarget(state==='intro'?null:story.target());
+    $('car-panel').hidden=!story || state!=='drive' && !(state==='walk' && !seated && carNear() && !milestone && $('transit-panel').hidden);
+    $('car-action-label').textContent=state==='drive'?'Get out':'Get in';
     drawMap();
   }
 
@@ -6141,7 +6987,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     requestAnimationFrame(frame);
     const dt=Math.min((stamp-(previous || stamp))/1000,.35);
     previous=stamp;
-    if(document.hidden) return;
+    if(document.hidden || expanded || transitDialog.open) return;
     if(!expanded && $('help').hidden && !stallDialog.open && !story?.modalOpen()) {
       if(state==='walk' && !seated) walk(dt);
       if(state==='drive') drive(dt);
@@ -6151,7 +6997,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     let seconds=stamp/1000;
     if(state==='intro' && reducedMotion.matches) seconds=0;
     lastRender=stamp;
-    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null);
+    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null,state==='drive'?null:parkedCar);
     if(state==='ride') {
       rideView=engine.transit.ride();
       if(rideView?.open && (stopRequested || rideView.final)) stepOff();
@@ -6213,15 +7059,28 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
   function bind() {
     const walkStart=()=>story?storyStart():engine.market?.start || points[0];
+    function returnTitle() {
+      if(story && state==='drive' && !leaveCar()) {setMap(false);return;}
+      manualTarget=null;
+      changeMode('intro',points[0]);
+    }
     $('walk').addEventListener('click',()=>changeMode('walk',walkStart()));
-    $('drive').addEventListener('click',()=>changeMode('drive',points[0]));
+    $('drive').addEventListener('click',()=>{
+      if(!story) {changeMode('drive',points[0]);return;}
+      changeMode('walk',walkStart());
+      enterCar();
+    });
     $('fly').addEventListener('click',()=>changeMode('fly',flyover));
     $('ride-start').addEventListener('click',()=>visitPlatform(firstRide));
     $('transit-action').addEventListener('click',busAction);
+    $('transit-destinations').addEventListener('click',transitMenu);
+    $('transit-close').addEventListener('click',()=>transitDialog.close());
     $('market-browse').addEventListener('click',()=>browseMarket());
     $('market-close').addEventListener('click',()=>stallDialog.close());
     $('encounter-action').addEventListener('click',storyInteract);
-    $('home').addEventListener('click',()=>changeMode('intro',points[0]));
+    $('car-action').addEventListener('click',()=>state==='drive'?leaveCar():enterCar());
+    $('home').addEventListener('click',returnTitle);
+    $('map-home').addEventListener('click',returnTitle);
     if(storyMode) {
       story=MadisonCampaignUI.create(campaign,{
         nearby:storyNearby,
@@ -6231,6 +7090,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           $('help-toggle').setAttribute('aria-expanded','false');
         },
         onAction(result,site) {
+          const moved=!result.seat && result.repark && recallCar(site);
+          if(!result.seat) manualTarget=null;
           if(result.rest) {
             changeMode('walk',site);
             setTime(1);
@@ -6242,9 +7103,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
             }
             updateHUD();
           }
-          toast(result.message);
+          toast(result.message+(moved?' · Car parked nearby':''));
         },
         onReturn:site=>changeMode('walk',site),
+        canReturn:()=>state!=='ride' && state!=='drive',
+        onTrack:()=>{manualTarget=null;updateHUD();},
         capture:engine.capture
       });
     }
@@ -6255,10 +7118,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         else toast('Step off at a station to change travel modes.');
         return;
       }
+      if(story && mode==='drive') {enterCar();return;}
+      if(story && state==='drive') {
+        if(mode==='walk') leaveCar();
+        else toast('Park and get out before taking flight.');
+        return;
+      }
       if(state==='drive' && mode==='walk' && Math.abs(speed)>2.3) { toast('Brake before stepping out.'); return; }
       changeMode(mode,state==='intro'?(mode==='fly'?flyover:mode==='walk'?walkStart():points[0]):undefined);
     };
     const reset=()=>{
+      if(story && state==='drive') {toast('Park and get out before resetting.');return;}
       if(state!=='intro') { changeMode(state==='ride'?'walk':state,focus); toast('Back at '+focus.name); }
     };
     for(const mode of travelModes) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
@@ -6267,6 +7137,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('map-toggle').addEventListener('click',()=>setMap(!expanded));
     $('map-close').addEventListener('click',()=>setMap(false));
     $('map-expand').addEventListener('click',()=>setMap(true));
+    const orientation=()=>{
+      const north=fieldMap.orientation();
+      $('map-orientation').textContent=north?'North up':'Heading up';
+      $('map-orientation').setAttribute('aria-pressed',String(north));
+    };
+    orientation();
+    $('map-orientation').addEventListener('click',()=>{fieldMap.toggle();orientation();});
+    $('map-recenter').addEventListener('click',fieldMap.recenter);
+    $('map-plus').addEventListener('click',()=>fieldMap.magnify(1.21));
+    $('map-minus').addEventListener('click',()=>fieldMap.magnify(1/1.21));
+    $('map-find-car').addEventListener('click',()=>guide(parkedCar));
+    $('map-clear').addEventListener('click',()=>guide(null));
     $('help-toggle').addEventListener('click',()=>{
       const open=$('help').hidden;
       if(open) setMap(false);
@@ -6278,24 +7160,20 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       $('credits').hidden=!$('credits').hidden;
       $('credits-toggle').setAttribute('aria-expanded',String(!$('credits').hidden));
     });
-    for(const point of points) {
-      const button=document.createElement('button');
-      button.type='button';
-      button.textContent=point.name;
-      if(point.transit) button.classList.add('transit-stop');
-      button.addEventListener('click',()=>{
+    const mapPlaces=story?[...points,...['books','cheese','studio','workshop'].map(id=>MadisonCampaign.sites[id])]:points;
+    for(const point of mapPlaces) {
+      const button=mapButton(point.name,()=>{
+        if(story) {guide(point);return;}
         const mode=state==='intro' || state==='ride'?'walk':state;
         if(point.transit && mode==='walk') visitPlatform(point);
         else changeMode(mode,point);
       });
-      $('landmarks').append(button);
+      $(point.transit?'map-stops':'landmarks').append(button);
     }
-    $('transit-legend').hidden=!stationPoints.length;
-    if(marketDay) $('transit-legend-label').textContent='Metro Rapid detour';
     $('osm-credit').hidden=!data.osm;
     if(data.osm) $('credits-toggle').textContent='© OpenStreetMap · Map credits';
     window.addEventListener('keydown',event=>{
-      if(event.altKey || event.ctrlKey || event.metaKey || stallDialog.open) return;
+      if(event.altKey || event.ctrlKey || event.metaKey || stallDialog.open || transitDialog.open) return;
       const key=remap[event.code] || event.code;
       if(story && state!=='intro' && !event.repeat && (key==='KeyJ'||key==='KeyI')) {
         if(key==='KeyJ' && story.journalOpen()) story.closeJournal();
@@ -6315,7 +7193,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         } else if(!$('credits').hidden) {
           $('credits').hidden=true;
           $('credits-toggle').setAttribute('aria-expanded','false');
-        } else if(state!=='intro') changeMode('intro',points[0]);
+        } else if(state!=='intro') setMap(true);
         return;
       }
       if(event.code==='KeyM' && !event.repeat) { game.classList.remove('hud-free'); setMap(!expanded); return; }
@@ -6332,6 +7210,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
         else if(stall) browseMarket(stall);
         else if(story && (seated || storyNearby())) storyInteract();
+        else if(story && state==='drive') leaveCar();
+        else if(story && state==='walk' && carNear()) enterCar();
+        else if(story) return;
         else selectMode(state==='drive'?'walk':'drive');
       }
       if(!event.repeat && key==='KeyR') reset();
@@ -6344,6 +7225,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     });
     window.addEventListener('keyup',event=>keys.delete(remap[event.code] || event.code));
     window.addEventListener('blur',()=>{ keys.clear(); pointer=null; });
+    window.addEventListener('pagehide',()=>{if(story && state==='drive') keepCar({x,z,yaw});});
     engine.canvas.addEventListener('pointerdown',event=>{
       if(state==='intro' || state==='drive' || expanded || event.button!==0 || !$('help').hidden) return;
       pointer={id:event.pointerId,x:event.clientX,y:event.clientY};
@@ -6382,17 +7264,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(campaign.view().hasSave) $('story-start').textContent='Continue story';
       if(storyMode) {
         game.classList.add('story-mode');
+        $('drive-label').textContent='My car';
         for(const id of ['story-balance','story-exit','story-help']) $(id).hidden=false;
       }
       loadingProgress(5,'Reading the map');
-      drawMapBase();
-      drawMap();
       engine=await world.create($('scene'),{marketDay,storyMode,progress:loadingProgress});
       if(engine.market) points.splice(1,0,engine.market.start);
       loadStationPoints();
-      drawMapBase();
+      fieldMap.build(engine.rapidLines);
+      navigation=MadisonNavigation.create(data.roads);
       engine.setLight(light);
       engine.advanceTraffic(0,null);
+      if(storyMode) restoreCar();
       bind();
       if(openingStop) {
         if(query.get('platform')==='1') visitPlatform(openingStop);

@@ -6,10 +6,12 @@ Make a life for yourself in downtown Madison, Wisconsin, or explore on foot, by 
 
 Choose **Start the story** to begin *A Place of Your Own*. You start outside the University Book Store with a volunteer shift to pick up. Follow the tracked objective, press **E** to interact on foot, and check the **Journal** with **J**. The **I** shortcut opens your inventory.
 
-- Three main quests lead to your first property. Two side quests and two repeatable delivery jobs let you earn cash along the way.
+- Three main quests lead to your first property. Organize a book swap in **Open House** after you move in. Three side quests and three repeatable jobs let you earn cash along the way.
 - Your inventory carries quest items, souvenirs, keys, and the in-game photos you take during the postcard quest.
 - Buy Bassett Studio or East Wash Workshop with in-game earnings. Return to an owned property from the journal. The studio completes the chapter and the workshop increases delivery pay.
 - Progress saves in your current browser. **Continue story** returns you to your most recent story interaction. Free roam and Saturday Market are also available from the title screen.
+- Your car stays where you leave it. Press **2** to find it, then press **E** beside it to get in. Brake and press **E** to get out. On mission pickups and completions, a car left far away can be moved to an available curb space nearby.
+- Press **M** or **Esc** for the full-screen pause map. Choose an objective, place, or bus stop for a walking or driving route. Switch the minimap between **North up** and **Heading up** with its orientation button. Free roam still lets you jump directly to landmarks.
 
 The current chapter uses fictional characters, events, and purchasable properties. The University Book Store and Fromagination have handcrafted storefronts at their mapped locations. Memorial Union Terrace has sunburst chairs and sailboats on Lake Mendota. [Start the story](https://jdifebo.github.io/isthmus-madison/?story=1) · [University Book Store exterior](https://strategiccommunication.wisc.edu/contact-us/) · [Fromagination storefront design](https://www.cricketdesignworks.com/portfolio/fromagination) · [Wisconsin Union Terrace](https://union.wisc.edu/visit/terrace-at-the-memorial-union)
 
@@ -22,14 +24,14 @@ The current chapter uses fictional characters, events, and purchasable propertie
 | Ascend / descend | Space / C |
 | Sprint or boost in flight | Shift |
 | Brake in the car | Space |
-| Walk / drive / fly | 1 / 2 / 3 |
+| Walk / drive or find your car / fly | 1 / 2 / 3 |
 | Interact, browse a stall, or board or exit the bus | E near an interaction or on the bus |
 | Open the journal or inventory in story mode | J / I |
 | Take off / land | F |
-| Open the map and jump to a landmark | M |
+| Open the pause map | M or Esc |
 | Hide or restore the HUD | H |
 | Return to your current starting point | R |
-| Close a panel or return to the title screen | Esc |
+| Close a panel or resume play | Esc |
 
 The playable map covers about 4.1 by 2.6 km, from the downtown edge of the UW campus to the near east side. Take flight over Lake Monona or jump to a landmark from the field map. Flight keeps the camera clear of terrain and rooftops. Switching to a ground mode over open water returns you to your last ground position.
 
@@ -41,7 +43,7 @@ Articulated Route A buses run between East Campus and Baldwin. Eastbound buses f
 
 Open the game with `?stop=paterson` to start at the station. The same shortcut works for Blair and Baldwin. [Start at Paterson](https://jdifebo.github.io/isthmus-madison/?stop=paterson)
 
-Choose **Ride Metro Rapid** at the title screen to start at the eastbound State Street shelter. Board when the doors open, drag to look around the cabin, and request a stop to step off when the doors open. The field map distinguishes the eastbound and westbound curb stops. The playable ride ends at Baldwin eastbound and East Campus westbound. [Start at the eastbound State Street shelter](https://jdifebo.github.io/isthmus-madison/?stop=state-east&platform=1)
+Choose **Ride Metro Rapid** at the title screen to start at the eastbound State Street shelter. Press **E** at any departing platform to summon a bus or board one already there. Drag to look around, press **E** to request the next stop, or choose **Express** to instantly reach a stop ahead. Both ride options count for the **Take the A** side quest. The playable ride ends at Baldwin eastbound and East Campus westbound. [Start at the eastbound State Street shelter](https://jdifebo.github.io/isthmus-madison/?stop=state-east&platform=1)
 
 Choose **Saturday Market** to walk Capitol Square among shoppers and browse produce, flowers, bread, and cheese at fictional stalls. Use **Regular day** to return to the usual scene. On market days, simulated Route A buses use a detour based on the city's Outer Loop, with temporary Square stops on East Doty and West Dayton. [Enter Saturday Market](https://jdifebo.github.io/isthmus-madison/?market=1) · [Dane County Farmers’ Market](https://dcfm.org/index.php?p=markets%2Fsaturday-on-the-square) · [City street closures](https://www.cityofmadison.com/news/2026-04-07/street-closures-for-dane-county-farmers-market-on-the-square) · [Metro's downtown routing study](https://www.cityofmadison.com/metro/documents/brt/downtownrouting.pdf)
 

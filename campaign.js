@@ -22,6 +22,12 @@
     pairing:['Picnic recipe card','A small keepsake from the Terrace table.'],
     books:['Library donation box','A donation for the community book table at James Madison Park.'],
     cooler:['Insulated cheese crate','A catering drop for the crew at Breese Stevens Field.'],
+    tickets:['Route A field card','Collect a ride stamp by boarding and stepping off at a different stop.'],
+    stamp:['Metro Rapid ride stamp','Proof you rode between two stops. Express rides count.'],
+    blueprint:['Community-room plan','A marked-up plan for the neighborhood open house.'],
+    banner:['Open house banner','A hand-painted banner to bring back to Bassett Studio.'],
+    eventPass:['Neighborhood open house pass','A keepsake from the first open house you helped organize.'],
+    chairs:['Folding-chair bundle','A delivery for the community table on Lake Monona.'],
     studioKey:['Bassett Studio key','Your home base on West Dayton Street.'],
     shopKey:['Workshop key','The keys to your East Wash Workshop.']
   };
@@ -46,13 +52,24 @@
     picnic:{kind:'Side',title:'The Picnic List',requires:'across',brief:'Put together a Wisconsin picnic card for the welcome table.',steps:[
       {site:'cheese',objective:'Ask about the picnic list at Fromagination',label:'Collect the tasting notes',detail:'Pick up a few ideas for a simple cheese picnic.',give:'notes'},
       {site:'union',objective:'Share the tasting notes with Jules',label:'Put together the picnic card',detail:'Jules adds the finishing touches to the picnic list.',take:'notes',give:'pairing',pay:50}
+    ]},
+    line:{kind:'Side',title:'Take the A',requires:'first',brief:'Try Metro Rapid, then compare notes with the crew at Breese Stevens Field.',steps:[
+      {site:'union',objective:'Pick up the Route A field card at the Terrace',label:'Pick up the Route A field card',detail:'Jules wants you to learn which stops are useful for a visitor coming across town.',give:'tickets'},
+      {site:'field',objective:'Bring your stamped card to Breese Stevens Field',label:'Turn in the ride survey',detail:'Tell the crew which stop you used and how far you walked.',take:'tickets',consume:'stamp',pay:68}
+    ]},
+    openHouse:{kind:'Main',title:'Open House',requires:'home',brief:'Put your new place on the neighborhood’s open-house list.',steps:[
+      {site:'studio',objective:'Meet the organizer at Bassett Studio',label:'Pick up the room plan',detail:'A neighbor wants to use the studio for a small book swap.',give:'blueprint'},
+      {site:'field',objective:'Bring the room plan to Breese Stevens Field',label:'Trade the plan for the banner',detail:'The crew has made a banner sized for your place.',take:'blueprint',give:'banner'},
+      {site:'studio',objective:'Bring your banner back to Bassett Studio',label:'Hang up the banner',detail:'Your neighbors have a place to meet and trade books.',take:'banner',give:'eventPass',pay:110}
     ]}
   };
   const jobs={
     bookRun:{title:'Little Library Run',site:'books',destination:'park',item:'books',pay:32,
       brief:'Carry a donation box from the book store to the community table at James Madison Park.'},
     cheeseRun:{title:'Match Day Catering',site:'cheese',destination:'field',item:'cooler',pay:46,
-      brief:'Bring an insulated delivery to the crew at Breese Stevens Field.'}
+      brief:'Bring an insulated delivery to the crew at Breese Stevens Field.'},
+    chairRun:{title:'Folding Chairs',site:'studio',destination:'monona',item:'chairs',pay:38,requires:'home',
+      brief:'Help set up a neighborhood event by bringing spare chairs to Monona Terrace.'}
   };
   const properties={
     studio:{price:140,key:'studioKey',requires:'across',brief:'A small home base with a bed and a return point.'},
@@ -100,19 +117,21 @@
       const rows={quests:[],jobs:[],properties:[]};
       for(const [id,quest] of Object.entries(quests)) {
         const step=quest.steps[state.steps[id]],available=Boolean(step)&&unlocked(quest);
-        const target=available?step.site:null;
+        const needsRide=available && step.consume==='stamp' && !state.pack.stamp;
+        const target=needsRide?null:available?step.site:null;
         let objective=available?step.objective:done(id)?'Completed':'Unlocks after '+quests[quest.requires].title;
+        if(needsRide) objective='Ride Route A and get off at another stop';
         if(available && step.property && state.cash<properties[step.property].price) {
           objective+=' · '+money(properties[step.property].price-state.cash)+' still needed';
         }
-        rows.quests.push({key:'q:'+id,title:quest.title,kind:quest.kind,brief:quest.brief,objective,target,
+        rows.quests.push({key:'q:'+id,title:quest.title,kind:quest.kind,brief:quest.brief,objective,target,available,needsRide,
           status:done(id)?'Complete':available?`${state.steps[id]+1} / ${quest.steps.length}`:'Locked'});
       }
       for(const [id,job] of Object.entries(jobs)) {
-        const active=state.job===id;
+        const active=state.job===id,available=unlocked(job);
         rows.jobs.push({key:'j:'+id,title:job.title,kind:'Odd job',brief:job.brief,active,
-          objective:active?'Deliver to '+sites[job.destination].name:'Pick up at '+sites[job.site].name,
-          target:active?job.destination:job.site,status:active?'On shift':money(payFor(job))+' per run',runs:state.runs[id]});
+          objective:active?'Deliver to '+sites[job.destination].name:available?'Pick up at '+sites[job.site].name:'Unlocks after '+quests[job.requires].title,
+          target:active?job.destination:available?job.site:null,status:active?'On shift':available?money(payFor(job))+' per run':'Locked',runs:state.runs[id]});
       }
       for(const [id,property] of Object.entries(properties)) {
         const owned=Boolean(state.owned[id]),available=unlocked(property);
@@ -125,7 +144,7 @@
 
     function view() {
       const list=entries(),all=Object.values(list).flat();
-      const tracked=all.find(row=>row.key===state.tracked && row.target)
+      const tracked=all.find(row=>row.key===state.tracked && (row.target || row.needsRide))
         || list.quests.find(row=>row.key==='q:'+main() && row.target)
         || list.jobs.find(row=>row.active) || null;
       return {...list,tracked,cash:state.cash,job:state.job,last:state.last,canSave,hasSave:state.last!=='books'||
@@ -140,11 +159,14 @@
         const index=state.steps[id],step=quest.steps[index];
         if(step?.site!==site || !step.label || !unlocked(quest)) continue;
         actions.push({id:`q:${id}:${index}`,title:step.label,detail:step.detail,kind:quest.kind,photo:step.photo});
+        if(step.consume && !state.pack[step.consume]) {
+          Object.assign(actions.at(-1),{detail:'First ride Route A and get off at a different stop.',disabled:true});
+        }
       }
       for(const [id,job] of Object.entries(jobs)) {
         if(state.job===id && site===job.destination) actions.push({id:`j:${id}:deliver`,title:'Complete '+job.title,
           detail:'Hand over your delivery and earn '+money(payFor(job))+'.',kind:'Odd job'});
-        else if(site===job.site && !state.job) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
+        else if(site===job.site && !state.job && unlocked(job)) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
           detail:job.brief+' Earn '+money(payFor(job))+'.',kind:'Odd job'});
       }
       const property=properties[site];
@@ -177,7 +199,7 @@
       const [kind,id,verb]=choice.id.split(':');
       if(kind==='seat') return {seat:terraceSeat,message:'Press E to stand up'};
       const next={...state,steps:{...state.steps},pack:{...state.pack},owned:{...state.owned},runs:{...state.runs},last:site};
-      let award=0,message,rest=false;
+      let award=0,message,rest=false,repark=false;
       function put(item) { if(item) next.pack[item]=(next.pack[item] || 0)+1; }
       function take(item) {
         if(!item) return true;
@@ -187,15 +209,17 @@
       }
       if(kind==='q') {
         const quest=quests[id],step=quest.steps[Number(verb)];
-        if(!take(step.take)) return null;
+        if(!take(step.take) || !take(step.consume)) return null;
         put(step.give);
         if(step.photo && jpeg(photo)) next.photos={...next.photos,[site]:photo};
         next.steps[id]++;
+        repark=Number(verb)===0 || done(id,next);
         award=step.pay || 0;
         if(quest.kind==='Side') next.tracked=done(id,next)?null:'q:'+id;
         else if(state.tracked==='q:'+id && done(id,next)) next.tracked=null;
         message=done(id,next)?quest.title+' complete':step.label.replace(/^Pick up /,'Picked up ');
       } else if(kind==='j') {
+        repark=true;
         const job=jobs[id];
         if(verb==='accept') {
           put(job.item);
@@ -217,7 +241,7 @@
         if(next.tracked==='p:'+id) next.tracked=null;
         put(property.key);
         const firstHome=id==='studio'&&!done('home');
-        if(firstHome) next.steps.home=quests.home.steps.length;
+        if(firstHome) {next.steps.home=quests.home.steps.length;repark=true;}
         message=firstHome?'You have a home on the isthmus · Chapter complete':sites[id].name+' purchased';
       } else {
         message='Rested at '+sites[id].name;
@@ -225,12 +249,12 @@
       }
       next.cash=count(next.cash+award);
       commit(next);
-      return {message:message+(award?' · +'+money(award):''),rest};
+      return {message:message+(award?' · +'+money(award):''),rest,repark};
     }
 
     function track(key) {
       sync();
-      if(!Object.values(entries()).flat().some(entry=>entry.key===key && entry.target)) return false;
+      if(!Object.values(entries()).flat().some(entry=>entry.key===key && (entry.target || entry.needsRide))) return false;
       if(key!==state.tracked) commit({...state,tracked:key});
       return true;
     }
@@ -251,7 +275,14 @@
       return true;
     }
 
-    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome};
+    function recordTransit(origin,arrival) {
+      sync();
+      if(!origin || origin===arrival || state.steps.line!==1 || state.pack.stamp) return false;
+      commit({...state,pack:{...state.pack,stamp:1}});
+      return true;
+    }
+
+    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome,recordTransit};
   }
 
   window.MadisonCampaign={sites,arrival,open,money,saveKey,terraceSeat,contacts};

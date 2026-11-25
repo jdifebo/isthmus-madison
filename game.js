@@ -2,7 +2,7 @@
   'use strict';
 
   const $=id=>document.getElementById(id);
-  const game=$('game'), map=$('map'), ctx=map.getContext('2d');
+  const game=$('game'), map=$('map');
   const data=window.MADISON, world=window.MadisonWorld;
   const points=[
     {name:'Capitol Square', x:-151, z:-4, yaw:Math.PI/2, pitch:.19},
@@ -24,7 +24,7 @@
   const campaign=MadisonCampaign.open(storage);
   let story;
   const marketBasket=new Set();
-  const stallDialog=$('stall-dialog');
+  const stallDialog=$('stall-dialog'),transitDialog=$('transit-dialog');
   const stopQuery=query.get('stop')?.toLowerCase();
   let openingStop,firstRide;
   const flyover={name:'Lake Monona',x:497,z:753,yaw:-.59,pitch:-.24,above:164};
@@ -44,13 +44,12 @@
   let pointer=null, previous=0, lastHUD=-1, lastRender=0, snap=true;
   let rideView=null,rideLook=0,stopRequested=false;
   let seated=false;
-  const mapBase=document.createElement('canvas');
-  mapBase.width=map.width;
-  mapBase.height=map.height;
-  const chart=mapBase.getContext('2d');
-  const scale=.116;
-  const mapX=x=>map.width*.505+x*scale, mapY=z=>map.height*.543+z*scale;
+  const fieldMap=MadisonFieldMap.create(map,data,storage);
   const roadText=road=>road.name.replace(/\b(North|South|East|West)\b/g,word=>word[0]+'.');
+  const carSave='isthmus-parked-car-v1';
+  const carName='Your parked car';
+  let navigation,manualTarget=null,gpsCache=null,parkedCar=null,boardingStop=null;
+  const player=()=>({x,z,yaw,mode:state,flying:state==='fly'});
 
   function loadStationPoints() {
     for(const [name,x,z,,,info] of engine.platforms) {
@@ -66,144 +65,93 @@
     firstRide=stationPoints.find(point=>point.stationId==='state-east') || stationPoints.find(point=>point.stationId==='paterson') || stationPoints[0];
   }
 
-  function trace(context,line) {
-    for (let i=0;i<line.length;i++) {
-      const [px,pz]=line[i];
-      if (i) context.lineTo(mapX(px),mapY(pz));
-      else context.moveTo(mapX(px),mapY(pz));
+  function destination() {
+    if(state==='intro') return manualTarget;
+    if(manualTarget || story?.target()) return manualTarget || story.target();
+    if(story?.tracked()?.needsRide && state!=='ride') {
+      const origin=stationPoints.filter(point=>engine.transit.services(point.stationId).length)
+        .reduce((best,point)=>!best || Math.hypot(point.x-x,point.z-z)<Math.hypot(best.x-x,best.z-z)?point:best,null);
+      return origin;
     }
+    return null;
   }
 
-  function drawMapBase() {
-    chart.fillStyle='#364a3e';
-    chart.fillRect(0,0,map.width,map.height);
-    chart.strokeStyle='#ffffff0b';
-    chart.lineWidth=1;
-    for(let i=8;i<map.width;i+=24) {
-      chart.beginPath(); chart.moveTo(i,0); chart.lineTo(i,map.height); chart.stroke();
-    }
-    for(let i=5;i<map.height;i+=24) {
-      chart.beginPath(); chart.moveTo(0,i); chart.lineTo(map.width,i); chart.stroke();
-    }
-    chart.fillStyle='#526748';
-    for(const [,poly] of data.parks) {
-      chart.beginPath();
-      for(const ring of poly) { trace(chart,ring); chart.closePath(); }
-      chart.fill('evenodd');
-    }
-    chart.fillStyle='#203d45';
-    chart.strokeStyle='#85a9a66a';
-    chart.lineWidth=1.15;
-    for(const polygon of data.water) {
-      chart.beginPath();
-      for(const ring of polygon) { trace(chart,ring); chart.closePath(); }
-      chart.fill('evenodd');
-      chart.stroke();
-    }
-    chart.strokeStyle='#ac9f7f';
-    chart.lineJoin=chart.lineCap='round';
-    for(const [name,kind,width,,line] of data.roads) {
-      chart.globalAlpha=kind===0?.69:kind===2?.83:kind===1?.31:.16;
-      chart.strokeStyle=kind===2?'#dbc08d':kind===0?'#c1b293':'#d3c4a7';
-      chart.lineWidth=kind===2?1.8:Math.max(.65,width*.09);
-      chart.beginPath();
-      trace(chart,line);
-      chart.stroke();
-    }
-    chart.globalAlpha=.94;
-    chart.strokeStyle='#e48c74';
-    chart.lineWidth=1.75;
-    chart.beginPath();
-    if(engine?.rapidLines.length) {
-      for(const line of engine.rapidLines) trace(chart,line);
-    } else {
-      for(const [,,,,line,bus] of data.roads) if(bus) trace(chart,line);
-    }
-    chart.stroke();
-    chart.globalAlpha=1;
-    chart.font='italic 19px Georgia';
-    chart.fillStyle='#9cbeba';
-    chart.fillText('Lake Mendota',43,69);
-    chart.fillText('Lake Monona',316,279);
-    chart.fillStyle='#c9bda0';
-    chart.fillRect(18,290,58,1.3);
-    chart.fillRect(18,286,1.2,8);
-    chart.fillRect(75,286,1.2,8);
-    chart.font='13px system-ui';
-    chart.fillText('500 m',18,307);
-    chart.fillStyle='#e6c291';
-    for (const p of points) {
-      const [x,z]=p.marker || [p.x,p.z];
-      chart.beginPath();
-      chart.fillStyle=p.transit?'#ffbc9c':'#e6c291';
-      chart.arc(mapX(x),mapY(z),p.transit?3.1:2.25,0,Math.PI*2);
-      chart.fill();
-      if(p.transit) {
-        chart.strokeStyle='#263c44';
-        chart.lineWidth=1;
-        chart.stroke();
-      }
-    }
+  function gps(target) {
+    if(!target || !navigation || state==='ride' || state==='fly') return null;
+    const mode=state==='drive'?'drive':'walk';
+    if(gpsCache?.target===target && gpsCache.mode===mode && Math.hypot(x-gpsCache.x,z-gpsCache.z)<17) return gpsCache.route;
+    const route=navigation.plan({x,z},target,mode);
+    gpsCache={target,mode,x,z,route};
+    return route;
   }
 
   function drawMap() {
-    ctx.drawImage(mapBase,0,0);
-    for(const [bx,bz,dx,dz,boarding] of engine?.buses || []) {
-      ctx.save();
-      ctx.translate(mapX(bx),mapY(bz));
-      ctx.rotate(Math.atan2(dx,-dz));
-      ctx.fillStyle=boarding?'#e1faf5':'#6cd6dc';
-      ctx.strokeStyle='#1b3540';
-      ctx.lineWidth=1.05;
-      ctx.fillRect(-2,-4,4,8);
-      ctx.strokeRect(-2,-4,4,8);
-      ctx.restore();
-    }
-    const target=state!=='intro' && story?.target();
-    if(target) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(mapX(x),mapY(z));
-      ctx.lineTo(mapX(target.x),mapY(target.z));
-      ctx.setLineDash([2.5,3.5]);
-      ctx.strokeStyle='#ffcd7f8c';
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.translate(mapX(target.x),mapY(target.z));
-      ctx.rotate(Math.PI/4);
-      ctx.lineWidth=1.4;
-      ctx.fillStyle='#ffcd7f';
-      ctx.strokeStyle='#253b43';
-      ctx.fillRect(-4,-4,8,8);
-      ctx.strokeRect(-4,-4,8,8);
-      ctx.restore();
-    }
-    const px=mapX(x),py=mapY(z);
-    ctx.save();
-    ctx.translate(px,py);
-    ctx.rotate(yaw);
-    ctx.beginPath();
-    ctx.moveTo(0,-11); ctx.lineTo(5,5); ctx.lineTo(0,2.4); ctx.lineTo(-5,5); ctx.closePath();
-    ctx.fillStyle='#ffb57f';
-    ctx.strokeStyle='#172622';
-    ctx.lineWidth=1.4;
-    ctx.stroke();
-    ctx.fill();
-    ctx.restore();
+    const target=destination(),route=gps(target);
+    fieldMap.draw({player:player(),target,route,points:points.map(point=>{
+      const [x,z]=point.marker || [point.x,point.z];
+      return {x,z,transit:point.transit};
+    }),buses:engine?.buses || [],car:story && state!=='drive'?parkedCar:null});
+    const meters=target?route?.distance ?? Math.hypot(x-target.x,z-target.z):0;
+    const length=meters>=1000?(meters/1000).toFixed(1)+' km':Math.round(meters)+' m';
+    $('map-destination').textContent=target?.name || 'No destination';
+    $('map-directions').textContent=target?
+      (route?.hint || (state==='ride' || state==='fly'?'Distance to destination':'No connected route from here'))+' · '+length:
+      'Choose a place or objective.';
+    $('map-clear').hidden=!manualTarget;
+    $('map-find-car').hidden=!story || !parkedCar || state==='drive';
+    $('gps-hint').hidden=!route || state==='intro';
+    if(route) $('gps-hint').textContent=(manualTarget?manualTarget.name+' · ':'')+route.hint;
+  }
+
+  function mapButton(label,action) {
+    const button=document.createElement('button');
+    button.type='button';
+    button.textContent=label;
+    button.addEventListener('click',action);
+    return button;
+  }
+
+  function showObjectives() {
+    const rows=story?.objectives() || [];
+    $('map-objectives').hidden=!rows.length;
+    $('map-objective-list').replaceChildren(...rows.map(row=>{
+      const button=mapButton(row.title,()=>{
+        if(!story.track(row.key)) return;
+        manualTarget=null;
+        showObjectives();
+        fieldMap.open(true,player(),destination());
+        drawMap();
+      });
+      button.setAttribute('aria-current',String(story.tracked()?.key===row.key));
+      return button;
+    }));
+  }
+
+  function guide(point) {
+    manualTarget=point;
+    if(expanded) fieldMap.open(true,player(),destination());
+    drawMap();
   }
 
   function setMap(open) {
     expanded=open;
     $('map-card').classList.toggle('expanded',open);
+    game.classList.toggle('map-open',open);
     $('map-toggle').setAttribute('aria-expanded',String(open));
-    $('map-close').hidden=!open;
-    $('map-details').hidden=!open;
+    for(const id of ['map-close','map-details','map-tools']) $(id).hidden=!open;
+    for(const id of ['hud','intro']) $(id).inert=open;
+    game.querySelector('.rail').inert=open;
+    game.querySelector('.credits').inert=open;
     keys.clear();
     pointer=null;
-    if (open) {
+    fieldMap.open(open,player(),destination());
+    if(open) {
       $('help').hidden=true;
       $('help-toggle').setAttribute('aria-expanded','false');
+      showObjectives();
+      $('map-close').focus();
     }
+    drawMap();
   }
 
   function toast(message) {
@@ -240,15 +188,80 @@
     return Math.atan2(dx,-dz);
   }
 
-  function carAllowed(cx,cz,angle) {
+  function carAllowed(cx,cz,angle,ignoreCar=false) {
     const dx=Math.sin(angle), dz=-Math.cos(angle);
-    const blocked=(x,z,radius)=>groundBlocked(x,z,radius)||engine.market?.drivingBlocked(x,z,radius);
+    const blocked=(x,z,radius)=>groundBlocked(x,z,radius,ignoreCar)||engine.market?.drivingBlocked(x,z,radius);
     return !blocked(cx,cz,1) && !blocked(cx+dx*1.42,cz+dz*1.42,.93)
       && !blocked(cx-dx*1.42,cz-dz*1.42,.93);
   }
 
-  function groundBlocked(x,z,radius) {
-    return world.blocked(x,z,radius) || engine.trafficBlocked(x,z,radius) || engine.market?.blocked(x,z,radius);
+  function groundBlocked(x,z,radius,ignoreCar=false) {
+    return world.blocked(x,z,radius) || engine.trafficBlocked(x,z,radius) || engine.parking.collision(x,z,radius)
+      || engine.market?.blocked(x,z,radius) || !ignoreCar && parkedCar && state!=='drive' && MadisonParking.overlaps(parkedCar,x,z,radius);
+  }
+
+  function keepCar(point) {
+    parkedCar={name:carName,x:point.x,z:point.z,yaw:point.yaw};
+    if(manualTarget?.name===carName) manualTarget=parkedCar;
+    try { storage?.setItem(carSave,JSON.stringify(parkedCar)); } catch {}
+  }
+
+  function curbNear(point) {
+    return engine.parking.nearest(point.x,point.z,slot=>{
+      if(!carAllowed(slot.x,slot.z,slot.yaw,true)) return false;
+      for(const side of [1,-1]) {
+        const dx=Math.cos(slot.yaw)*2.2*side,dz=Math.sin(slot.yaw)*2.2*side;
+        if(!groundBlocked(slot.x+dx,slot.z+dz,.4,true)) return true;
+      }
+      return false;
+    });
+  }
+
+  function restoreCar() {
+    let stored;
+    try { stored=JSON.parse(storage?.getItem(carSave)); } catch {}
+    if(stored && [stored.x,stored.z,stored.yaw].every(Number.isFinite) && carAllowed(stored.x,stored.z,stored.yaw,true)) keepCar(stored);
+    else {
+      const slot=curbNear(storyStart()) || curbNear(points[0]);
+      if(slot) keepCar(slot);
+    }
+  }
+
+  function carNear() {
+    return parkedCar && Math.hypot(x-parkedCar.x,z-parkedCar.z)<5;
+  }
+
+  function enterCar() {
+    if(!parkedCar) return;
+    if(state!=='walk' || seated || !carNear()) {
+      guide(parkedCar);
+      toast('Follow the route to your parked car.');
+      return;
+    }
+    if(engine.trafficBlocked(parkedCar.x,parkedCar.z,1)) { toast('Wait for traffic to clear.'); return; }
+    if(manualTarget===parkedCar) manualTarget=null;
+    changeMode('drive',parkedCar);
+  }
+
+  function leaveCar() {
+    if(Math.abs(speed)>1.25) { toast('Brake to a stop before getting out.'); return false; }
+    for(const side of [1,-1]) {
+      const px=x+Math.cos(yaw)*2.15*side,pz=z+Math.sin(yaw)*2.15*side;
+      if(groundBlocked(px,pz,.4,true)) continue;
+      keepCar({x,z,yaw});
+      changeMode('walk',{name:carName,x:px,z:pz,yaw});
+      return true;
+    }
+    toast('Leave a little room on either side of the car.');
+    return false;
+  }
+
+  function recallCar(site) {
+    if(!parkedCar || Math.hypot(parkedCar.x-site.x,parkedCar.z-site.z)<160) return false;
+    const curb=curbNear(site);
+    if(!curb) return false;
+    keepCar(curb);
+    return true;
   }
 
   function driveSpawn() {
@@ -297,7 +310,7 @@
     let landedAway=false;
     if(point) {
       focus=point;
-      const destination=next==='fly'?point:(safeDrop(point) || points[0]);
+      const destination=next==='fly' || next==='drive' && storyMode?point:(safeDrop(point) || points[0]);
       ({x,z,yaw}=destination);
       pitch=point.pitch ?? -.026;
       if(next==='fly') pitch=point===flyover?point.pitch:point.flyPitch ?? -.34;
@@ -319,7 +332,7 @@
     } else if(next!=='intro') {
       groundReturn={x,z,yaw};
     }
-    if(next==='drive') driveSpawn();
+    if(next==='drive' && !storyMode) driveSpawn();
     speed=steer=walkAmount=airX=airY=airZ=0;
     keys.clear();
     snap=true;
@@ -338,7 +351,7 @@
     $('motion-label').textContent={walk:'Move',drive:'Steer',fly:'Fly'}[next] || 'Move';
     $('look-tip').textContent=next==='drive'?'Space to brake':'Drag to look';
     for(const mode of travelModes) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
-    engine.car.visible=next==='drive';
+    engine.car.visible=next==='drive' || storyMode && Boolean(parkedCar) && next!=='intro';
     setMap(false);
     updateHUD();
     if(landedAway) toast('Returned to your last ground position.');
@@ -351,10 +364,58 @@
 
   function stepOff() {
     const platform=engine.transit.exit();
-    if(!platform) return;
+    if(platform) arriveByBus(platform);
+  }
+
+  function arriveByBus(platform,express=false) {
     const station=stationPoints.find(point=>point.stationId===platform.id);
     changeMode('walk',{...station,...platform,name:station?.name || platform.name});
-    toast('Stepped off at '+platform.name+'.');
+    const stamp=story && campaign.recordTransit(boardingStop,platform.id);
+    boardingStop=null;
+    if(stamp) { manualTarget=null;story.refresh();updateHUD(); }
+    toast((express?'Express arrival · ':'Stepped off at ')+platform.name+(stamp?' · Route A card stamped':'')+'.');
+  }
+
+  function startRide(origin,direction=null) {
+    const boarded=direction===null?engine.transit.board(x,z):engine.transit.summon(origin,direction);
+    if(!boarded) { toast('No coach is available here.');return; }
+    boardingStop=origin;
+    rideView=engine.transit.ride();
+    rideLook=.10;
+    pitch=-.025;
+    stopRequested=false;
+    changeMode('ride');
+  }
+
+  function transitMenu() {
+    const onBus=state==='ride',platform=state==='walk'?engine.transit.platformAt(x,z):null;
+    if(!onBus && !platform) return;
+    setMap(false);
+    $('transit-title').textContent=onBus?'Express to a stop':platform.name;
+    const choices=$('transit-choices');
+    choices.replaceChildren();
+    function add(title,action) {
+      const entry=mapButton(title,()=>{transitDialog.close();action();});
+      entry.className='glass small';
+      choices.append(entry);
+    }
+    if(onBus) {
+      for(const stop of engine.transit.destinations()) add(stop.name,()=>{
+        const arrival=engine.transit.express(stop.id);
+        if(arrival) arriveByBus(arrival,true);
+      });
+    } else {
+      const waiting=engine.transit.stationStatus(x,z);
+      if(waiting?.boarding) add('Board the waiting bus',()=>startRide(platform.id));
+      for(const service of engine.transit.services(platform.id)) {
+        add('Summon '+(service.direction>0?'eastbound':'westbound')+' · '+service.end,()=>startRide(platform.id,service.direction));
+      }
+    }
+    const note=document.createElement('p');
+    note.textContent=onBus?'Choose a stop ahead for an instant arrival. Close this menu to continue the ride.':
+      choices.children.length?'Ride along or choose an express stop once aboard.':'This platform is an arrival terminus. Follow the map to a departing platform.';
+    choices.append(note);
+    transitDialog.showModal();
   }
 
   function busAction() {
@@ -366,14 +427,7 @@
       }
       return;
     }
-    if(state!=='walk') return;
-    const boarded=engine.transit.board(x,z);
-    if(!boarded) { toast('Wait for the platform doors to open.'); return; }
-    rideView=engine.transit.ride();
-    rideLook=.10;
-    pitch=-.025;
-    stopRequested=false;
-    changeMode('ride');
+    if(state==='walk') transitMenu();
   }
 
   function updateTransitPanel() {
@@ -382,6 +436,7 @@
     const direction=riding?.direction || waiting?.direction;
     const panel=$('transit-panel'),button=$('transit-action');
     panel.hidden=!riding&&!waiting;
+    $('transit-destinations').hidden=!riding || !engine.transit.destinations().length;
     if(panel.hidden) return;
     let action,status;
     if(riding) {
@@ -391,8 +446,8 @@
       else if(riding.station) status='At '+riding.station;
       else status='Next stop · '+riding.next;
     } else {
-      action=waiting.boarding?'Board bus':'';
-      status=waiting.boarding?'Doors open at '+waiting.name:'Waiting at '+waiting.name;
+      action='Travel';
+      status=waiting.boarding?'Doors open at '+waiting.name:waiting.name+' platform';
     }
     const labels={'transit-status':status,'transit-route':direction?'Route A · '+direction:'Route A','transit-action-label':action};
     for(const [id,label] of Object.entries(labels)) {
@@ -470,8 +525,17 @@
     return 1.81-Math.min(Math.abs(velocity),31)*.031;
   }
 
+  function placeOwnCar(cx,cz,angle) {
+    const dx=Math.sin(angle),dz=-Math.cos(angle);
+    engine.car.position.set(cx,world.ground(cx,cz)+.235,cz);
+    const front=world.ground(cx+dx*1.7,cz+dz*1.7),back=world.ground(cx-dx*1.7,cz-dz*1.7);
+    engine.car.rotation.set(Math.atan2(front-back,3.4),-angle,0,'YXZ');
+  }
+
   function setCamera(seconds,dt) {
     const camera=engine.camera;
+    if(state==='drive') placeOwnCar(x,z,yaw);
+    else if(parkedCar) placeOwnCar(parkedCar.x,parkedCar.z,parkedCar.yaw);
     if(state==='intro') {
       const drift=Math.sin(seconds*.13);
       camera.position.set(480+drift*19,157+Math.sin(seconds*.08)*6,695-drift*17);
@@ -493,11 +557,6 @@
       camera.position.set(x,state==='fly' || snap?y:smooth(camera.position.y,y+bob,18,dt),z);
       camera.lookAt(x+dx*Math.cos(pitch),camera.position.y+Math.sin(pitch),z+dz*Math.cos(pitch));
     } else {
-      const car=engine.car;
-      car.position.set(x,base+.19,z);
-      const front=world.ground(x+dx*1.7,z+dz*1.7);
-      const back=world.ground(x-dx*1.7,z-dz*1.7);
-      car.rotation.set(Math.atan2(front-back,3.4),-yaw,0,'YXZ');
       const distance=7.7+Math.abs(speed)*.065;
       let cx=x-dx*distance,cz=z-dz*distance;
       if(world.blocked(cx,cz,.15) && !world.onWater(cx,cz)) { cx=x-dx*3.6; cz=z-dz*3.6; }
@@ -521,8 +580,6 @@
     $('location-name').textContent=rideView?(road?.distance<40?roadText(road):'Madison, Wisconsin'):
       road?.distance<34 && name!==road.name?roadText(road):'Madison, Wisconsin';
     $('map-status').textContent=state==='intro'?'Capitol Square':rideView?'Route A · '+(rideView.station || rideView.direction):name;
-    const [lon,lat]=data.origin,[mx,mz]=data.meters;
-    $('coordinates').textContent=(lat-z/mz).toFixed(5)+'° N  ·  '+Math.abs(lon+x/mx).toFixed(5)+'° W';
     $('speed').textContent=String(Math.round(Math.abs(speed)*2.23694));
     $('altitude').textContent=String(Math.round(Math.max(0,altitude-world.ground(x,z))));
     updateTransitPanel();
@@ -531,6 +588,8 @@
     if(stall && $('market-stall-name').textContent!==stall.name) $('market-stall-name').textContent=stall.name;
     story?.update(x,z,state!=='intro',seated);
     if(story) engine.siteTarget(state==='intro'?null:story.target());
+    $('car-panel').hidden=!story || state!=='drive' && !(state==='walk' && !seated && carNear() && !milestone && $('transit-panel').hidden);
+    $('car-action-label').textContent=state==='drive'?'Get out':'Get in';
     drawMap();
   }
 
@@ -538,7 +597,7 @@
     requestAnimationFrame(frame);
     const dt=Math.min((stamp-(previous || stamp))/1000,.35);
     previous=stamp;
-    if(document.hidden) return;
+    if(document.hidden || expanded || transitDialog.open) return;
     if(!expanded && $('help').hidden && !stallDialog.open && !story?.modalOpen()) {
       if(state==='walk' && !seated) walk(dt);
       if(state==='drive') drive(dt);
@@ -548,7 +607,7 @@
     let seconds=stamp/1000;
     if(state==='intro' && reducedMotion.matches) seconds=0;
     lastRender=stamp;
-    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null);
+    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null,state==='drive'?null:parkedCar);
     if(state==='ride') {
       rideView=engine.transit.ride();
       if(rideView?.open && (stopRequested || rideView.final)) stepOff();
@@ -610,15 +669,28 @@
 
   function bind() {
     const walkStart=()=>story?storyStart():engine.market?.start || points[0];
+    function returnTitle() {
+      if(story && state==='drive' && !leaveCar()) {setMap(false);return;}
+      manualTarget=null;
+      changeMode('intro',points[0]);
+    }
     $('walk').addEventListener('click',()=>changeMode('walk',walkStart()));
-    $('drive').addEventListener('click',()=>changeMode('drive',points[0]));
+    $('drive').addEventListener('click',()=>{
+      if(!story) {changeMode('drive',points[0]);return;}
+      changeMode('walk',walkStart());
+      enterCar();
+    });
     $('fly').addEventListener('click',()=>changeMode('fly',flyover));
     $('ride-start').addEventListener('click',()=>visitPlatform(firstRide));
     $('transit-action').addEventListener('click',busAction);
+    $('transit-destinations').addEventListener('click',transitMenu);
+    $('transit-close').addEventListener('click',()=>transitDialog.close());
     $('market-browse').addEventListener('click',()=>browseMarket());
     $('market-close').addEventListener('click',()=>stallDialog.close());
     $('encounter-action').addEventListener('click',storyInteract);
-    $('home').addEventListener('click',()=>changeMode('intro',points[0]));
+    $('car-action').addEventListener('click',()=>state==='drive'?leaveCar():enterCar());
+    $('home').addEventListener('click',returnTitle);
+    $('map-home').addEventListener('click',returnTitle);
     if(storyMode) {
       story=MadisonCampaignUI.create(campaign,{
         nearby:storyNearby,
@@ -628,6 +700,8 @@
           $('help-toggle').setAttribute('aria-expanded','false');
         },
         onAction(result,site) {
+          const moved=!result.seat && result.repark && recallCar(site);
+          if(!result.seat) manualTarget=null;
           if(result.rest) {
             changeMode('walk',site);
             setTime(1);
@@ -639,9 +713,11 @@
             }
             updateHUD();
           }
-          toast(result.message);
+          toast(result.message+(moved?' · Car parked nearby':''));
         },
         onReturn:site=>changeMode('walk',site),
+        canReturn:()=>state!=='ride' && state!=='drive',
+        onTrack:()=>{manualTarget=null;updateHUD();},
         capture:engine.capture
       });
     }
@@ -652,10 +728,17 @@
         else toast('Step off at a station to change travel modes.');
         return;
       }
+      if(story && mode==='drive') {enterCar();return;}
+      if(story && state==='drive') {
+        if(mode==='walk') leaveCar();
+        else toast('Park and get out before taking flight.');
+        return;
+      }
       if(state==='drive' && mode==='walk' && Math.abs(speed)>2.3) { toast('Brake before stepping out.'); return; }
       changeMode(mode,state==='intro'?(mode==='fly'?flyover:mode==='walk'?walkStart():points[0]):undefined);
     };
     const reset=()=>{
+      if(story && state==='drive') {toast('Park and get out before resetting.');return;}
       if(state!=='intro') { changeMode(state==='ride'?'walk':state,focus); toast('Back at '+focus.name); }
     };
     for(const mode of travelModes) $('mode-'+mode).addEventListener('click',()=>selectMode(mode));
@@ -664,6 +747,18 @@
     $('map-toggle').addEventListener('click',()=>setMap(!expanded));
     $('map-close').addEventListener('click',()=>setMap(false));
     $('map-expand').addEventListener('click',()=>setMap(true));
+    const orientation=()=>{
+      const north=fieldMap.orientation();
+      $('map-orientation').textContent=north?'North up':'Heading up';
+      $('map-orientation').setAttribute('aria-pressed',String(north));
+    };
+    orientation();
+    $('map-orientation').addEventListener('click',()=>{fieldMap.toggle();orientation();});
+    $('map-recenter').addEventListener('click',fieldMap.recenter);
+    $('map-plus').addEventListener('click',()=>fieldMap.magnify(1.21));
+    $('map-minus').addEventListener('click',()=>fieldMap.magnify(1/1.21));
+    $('map-find-car').addEventListener('click',()=>guide(parkedCar));
+    $('map-clear').addEventListener('click',()=>guide(null));
     $('help-toggle').addEventListener('click',()=>{
       const open=$('help').hidden;
       if(open) setMap(false);
@@ -675,24 +770,20 @@
       $('credits').hidden=!$('credits').hidden;
       $('credits-toggle').setAttribute('aria-expanded',String(!$('credits').hidden));
     });
-    for(const point of points) {
-      const button=document.createElement('button');
-      button.type='button';
-      button.textContent=point.name;
-      if(point.transit) button.classList.add('transit-stop');
-      button.addEventListener('click',()=>{
+    const mapPlaces=story?[...points,...['books','cheese','studio','workshop'].map(id=>MadisonCampaign.sites[id])]:points;
+    for(const point of mapPlaces) {
+      const button=mapButton(point.name,()=>{
+        if(story) {guide(point);return;}
         const mode=state==='intro' || state==='ride'?'walk':state;
         if(point.transit && mode==='walk') visitPlatform(point);
         else changeMode(mode,point);
       });
-      $('landmarks').append(button);
+      $(point.transit?'map-stops':'landmarks').append(button);
     }
-    $('transit-legend').hidden=!stationPoints.length;
-    if(marketDay) $('transit-legend-label').textContent='Metro Rapid detour';
     $('osm-credit').hidden=!data.osm;
     if(data.osm) $('credits-toggle').textContent='© OpenStreetMap · Map credits';
     window.addEventListener('keydown',event=>{
-      if(event.altKey || event.ctrlKey || event.metaKey || stallDialog.open) return;
+      if(event.altKey || event.ctrlKey || event.metaKey || stallDialog.open || transitDialog.open) return;
       const key=remap[event.code] || event.code;
       if(story && state!=='intro' && !event.repeat && (key==='KeyJ'||key==='KeyI')) {
         if(key==='KeyJ' && story.journalOpen()) story.closeJournal();
@@ -712,7 +803,7 @@
         } else if(!$('credits').hidden) {
           $('credits').hidden=true;
           $('credits-toggle').setAttribute('aria-expanded','false');
-        } else if(state!=='intro') changeMode('intro',points[0]);
+        } else if(state!=='intro') setMap(true);
         return;
       }
       if(event.code==='KeyM' && !event.repeat) { game.classList.remove('hud-free'); setMap(!expanded); return; }
@@ -729,6 +820,9 @@
         if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
         else if(stall) browseMarket(stall);
         else if(story && (seated || storyNearby())) storyInteract();
+        else if(story && state==='drive') leaveCar();
+        else if(story && state==='walk' && carNear()) enterCar();
+        else if(story) return;
         else selectMode(state==='drive'?'walk':'drive');
       }
       if(!event.repeat && key==='KeyR') reset();
@@ -741,6 +835,7 @@
     });
     window.addEventListener('keyup',event=>keys.delete(remap[event.code] || event.code));
     window.addEventListener('blur',()=>{ keys.clear(); pointer=null; });
+    window.addEventListener('pagehide',()=>{if(story && state==='drive') keepCar({x,z,yaw});});
     engine.canvas.addEventListener('pointerdown',event=>{
       if(state==='intro' || state==='drive' || expanded || event.button!==0 || !$('help').hidden) return;
       pointer={id:event.pointerId,x:event.clientX,y:event.clientY};
@@ -779,17 +874,18 @@
       if(campaign.view().hasSave) $('story-start').textContent='Continue story';
       if(storyMode) {
         game.classList.add('story-mode');
+        $('drive-label').textContent='My car';
         for(const id of ['story-balance','story-exit','story-help']) $(id).hidden=false;
       }
       loadingProgress(5,'Reading the map');
-      drawMapBase();
-      drawMap();
       engine=await world.create($('scene'),{marketDay,storyMode,progress:loadingProgress});
       if(engine.market) points.splice(1,0,engine.market.start);
       loadStationPoints();
-      drawMapBase();
+      fieldMap.build(engine.rapidLines);
+      navigation=MadisonNavigation.create(data.roads);
       engine.setLight(light);
       engine.advanceTraffic(0,null);
+      if(storyMode) restoreCar();
       bind();
       if(openingStop) {
         if(query.get('platform')==='1') visitPlatform(openingStop);

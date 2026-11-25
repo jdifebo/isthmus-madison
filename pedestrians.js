@@ -31,6 +31,44 @@
     return lanes;
   }
 
+  function neighborhoodTracks(geo,layout) {
+    const names=new Set(['North Park Street','Langdon Street','Howard Temin Lakeshore Path','West Dayton Street',
+      'West Gilman Street','West Mifflin Street','South Carroll Street','East Main Street','East Wilson Street',
+      'East Gorham Street','East Washington Avenue','Williamson Street','North Paterson Street','Rutledge Street']);
+    const tracks=[],occupied=new Set();
+    for(const [name,kind,width,bridge,line,rapid] of geo.data.roads) {
+      if(!names.has(name) || kind===4 || bridge || rapid && width<9) continue;
+      for(let i=1;i<line.length;i++) {
+        const [ax,az]=line[i-1],[bx,bz]=line[i],length=Math.hypot(bx-ax,bz-az);
+        if(length<23) continue;
+        const dx=(bx-ax)/length,dz=(bz-az)/length;
+        for(const side of kind===3?[0]:[1,-1]) {
+          const offset=(width*.5+1.06)*side;
+          let start=null;
+          for(let along=3;along<=length-2;along+=2.5) {
+            const x=ax+dx*along-dz*offset,z=az+dz*along+dx*offset;
+            const clear=!geo.inBuilding(x,z,.29) && !geo.onWater(x,z) && !layout.stops.some(([,sx,sz])=>Math.hypot(sx-x,sz-z)<9);
+            if(clear) start??=along;
+            const end=clear?along:along-2.5;
+            if((!clear || along+2.5>length-2) && start!==null) {
+              const span=end-start;
+              const tx=ax+dx*start-dz*offset,tz=az+dz*start+dx*offset;
+              const spacing=kind===3?23:rapid?46:35;
+              for(let s=7;s<span-5;s+=spacing) {
+                const key=Math.floor((tx+dx*s)/9)+','+Math.floor((tz+dz*s)/9);
+                if(occupied.has(key) || tracks.length>=162) continue;
+                occupied.add(key);
+                tracks.push({tx,tz,dx,dz,span,s,path:kind===3});
+              }
+              start=null;
+            }
+          }
+        }
+      }
+    }
+    return tracks;
+  }
+
   function create(scene,geo,layout,market,contacts=[]) {
     const shelters=layout.stops.filter(([name])=>name==='State Street').map(([,x,z,dx,dz])=>{
       const position=(px,pz)=>[(px-x)*dx+(pz-z)*dz,(px-x)*dz-(pz-z)*dx];
@@ -72,6 +110,17 @@
       person({along,market:true,lateral:(rng()-.5)*2.92,pause:rng()*120});
     }
     for(const fixed of contacts) person({fixed});
+    for(const lane of neighborhoodTracks(geo,layout)) {
+      const s=lane.s+rng()*4;
+      const signals=layout.signals.flatMap(signal=>{
+        const vx=signal.x-lane.tx,vz=signal.z-lane.tz;
+        const point=vx*lane.dx+vz*lane.dz;
+        if(Math.abs(vx*lane.dz-vz*lane.dx)>19 || point<1 || point>lane.span-1) return [];
+        const scores=signal.axes.map(axis=>Math.abs(axis.dx*lane.dx+axis.dz*lane.dz));
+        return [{signal,point,axis:Number(scores[1]>scores[0])}];
+      });
+      person({lane,signals,along:s,direction:rng()<.5?-1:1});
+    }
     if(!walkers.length) return ()=>{};
     const crossings=layout.signals.filter(({x,z})=>x>=-1004&&x<=-191&&Math.abs(z-(.021*x-1.8))<11)
       .map(signal=>({signal,axis:Math.abs(signal.axes[0].dx)>Math.abs(signal.axes[1].dx)?0:1}));
@@ -125,6 +174,22 @@
           const [nextX,nextZ]=market.loop.sample(walker.along+.61,walker.lateral);
           dx=nextX-x; dz=nextZ-z;
           lift=.114;
+        } else if(walker.lane) {
+          const {tx,tz,dx:ux,dz:uz,span}=walker.lane;
+          const next=walker.signals.find(signal=>{
+            const approach=(signal.point-walker.along)*walker.direction;
+            return approach>4.5 && approach<7.3;
+          });
+          const moving=!next || MadisonTraffic.signalPhase(next.signal,next.axis,seconds)<MadisonTraffic.green;
+          walker.progress+=(Number(moving)-walker.progress)*Math.min(1,dt*6);
+          walker.along+=pace*walker.direction*walker.progress*dt;
+          if(walker.along<=0 || walker.along>=span) {
+            walker.along=geo.clamp(walker.along,0,span);
+            walker.direction*=-1;
+          }
+          x=tx+ux*walker.along;z=tz+uz*walker.along;
+          dx=ux*walker.direction;dz=uz*walker.direction;
+          lift=.105;
         } else {
           const px=points[0][0]+walker.along;
           const cross=crossings.find(({signal})=>{

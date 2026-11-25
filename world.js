@@ -1130,7 +1130,8 @@
     const market=marketDay?MadisonMarket.create(scene,geo):null;
     const yards={...homes,paved:(x,z)=>homes.paved(x,z)||storefronts.paved(x,z)||market?.paved(x,z)};
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,yards);
-    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes);
+    const parking=MadisonParking.create(geo,layout,market,rapid.routes);
+    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes,parking);
     const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[]);
     const car=carModel(scene);
     const detail=[];
@@ -1169,7 +1170,7 @@
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
-    return {camera,car,market,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+    return {camera,car,market,parking,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
       siteTarget:storefronts.target,capture() {
         try {
           renderer.render(scene,camera);
