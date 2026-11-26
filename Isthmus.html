@@ -287,16 +287,25 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
 .help dd { margin: 0; color: var(--dim); }
 .toast { position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); padding: 8px 12px; font-size: 14px; text-align: center; z-index: 5; }
 .touch-controls { display: none; }
-.touch-controls .touch-elevation { display: none; }
+.touch-controls, .touch-controls * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-controls .touch-elevation, .touch-controls .touch-brake { display: none; }
 .flying .touch-controls .touch-elevation { display: flex; }
+.driving .touch-controls .touch-brake { display: block; position: absolute; left: 0; top: 0; padding: 0 4px; font-size: 12px; }
 @media (pointer: coarse) {
   .touch-controls { position: absolute; bottom: 130px; left: 18px; display: grid; grid-template-columns: 1fr; gap: 5px; justify-items: center; }
   .touch-controls div { display: flex; gap: 5px; }
-  .touch-controls button { width: 39px; height: 36px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass); touch-action: none; }
+  .touch-controls button { min-width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass); }
+  .touch-controls button.held { background: #544234; border-color: var(--accent); }
   .speedometer { bottom: 215px; left: 18px; }
-  .transit-panel { bottom: 220px; left: 18px; }
+  .transit-panel { bottom: 235px; left: 18px; }
   .riding .transit-panel { bottom: 88px; }
-  #altimeter { bottom: 255px; }
+  #altimeter { bottom: 281px; }
 }
 @media (max-width: 755px) {
   .rail { padding-top: 15px; }
@@ -362,7 +371,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
 }
 @media (pointer: coarse) and (max-width: 755px) {
   .speedometer { bottom: 215px; }
-  #altimeter { bottom: 255px; }
+  #altimeter { bottom: 281px; }
   .flying .control-bar .flight-hint { display: none; }
 }
 
@@ -451,9 +460,10 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <button id="mode-fly" type="button" aria-pressed="false"><kbd>3</kbd> Fly</button>
       </nav>
       <div class="touch-controls" aria-label="Touch movement">
-        <button data-key="KeyW" aria-label="Forward">▲</button>
-        <div><button data-key="KeyA" aria-label="Left">◀</button><button data-key="KeyS" aria-label="Back">▼</button><button data-key="KeyD" aria-label="Right">▶</button></div>
-        <div class="touch-elevation"><button data-key="Space" aria-label="Ascend">＋</button><button data-key="KeyC" aria-label="Descend">−</button></div>
+        <button type="button" data-key="KeyW" aria-label="Forward">▲</button>
+        <div><button type="button" data-key="KeyA" aria-label="Left">◀</button><button type="button" data-key="KeyS" aria-label="Back">▼</button><button type="button" data-key="KeyD" aria-label="Right">▶</button></div>
+        <div class="touch-elevation"><button type="button" data-key="Space" aria-label="Ascend">＋</button><button type="button" data-key="KeyC" aria-label="Descend">−</button></div>
+        <button type="button" class="touch-brake" data-key="Space">Brake</button>
       </div>
     </section>
     <aside id="map-card" class="map-card glass" aria-labelledby="map-title">
@@ -819,9 +829,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const forward=new T.Vector3(), lookAt=new T.Vector3();
     const clip=[new T.Plane(new T.Vector3(0,1,0),-2.65)];
     let target, last=-Infinity, ready=false;
-    function updateReflection(renderer,camera,seconds,enabled) {
+    function updateReflection(renderer,camera,seconds,enabled,refresh) {
       waves.mirrorMix.value=enabled&&ready?1:0;
-      if(!enabled || seconds-last<.24) return;
+      if(!enabled || !refresh || seconds-last<.24) return;
       if(!target) {
         target=new T.WebGLRenderTarget(480,300,{depthBuffer:true});
         waves.mirrorMap.value=target.texture;
@@ -867,10 +877,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         last=-Infinity;
         return {...mood,sunDirection:air.sun.value};
       },
-      render(renderer,camera,seconds,reflections) {
+      render(renderer,camera,seconds,reflections,refresh) {
         dome.position.copy(camera.position);
         air.time.value=seconds;
-        updateReflection(renderer,camera,seconds,reflections);
+        updateReflection(renderer,camera,seconds,reflections,refresh);
       }
     };
   }
@@ -2014,6 +2024,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const leafMeshes=templates.map(template=>{
       const mesh=new T.InstancedMesh(template.close,individual,6);
       mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
+      mesh.instanceColor=new T.InstancedBufferAttribute(new Float32Array(18),3).setUsage(T.DynamicDrawUsage);
       mesh.count=0;
       mesh.frustumCulled=false;
       scene.add(mesh);
@@ -2135,6 +2146,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       const meadow=new T.InstancedMesh(sink.mesh(material).geometry,material,capacity);
       meadow.instanceMatrix.setUsage(T.DynamicDrawUsage);
+      meadow.instanceColor=new T.InstancedBufferAttribute(new Float32Array(capacity*3),3).setUsage(T.DynamicDrawUsage);
       meadow.count=0;
       meadow.frustumCulled=false;
       meadow.receiveShadow=true;
@@ -2153,39 +2165,78 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     }
     function layer(mesh,tile,subdivisions,near) {
       const memo=new Map();
-      function patch(i,j) {
+      const capacity=mesh.instanceMatrix.count;
+      const matrices=new Float32Array(capacity*16),colors=new Float32Array(capacity*3);
+      const samples=subdivisions**2;
+      function patch(i,j,end) {
         const key=i+','+j;
-        if(memo.has(key)) return memo.get(key);
-        const rng=random((i*45991)^(j*98171)^(near?0x493f2:0x240133));
-        const entries=[];
-        for(let a=0;a<subdivisions;a++) for(let b=0;b<subdivisions;b++) {
-          const x=(i+(a+rng())/subdivisions)*tile,z=(j+(b+rng())/subdivisions)*tile;
-          if(!grows(x,z)) continue;
-          entries.push([x,ground(x,z)+.009,z,rng(),rng()]);
+        let cell=memo.get(key);
+        if(cell) memo.delete(key);
+        else {
+          if(memo.size>=270) memo.delete(memo.keys().next().value);
+          cell={entries:[],sample:0,rng:random((i*45991)^(j*98171)^(near?0x493f2:0x240133))};
         }
-        if(memo.size>=270) memo.delete(memo.keys().next().value);
-        memo.set(key,entries);
-        return entries;
+        memo.set(key,cell);
+        const {rng,entries}=cell;
+        while(cell.sample<samples) {
+          const stop=Math.min(samples,cell.sample+4);
+          for(;cell.sample<stop;cell.sample++) {
+            const a=Math.floor(cell.sample/subdivisions),b=cell.sample%subdivisions;
+            const x=(i+(a+rng())/subdivisions)*tile,z=(j+(b+rng())/subdivisions)*tile;
+            if(grows(x,z)) entries.push([x,ground(x,z)+.009,z,rng(),rng()]);
+          }
+          if(performance.now()>=end) break;
+        }
+        return cell;
       }
       const offsets=[];
       for(let a=-5;a<=5;a++) for(let b=-5;b<=5;b++) offsets.push([a,b,a*a+b*b]);
       offsets.sort((a,b)=>a[2]-b[2]);
-      let lastX,lastZ,lastQuality;
-      return (x,z,height,reduced)=>{
-        mesh.visible=height<(near?11:24);
-        if(!mesh.visible) return;
+      let shown,pending;
+      const distance=(i,j,job)=>Math.hypot(i-job.i,j-job.j)*tile;
+      function show(job) {
+        const start=shown===job?job.uploaded:0;
+        if(job.count>start) {
+          for(const [attribute,buffer,stride] of [[mesh.instanceMatrix,matrices,16],[mesh.instanceColor,colors,3]]) {
+            const offset=start*stride,length=(job.count-start)*stride;
+            attribute.array.set(buffer.subarray(offset,offset+length),offset);
+            attribute.addUpdateRange(offset,length);
+            attribute.needsUpdate=true;
+          }
+        }
+        mesh.count=job.count;
+        mesh.visible=true;
+        shown=job;
+        job.uploaded=job.count;
+        job.uploadTime=performance.now();
+      }
+      return (x,z,height,reduced,cameraCut)=>{
+        if(height>=(near?11:24)) {mesh.visible=false;return;}
         const i=Math.floor(x/tile),j=Math.floor(z/tile);
-        if(i===lastX && j===lastZ && reduced===lastQuality) return;
-        lastX=i; lastZ=j; lastQuality=reduced;
-        const px=(i+.5)*tile,pz=(j+.5)*tile;
         const radius=near?(reduced?11:16):(reduced?30:45);
-        const margin=radius+tile*.75;
-        let index=0;
-        for(const [a,b,offset] of offsets) {
-          if(offset*tile*tile>margin*margin || index>=mesh.instanceMatrix.count) break;
-          for(const [lx,ly,lz,seed,color] of patch(i+a,j+b)) {
-            if(index>=mesh.instanceMatrix.count) break;
-            const away=(lx-px)**2+(lz-pz)**2;
+        mesh.visible=Boolean(shown && distance(i,j,shown)<radius);
+        if(shown?.complete && i===shown.i && j===shown.j && reduced===shown.reduced) {pending=null;return;}
+        if(!pending || pending.reduced!==reduced || distance(i,j,pending)>radius*.55) {
+          pending={i,j,reduced,px:(i+.5)*tile,pz:(j+.5)*tile,offset:0,entry:0,count:0,uploaded:0,
+            stream:!mesh.visible || !mesh.count,uploadTime:-Infinity,complete:false};
+        }
+        if(cameraCut) return;
+        // Keep nearby grass visible, or stream the closest blades first after a jump.
+        const job=pending,margin=radius+tile*.75;
+        const end=performance.now()+1.15;
+        do {
+          const next=offsets[job.offset];
+          if(!next || next[2]*tile*tile>margin*margin || job.count>=capacity) {
+            job.complete=true;
+            show(job);
+            pending=null;
+            return;
+          }
+          const [a,b]=next;
+          const cell=patch(job.i+a,job.j+b,end);
+          for(;job.entry<cell.entries.length && job.count<capacity;job.entry++) {
+            const [lx,ly,lz,seed,color]=cell.entries[job.entry];
+            const away=(lx-job.px)**2+(lz-job.pz)**2;
             const extent=radius-(near?seed*3:seed*8);
             if(away>extent*extent || !near && away>(reduced?160:490) && seed<.38) continue;
             const clump=Math.sin(lx*1.38+lz*.50)*Math.sin(lz*1.20-lx*.23);
@@ -2193,19 +2244,21 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
             object.rotation.y=seed*6.283;
             object.scale.set(.91+seed*.44,.66+color*.48+clump*.21,.91+seed*.44);
             object.updateMatrix();
-            mesh.setMatrixAt(index,object.matrix);
-            mesh.setColorAt(index++,tint.setHSL(.171+color*.070,.43+seed*.17,.30+color*.08+clump*.026));
+            object.matrix.toArray(matrices,job.count*16);
+            tint.setHSL(.171+color*.070,.43+seed*.17,.30+color*.08+clump*.026).toArray(colors,job.count*3);
+            job.count++;
           }
-        }
-        mesh.count=index;
-        mesh.instanceMatrix.needsUpdate=true;
-        if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true;
+          if(cell.sample<samples) break;
+          job.offset++;
+          job.entry=0;
+        } while(performance.now()<end);
+        if(job.stream && job.count>job.uploaded && performance.now()-job.uploadTime>=75) show(job);
       };
     }
     const close=layer(lawn,4,14,true),distance=layer(meadow,9,10,false);
-    return (x,z,height,reduced)=>{
-      close(x,z,height,reduced);
-      distance(x,z,height,reduced);
+    return (x,z,height,reduced,cameraCut)=>{
+      close(x,z,height,reduced,cameraCut);
+      distance(x,z,height,reduced,cameraCut);
     };
   }
 
@@ -2321,11 +2374,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const updateGrass=grass(scene,geo,photos,clock,homes.paved);
     frontGardens(scene,geo,homes.plantings,clock);
     gardenBeds(scene,geo);
-    return (player,camera,reduced)=>{
+    return (player,camera,reduced,cameraCut)=>{
       const [x,z,altitude]=player || [camera.position.x,camera.position.z,camera.position.y];
       const height=altitude?altitude-geo.ground(x,z):0;
       updateTrees(camera.position,height,reduced);
-      updateGrass(x,z,height,reduced);
+      updateGrass(x,z,height,reduced,cameraCut);
     };
   }
 
@@ -7266,7 +7319,6 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const gpu=gl.getExtension('WEBGL_debug_renderer_info');
     const software=gpu && /swiftshader|llvmpipe|software/i.test(gl.getParameter(gpu.UNMASKED_RENDERER_WEBGL));
     let resolution=software ? .68 : Math.min(window.devicePixelRatio || 1,1.35);
-    renderer.setPixelRatio(resolution);
     renderer.outputColorSpace=T.SRGBColorSpace;
     renderer.toneMapping=T.ACESFilmicToneMapping;
     renderer.toneMappingExposure=1.18;
@@ -7345,17 +7397,24 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       stadium?.(evening.value);
       storefronts.light(evening.value);
     }
+    let drawWidth,drawHeight,drawResolution;
     function resize() {
-      renderer.setSize(host.clientWidth,host.clientHeight,false);
-      camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);
+      const width=host.clientWidth,height=host.clientHeight;
+      if(!width || !height || width===drawWidth && height===drawHeight && resolution===drawResolution) return;
+      renderer.setDrawingBufferSize(width,height,resolution);
+      camera.aspect=width/height;
       camera.updateProjectionMatrix();
+      drawWidth=width;
+      drawHeight=height;
+      drawResolution=resolution;
     }
     setLight(1);
     resize();
     window.addEventListener('resize',resize);
-    let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
+    let frameTime=1/60,lastFrame=0,resolutionCheck=0,reflectionQuality=!software,reducedDetail=Boolean(software);
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
+    await renderer.compileAsync(scene,camera);
     return {camera,car,market,parking,city,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
       siteTarget:storefronts.target,capture() {
         try {
@@ -7371,15 +7430,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         city.advance(time,(a,b)=>traffic.crossingClear(a,b,driving?player:null,parked));
         traffic.advance(time,player,parked);
       },platforms:layout.stops,
-      rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
+      rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null,cameraCut=false) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
-      if(elapsed>0) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
-      if(player && seconds>resolutionCheck) {
+      if(elapsed>0 && elapsed<1 && !cameraCut) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
+      if(!software) {
+        if(frameTime>.065) reducedDetail=true;
+        else if(frameTime<.044) reducedDetail=false;
+      }
+      if(player && !cameraCut && seconds>resolutionCheck) {
         resolutionCheck=seconds+3;
         if(frameTime>.065 && resolution>.58) {
           resolution=Math.max(.58,resolution*.82);
-          renderer.setPixelRatio(resolution);
           resize();
         }
       }
@@ -7398,14 +7460,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const ahead=Math.max(0,height-65)*.61;
       const sx=clamp(x+direction.x*ahead,west,east), sz=clamp(z+direction.z*ahead,north,south);
       const span=height<55?206:380;
-      if(span!==shadowSpan) {
+      if(!cameraCut && span!==shadowSpan) {
         shadowSpan=span;
         sun.shadow.camera.left=sun.shadow.camera.bottom=-span;
         sun.shadow.camera.right=sun.shadow.camera.top=span;
         sun.shadow.camera.updateProjectionMatrix();
         shadowX=shadowZ=Infinity;
       }
-      if(Math.hypot(sx-shadowX,sz-shadowZ)>span*.18) {
+      const refreshShadow=!cameraCut && Math.hypot(sx-shadowX,sz-shadowZ)>span*.18;
+      if(refreshShadow) {
         shadowX=sx;
         shadowZ=sz;
         sun.target.position.set(sx,11,sz);
@@ -7414,14 +7477,14 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
-      landscape(player,camera,software || frameTime>.063);
+      landscape(player,camera,reducedDetail,cameraCut);
       storefronts.update(seconds);
       streets.update();
       traffic.render(camera);
-      pedestrians(seconds,camera,software || frameTime>.063);
+      pedestrians(seconds,camera,reducedDetail);
       if(frameTime>.073) reflectionQuality=false;
       if(!software && frameTime<.034) reflectionQuality=true;
-      atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));
+      atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake) && !cameraCut,!refreshShadow);
       renderer.render(scene,camera);
     }};
   }
@@ -7466,7 +7529,21 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   const travelModes=['walk','drive','fly'];
   const modeKeys={Digit1:'walk',Digit2:'drive',Digit3:'fly'};
   const worldBounds=data.bounds;
-  const keys=new Set();
+  const keys=new Set(),touchHolds=new Map();
+  function pressed(key) {
+    if(keys.has(key)) return true;
+    for(const button of touchHolds.values()) if(button.dataset.key===key) return true;
+    return false;
+  }
+  function clearControls() {
+    keys.clear();
+    for(const [id,button] of touchHolds) {
+      button.classList.remove('held');
+      if(button.hasPointerCapture(id)) button.releasePointerCapture(id);
+    }
+    touchHolds.clear();
+    pointer=null;
+  }
   const remap={ArrowUp:'KeyW',ArrowDown:'KeyS',ArrowLeft:'KeyA',ArrowRight:'KeyD'};
   const lightNames=['Daylight','Golden hour','Blue hour'];
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -7570,7 +7647,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     drawMap();
   }
 
-  function setMap(open) {
+  function setMap(open,redraw=true) {
     expanded=open;
     $('map-card').classList.toggle('expanded',open);
     game.classList.toggle('map-open',open);
@@ -7579,8 +7656,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     for(const id of ['hud','intro','city-watch']) $(id).inert=open;
     game.querySelector('.rail').inert=open;
     game.querySelector('.credits').inert=open;
-    keys.clear();
-    pointer=null;
+    clearControls();
     fieldMap.open(open,player(),destination());
     if(open) {
       $('help').hidden=true;
@@ -7589,7 +7665,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       $('map-close').focus();
       cityUI?.mapRows(destination(),true);
     }
-    drawMap();
+    if(redraw) drawMap();
   }
 
   function toast(message) {
@@ -7786,7 +7862,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     }
     if(next==='drive' && !storyMode) driveSpawn();
     speed=steer=walkAmount=airX=airY=airZ=0;
-    keys.clear();
+    clearControls();
     snap=true;
     game.classList.toggle('playing',next!=='intro');
     game.classList.toggle('driving',next==='drive');
@@ -7805,8 +7881,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('look-tip').textContent=next==='drive'?'Space to brake':'Drag to look';
     for(const mode of travelModes) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
     engine.car.visible=next==='drive' || storyMode && Boolean(parkedCar) && next!=='intro';
-    setMap(false);
+    if(expanded) setMap(false,false);
     updateHUD();
+    lastHUD=performance.now();
     if(landedAway) toast('Returned to your last ground position.');
   }
 
@@ -7914,10 +7991,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   }
 
   function fly(dt) {
-    const forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
-    const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
-    const vertical=Number(keys.has('Space'))-Number(keys.has('KeyC'));
-    const boost=keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const forward=Number(pressed('KeyW'))-Number(pressed('KeyS'));
+    const side=Number(pressed('KeyD'))-Number(pressed('KeyA'));
+    const vertical=Number(pressed('Space'))-Number(pressed('KeyC'));
+    const boost=pressed('ShiftLeft') || pressed('ShiftRight');
     const rate=(boost?114:43)/Math.max(1,Math.hypot(forward,side));
     const turns=Math.sin(yaw), northward=Math.cos(yaw);
     airX=smooth(airX,rate*(turns*forward+northward*side),5.3,dt);
@@ -7936,12 +8013,12 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   }
 
   function walk(dt) {
-    const throttle=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
-    const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
+    const throttle=Number(pressed('KeyW'))-Number(pressed('KeyS'));
+    const side=Number(pressed('KeyD'))-Number(pressed('KeyA'));
     const length=Math.hypot(throttle,side);
     walkAmount=smooth(walkAmount,length?1:0,12,dt);
     if(!length) return;
-    const sprint=keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const sprint=pressed('ShiftLeft') || pressed('ShiftRight');
     const step=dt*(sprint?6.6:3.4)/length;
     const dx=(Math.sin(yaw)*throttle+Math.cos(yaw)*side)*step;
     const dz=(-Math.cos(yaw)*throttle+Math.sin(yaw)*side)*step;
@@ -7956,8 +8033,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   }
 
   function drive(dt) {
-    const gas=keys.has('KeyW'), reverse=keys.has('KeyS'), brake=keys.has('Space');
-    const turn=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
+    const gas=pressed('KeyW'), reverse=pressed('KeyS'), brake=pressed('Space');
+    const turn=Number(pressed('KeyD'))-Number(pressed('KeyA'));
     const road=world.nearestRoad(x,z,true);
     const onStreet=road && road.distance<road.width/2+.65;
     const limit=onStreet?31:10;
@@ -8021,7 +8098,6 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         snap?cy:smooth(camera.position.y,cy,10,dt),snap?cz:smooth(camera.position.z,cz,7,dt));
       camera.lookAt(x+dx*5.6,base+1.43,z+dz*5.6);
     }
-    snap=false;
   }
 
   function updateHUD() {
@@ -8071,19 +8147,20 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       rideView=engine.transit.ride();
       if(rideView?.open && (stopRequested || rideView.final)) stepOff();
     }
+    const cameraCut=snap;
     setCamera(seconds,dt);
+    snap=false;
     if(stamp-lastHUD>90) {
       lastHUD=stamp;
       updateHUD();
     }
-    engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
+    engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0],cameraCut);
     if(state!=='intro') citySound.update(cityUI.read(),player(),engine.buses,engine.city.time());
   }
 
   function browseMarket(stall=engine.market?.nearby(x,z)) {
     if(state!=='walk' || !stall) return;
-    keys.clear();
-    pointer=null;
+    clearControls();
     $('stall-title').textContent=stall.name;
     const items=$('market-items');
     items.replaceChildren();
@@ -8244,7 +8321,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(open) setMap(false);
       $('help').hidden=!open;
       $('help-toggle').setAttribute('aria-expanded',String(open));
-      keys.clear();
+      clearControls();
     });
     $('credits-toggle').addEventListener('click',()=>{
       $('credits').hidden=!$('credits').hidden;
@@ -8317,13 +8394,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(!event.repeat && key==='KeyR') reset();
       if(!event.repeat && key==='KeyH') {
         const hidden=game.classList.toggle('hud-free');
-        if(hidden) toast('Press H to restore the HUD.');
+        if(hidden) {
+          clearControls();
+          toast('Press H to restore the HUD.');
+        }
         $('help').hidden=true;
         $('help-toggle').setAttribute('aria-expanded','false');
       }
     });
     window.addEventListener('keyup',event=>keys.delete(remap[event.code] || event.code));
-    window.addEventListener('blur',()=>{ keys.clear(); pointer=null; });
+    window.addEventListener('blur',clearControls);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden) clearControls();});
     window.addEventListener('pagehide',()=>{if(story && state==='drive') keepCar({x,z,yaw});});
     engine.canvas.addEventListener('pointerdown',event=>{
       if(state==='intro' || state==='drive' || expanded || event.button!==0 || !$('help').hidden) return;
@@ -8340,14 +8421,25 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       pointer.y=event.clientY;
     });
     engine.canvas.addEventListener('lostpointercapture',()=>{ pointer=null; });
-    for(const button of document.querySelectorAll('[data-key]')) {
-      const key=button.dataset.key;
+    const touchControls=game.querySelector('.touch-controls');
+    for(const gesture of ['contextmenu','selectstart','dragstart']) {
+      touchControls.addEventListener(gesture,event=>event.preventDefault());
+    }
+    for(const button of touchControls.querySelectorAll('button[data-key]')) {
       button.addEventListener('pointerdown',event=>{
+        if(event.button!==0) return;
         event.preventDefault();
         button.setPointerCapture(event.pointerId);
-        keys.add(key);
+        touchHolds.set(event.pointerId,button);
+        button.classList.add('held');
       });
-      button.addEventListener('lostpointercapture',()=>keys.delete(key));
+      const release=event=>{
+        if(touchHolds.get(event.pointerId)!==button) return;
+        touchHolds.delete(event.pointerId);
+        for(const held of touchHolds.values()) if(held===button) return;
+        button.classList.remove('held');
+      };
+      for(const end of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(end,release);
     }
   }
 
@@ -8387,7 +8479,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       else if(engine.market) changeMode('walk',engine.market.start);
       setCamera(0,0);
-      engine.render(0,state==='intro'?null:[x,z,0]);
+      engine.render(0,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
+      snap=false;
       loadingProgress(100,'Ready to explore');
       $('journal-toggle').hidden=!story;
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;

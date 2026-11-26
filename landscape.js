@@ -286,6 +286,7 @@
     const leafMeshes=templates.map(template=>{
       const mesh=new T.InstancedMesh(template.close,individual,6);
       mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
+      mesh.instanceColor=new T.InstancedBufferAttribute(new Float32Array(18),3).setUsage(T.DynamicDrawUsage);
       mesh.count=0;
       mesh.frustumCulled=false;
       scene.add(mesh);
@@ -407,6 +408,7 @@
       }
       const meadow=new T.InstancedMesh(sink.mesh(material).geometry,material,capacity);
       meadow.instanceMatrix.setUsage(T.DynamicDrawUsage);
+      meadow.instanceColor=new T.InstancedBufferAttribute(new Float32Array(capacity*3),3).setUsage(T.DynamicDrawUsage);
       meadow.count=0;
       meadow.frustumCulled=false;
       meadow.receiveShadow=true;
@@ -425,39 +427,78 @@
     }
     function layer(mesh,tile,subdivisions,near) {
       const memo=new Map();
-      function patch(i,j) {
+      const capacity=mesh.instanceMatrix.count;
+      const matrices=new Float32Array(capacity*16),colors=new Float32Array(capacity*3);
+      const samples=subdivisions**2;
+      function patch(i,j,end) {
         const key=i+','+j;
-        if(memo.has(key)) return memo.get(key);
-        const rng=random((i*45991)^(j*98171)^(near?0x493f2:0x240133));
-        const entries=[];
-        for(let a=0;a<subdivisions;a++) for(let b=0;b<subdivisions;b++) {
-          const x=(i+(a+rng())/subdivisions)*tile,z=(j+(b+rng())/subdivisions)*tile;
-          if(!grows(x,z)) continue;
-          entries.push([x,ground(x,z)+.009,z,rng(),rng()]);
+        let cell=memo.get(key);
+        if(cell) memo.delete(key);
+        else {
+          if(memo.size>=270) memo.delete(memo.keys().next().value);
+          cell={entries:[],sample:0,rng:random((i*45991)^(j*98171)^(near?0x493f2:0x240133))};
         }
-        if(memo.size>=270) memo.delete(memo.keys().next().value);
-        memo.set(key,entries);
-        return entries;
+        memo.set(key,cell);
+        const {rng,entries}=cell;
+        while(cell.sample<samples) {
+          const stop=Math.min(samples,cell.sample+4);
+          for(;cell.sample<stop;cell.sample++) {
+            const a=Math.floor(cell.sample/subdivisions),b=cell.sample%subdivisions;
+            const x=(i+(a+rng())/subdivisions)*tile,z=(j+(b+rng())/subdivisions)*tile;
+            if(grows(x,z)) entries.push([x,ground(x,z)+.009,z,rng(),rng()]);
+          }
+          if(performance.now()>=end) break;
+        }
+        return cell;
       }
       const offsets=[];
       for(let a=-5;a<=5;a++) for(let b=-5;b<=5;b++) offsets.push([a,b,a*a+b*b]);
       offsets.sort((a,b)=>a[2]-b[2]);
-      let lastX,lastZ,lastQuality;
-      return (x,z,height,reduced)=>{
-        mesh.visible=height<(near?11:24);
-        if(!mesh.visible) return;
+      let shown,pending;
+      const distance=(i,j,job)=>Math.hypot(i-job.i,j-job.j)*tile;
+      function show(job) {
+        const start=shown===job?job.uploaded:0;
+        if(job.count>start) {
+          for(const [attribute,buffer,stride] of [[mesh.instanceMatrix,matrices,16],[mesh.instanceColor,colors,3]]) {
+            const offset=start*stride,length=(job.count-start)*stride;
+            attribute.array.set(buffer.subarray(offset,offset+length),offset);
+            attribute.addUpdateRange(offset,length);
+            attribute.needsUpdate=true;
+          }
+        }
+        mesh.count=job.count;
+        mesh.visible=true;
+        shown=job;
+        job.uploaded=job.count;
+        job.uploadTime=performance.now();
+      }
+      return (x,z,height,reduced,cameraCut)=>{
+        if(height>=(near?11:24)) {mesh.visible=false;return;}
         const i=Math.floor(x/tile),j=Math.floor(z/tile);
-        if(i===lastX && j===lastZ && reduced===lastQuality) return;
-        lastX=i; lastZ=j; lastQuality=reduced;
-        const px=(i+.5)*tile,pz=(j+.5)*tile;
         const radius=near?(reduced?11:16):(reduced?30:45);
-        const margin=radius+tile*.75;
-        let index=0;
-        for(const [a,b,offset] of offsets) {
-          if(offset*tile*tile>margin*margin || index>=mesh.instanceMatrix.count) break;
-          for(const [lx,ly,lz,seed,color] of patch(i+a,j+b)) {
-            if(index>=mesh.instanceMatrix.count) break;
-            const away=(lx-px)**2+(lz-pz)**2;
+        mesh.visible=Boolean(shown && distance(i,j,shown)<radius);
+        if(shown?.complete && i===shown.i && j===shown.j && reduced===shown.reduced) {pending=null;return;}
+        if(!pending || pending.reduced!==reduced || distance(i,j,pending)>radius*.55) {
+          pending={i,j,reduced,px:(i+.5)*tile,pz:(j+.5)*tile,offset:0,entry:0,count:0,uploaded:0,
+            stream:!mesh.visible || !mesh.count,uploadTime:-Infinity,complete:false};
+        }
+        if(cameraCut) return;
+        // Keep nearby grass visible, or stream the closest blades first after a jump.
+        const job=pending,margin=radius+tile*.75;
+        const end=performance.now()+1.15;
+        do {
+          const next=offsets[job.offset];
+          if(!next || next[2]*tile*tile>margin*margin || job.count>=capacity) {
+            job.complete=true;
+            show(job);
+            pending=null;
+            return;
+          }
+          const [a,b]=next;
+          const cell=patch(job.i+a,job.j+b,end);
+          for(;job.entry<cell.entries.length && job.count<capacity;job.entry++) {
+            const [lx,ly,lz,seed,color]=cell.entries[job.entry];
+            const away=(lx-job.px)**2+(lz-job.pz)**2;
             const extent=radius-(near?seed*3:seed*8);
             if(away>extent*extent || !near && away>(reduced?160:490) && seed<.38) continue;
             const clump=Math.sin(lx*1.38+lz*.50)*Math.sin(lz*1.20-lx*.23);
@@ -465,19 +506,21 @@
             object.rotation.y=seed*6.283;
             object.scale.set(.91+seed*.44,.66+color*.48+clump*.21,.91+seed*.44);
             object.updateMatrix();
-            mesh.setMatrixAt(index,object.matrix);
-            mesh.setColorAt(index++,tint.setHSL(.171+color*.070,.43+seed*.17,.30+color*.08+clump*.026));
+            object.matrix.toArray(matrices,job.count*16);
+            tint.setHSL(.171+color*.070,.43+seed*.17,.30+color*.08+clump*.026).toArray(colors,job.count*3);
+            job.count++;
           }
-        }
-        mesh.count=index;
-        mesh.instanceMatrix.needsUpdate=true;
-        if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true;
+          if(cell.sample<samples) break;
+          job.offset++;
+          job.entry=0;
+        } while(performance.now()<end);
+        if(job.stream && job.count>job.uploaded && performance.now()-job.uploadTime>=75) show(job);
       };
     }
     const close=layer(lawn,4,14,true),distance=layer(meadow,9,10,false);
-    return (x,z,height,reduced)=>{
-      close(x,z,height,reduced);
-      distance(x,z,height,reduced);
+    return (x,z,height,reduced,cameraCut)=>{
+      close(x,z,height,reduced,cameraCut);
+      distance(x,z,height,reduced,cameraCut);
     };
   }
 
@@ -593,11 +636,11 @@
     const updateGrass=grass(scene,geo,photos,clock,homes.paved);
     frontGardens(scene,geo,homes.plantings,clock);
     gardenBeds(scene,geo);
-    return (player,camera,reduced)=>{
+    return (player,camera,reduced,cameraCut)=>{
       const [x,z,altitude]=player || [camera.position.x,camera.position.z,camera.position.y];
       const height=altitude?altitude-geo.ground(x,z):0;
       updateTrees(camera.position,height,reduced);
-      updateGrass(x,z,height,reduced);
+      updateGrass(x,z,height,reduced,cameraCut);
     };
   }
 

@@ -8,7 +8,7 @@
   <meta name="madison-aerial" content="assets/madison-aerial.jpg">
   <meta name="madison-region" content="assets/madison-region.jpg">
   <title>Isthmus · Downtown Madison</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <main id="game" aria-label="Downtown Madison open world">
@@ -93,9 +93,10 @@
         <button id="mode-fly" type="button" aria-pressed="false"><kbd>3</kbd> Fly</button>
       </nav>
       <div class="touch-controls" aria-label="Touch movement">
-        <button data-key="KeyW" aria-label="Forward">▲</button>
-        <div><button data-key="KeyA" aria-label="Left">◀</button><button data-key="KeyS" aria-label="Back">▼</button><button data-key="KeyD" aria-label="Right">▶</button></div>
-        <div class="touch-elevation"><button data-key="Space" aria-label="Ascend">＋</button><button data-key="KeyC" aria-label="Descend">−</button></div>
+        <button type="button" data-key="KeyW" aria-label="Forward">▲</button>
+        <div><button type="button" data-key="KeyA" aria-label="Left">◀</button><button type="button" data-key="KeyS" aria-label="Back">▼</button><button type="button" data-key="KeyD" aria-label="Right">▶</button></div>
+        <div class="touch-elevation"><button type="button" data-key="Space" aria-label="Ascend">＋</button><button type="button" data-key="KeyC" aria-label="Descend">−</button></div>
+        <button type="button" class="touch-brake" data-key="Space">Brake</button>
       </div>
     </section>
     <aside id="map-card" class="map-card glass" aria-labelledby="map-title">
@@ -196,10 +197,10 @@
   </main>
   <script src="assets/three.min.js"></script>
   <script src="data/madison.js?v=6"></script>
-  <script src="atmosphere.js"></script>
+  <script src="atmosphere.js?v=2"></script>
   <script src="homes.js?v=5"></script>
   <script src="places.js"></script>
-  <script src="landscape.js?v=7"></script>
+  <script src="landscape.js?v=8"></script>
   <script src="traffic.js?v=6"></script>
   <script src="parking.js"></script>
   <script src="market.js"></script>
@@ -214,7 +215,7 @@
   <script src="city.js?v=2"></script>
   <script src="city-ui.js?v=2"></script>
   <script src="city-sound.js"></script>
-  <script src="world.js?v=12"></script>
-  <script src="game.js?v=12"></script>
+  <script src="world.js?v=13"></script>
+  <script src="game.js?v=13"></script>
 </body>
 </html>

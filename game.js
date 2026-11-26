@@ -33,7 +33,21 @@
   const travelModes=['walk','drive','fly'];
   const modeKeys={Digit1:'walk',Digit2:'drive',Digit3:'fly'};
   const worldBounds=data.bounds;
-  const keys=new Set();
+  const keys=new Set(),touchHolds=new Map();
+  function pressed(key) {
+    if(keys.has(key)) return true;
+    for(const button of touchHolds.values()) if(button.dataset.key===key) return true;
+    return false;
+  }
+  function clearControls() {
+    keys.clear();
+    for(const [id,button] of touchHolds) {
+      button.classList.remove('held');
+      if(button.hasPointerCapture(id)) button.releasePointerCapture(id);
+    }
+    touchHolds.clear();
+    pointer=null;
+  }
   const remap={ArrowUp:'KeyW',ArrowDown:'KeyS',ArrowLeft:'KeyA',ArrowRight:'KeyD'};
   const lightNames=['Daylight','Golden hour','Blue hour'];
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -137,7 +151,7 @@
     drawMap();
   }
 
-  function setMap(open) {
+  function setMap(open,redraw=true) {
     expanded=open;
     $('map-card').classList.toggle('expanded',open);
     game.classList.toggle('map-open',open);
@@ -146,8 +160,7 @@
     for(const id of ['hud','intro','city-watch']) $(id).inert=open;
     game.querySelector('.rail').inert=open;
     game.querySelector('.credits').inert=open;
-    keys.clear();
-    pointer=null;
+    clearControls();
     fieldMap.open(open,player(),destination());
     if(open) {
       $('help').hidden=true;
@@ -156,7 +169,7 @@
       $('map-close').focus();
       cityUI?.mapRows(destination(),true);
     }
-    drawMap();
+    if(redraw) drawMap();
   }
 
   function toast(message) {
@@ -353,7 +366,7 @@
     }
     if(next==='drive' && !storyMode) driveSpawn();
     speed=steer=walkAmount=airX=airY=airZ=0;
-    keys.clear();
+    clearControls();
     snap=true;
     game.classList.toggle('playing',next!=='intro');
     game.classList.toggle('driving',next==='drive');
@@ -372,8 +385,9 @@
     $('look-tip').textContent=next==='drive'?'Space to brake':'Drag to look';
     for(const mode of travelModes) $('mode-'+mode).setAttribute('aria-pressed',String(mode===next));
     engine.car.visible=next==='drive' || storyMode && Boolean(parkedCar) && next!=='intro';
-    setMap(false);
+    if(expanded) setMap(false,false);
     updateHUD();
+    lastHUD=performance.now();
     if(landedAway) toast('Returned to your last ground position.');
   }
 
@@ -481,10 +495,10 @@
   }
 
   function fly(dt) {
-    const forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
-    const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
-    const vertical=Number(keys.has('Space'))-Number(keys.has('KeyC'));
-    const boost=keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const forward=Number(pressed('KeyW'))-Number(pressed('KeyS'));
+    const side=Number(pressed('KeyD'))-Number(pressed('KeyA'));
+    const vertical=Number(pressed('Space'))-Number(pressed('KeyC'));
+    const boost=pressed('ShiftLeft') || pressed('ShiftRight');
     const rate=(boost?114:43)/Math.max(1,Math.hypot(forward,side));
     const turns=Math.sin(yaw), northward=Math.cos(yaw);
     airX=smooth(airX,rate*(turns*forward+northward*side),5.3,dt);
@@ -503,12 +517,12 @@
   }
 
   function walk(dt) {
-    const throttle=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
-    const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
+    const throttle=Number(pressed('KeyW'))-Number(pressed('KeyS'));
+    const side=Number(pressed('KeyD'))-Number(pressed('KeyA'));
     const length=Math.hypot(throttle,side);
     walkAmount=smooth(walkAmount,length?1:0,12,dt);
     if(!length) return;
-    const sprint=keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const sprint=pressed('ShiftLeft') || pressed('ShiftRight');
     const step=dt*(sprint?6.6:3.4)/length;
     const dx=(Math.sin(yaw)*throttle+Math.cos(yaw)*side)*step;
     const dz=(-Math.cos(yaw)*throttle+Math.sin(yaw)*side)*step;
@@ -523,8 +537,8 @@
   }
 
   function drive(dt) {
-    const gas=keys.has('KeyW'), reverse=keys.has('KeyS'), brake=keys.has('Space');
-    const turn=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
+    const gas=pressed('KeyW'), reverse=pressed('KeyS'), brake=pressed('Space');
+    const turn=Number(pressed('KeyD'))-Number(pressed('KeyA'));
     const road=world.nearestRoad(x,z,true);
     const onStreet=road && road.distance<road.width/2+.65;
     const limit=onStreet?31:10;
@@ -588,7 +602,6 @@
         snap?cy:smooth(camera.position.y,cy,10,dt),snap?cz:smooth(camera.position.z,cz,7,dt));
       camera.lookAt(x+dx*5.6,base+1.43,z+dz*5.6);
     }
-    snap=false;
   }
 
   function updateHUD() {
@@ -638,19 +651,20 @@
       rideView=engine.transit.ride();
       if(rideView?.open && (stopRequested || rideView.final)) stepOff();
     }
+    const cameraCut=snap;
     setCamera(seconds,dt);
+    snap=false;
     if(stamp-lastHUD>90) {
       lastHUD=stamp;
       updateHUD();
     }
-    engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
+    engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0],cameraCut);
     if(state!=='intro') citySound.update(cityUI.read(),player(),engine.buses,engine.city.time());
   }
 
   function browseMarket(stall=engine.market?.nearby(x,z)) {
     if(state!=='walk' || !stall) return;
-    keys.clear();
-    pointer=null;
+    clearControls();
     $('stall-title').textContent=stall.name;
     const items=$('market-items');
     items.replaceChildren();
@@ -811,7 +825,7 @@
       if(open) setMap(false);
       $('help').hidden=!open;
       $('help-toggle').setAttribute('aria-expanded',String(open));
-      keys.clear();
+      clearControls();
     });
     $('credits-toggle').addEventListener('click',()=>{
       $('credits').hidden=!$('credits').hidden;
@@ -884,13 +898,17 @@
       if(!event.repeat && key==='KeyR') reset();
       if(!event.repeat && key==='KeyH') {
         const hidden=game.classList.toggle('hud-free');
-        if(hidden) toast('Press H to restore the HUD.');
+        if(hidden) {
+          clearControls();
+          toast('Press H to restore the HUD.');
+        }
         $('help').hidden=true;
         $('help-toggle').setAttribute('aria-expanded','false');
       }
     });
     window.addEventListener('keyup',event=>keys.delete(remap[event.code] || event.code));
-    window.addEventListener('blur',()=>{ keys.clear(); pointer=null; });
+    window.addEventListener('blur',clearControls);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden) clearControls();});
     window.addEventListener('pagehide',()=>{if(story && state==='drive') keepCar({x,z,yaw});});
     engine.canvas.addEventListener('pointerdown',event=>{
       if(state==='intro' || state==='drive' || expanded || event.button!==0 || !$('help').hidden) return;
@@ -907,14 +925,25 @@
       pointer.y=event.clientY;
     });
     engine.canvas.addEventListener('lostpointercapture',()=>{ pointer=null; });
-    for(const button of document.querySelectorAll('[data-key]')) {
-      const key=button.dataset.key;
+    const touchControls=game.querySelector('.touch-controls');
+    for(const gesture of ['contextmenu','selectstart','dragstart']) {
+      touchControls.addEventListener(gesture,event=>event.preventDefault());
+    }
+    for(const button of touchControls.querySelectorAll('button[data-key]')) {
       button.addEventListener('pointerdown',event=>{
+        if(event.button!==0) return;
         event.preventDefault();
         button.setPointerCapture(event.pointerId);
-        keys.add(key);
+        touchHolds.set(event.pointerId,button);
+        button.classList.add('held');
       });
-      button.addEventListener('lostpointercapture',()=>keys.delete(key));
+      const release=event=>{
+        if(touchHolds.get(event.pointerId)!==button) return;
+        touchHolds.delete(event.pointerId);
+        for(const held of touchHolds.values()) if(held===button) return;
+        button.classList.remove('held');
+      };
+      for(const end of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(end,release);
     }
   }
 
@@ -954,7 +983,8 @@
       }
       else if(engine.market) changeMode('walk',engine.market.start);
       setCamera(0,0);
-      engine.render(0,state==='intro'?null:[x,z,0]);
+      engine.render(0,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
+      snap=false;
       loadingProgress(100,'Ready to explore');
       $('journal-toggle').hidden=!story;
       $('walk').disabled=$('drive').disabled=$('fly').disabled=false;

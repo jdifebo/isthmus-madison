@@ -276,16 +276,25 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
 .help dd { margin: 0; color: var(--dim); }
 .toast { position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); padding: 8px 12px; font-size: 14px; text-align: center; z-index: 5; }
 .touch-controls { display: none; }
-.touch-controls .touch-elevation { display: none; }
+.touch-controls, .touch-controls * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-controls .touch-elevation, .touch-controls .touch-brake { display: none; }
 .flying .touch-controls .touch-elevation { display: flex; }
+.driving .touch-controls .touch-brake { display: block; position: absolute; left: 0; top: 0; padding: 0 4px; font-size: 12px; }
 @media (pointer: coarse) {
   .touch-controls { position: absolute; bottom: 130px; left: 18px; display: grid; grid-template-columns: 1fr; gap: 5px; justify-items: center; }
   .touch-controls div { display: flex; gap: 5px; }
-  .touch-controls button { width: 39px; height: 36px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass); touch-action: none; }
+  .touch-controls button { min-width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass); }
+  .touch-controls button.held { background: #544234; border-color: var(--accent); }
   .speedometer { bottom: 215px; left: 18px; }
-  .transit-panel { bottom: 220px; left: 18px; }
+  .transit-panel { bottom: 235px; left: 18px; }
   .riding .transit-panel { bottom: 88px; }
-  #altimeter { bottom: 255px; }
+  #altimeter { bottom: 281px; }
 }
 @media (max-width: 755px) {
   .rail { padding-top: 15px; }
@@ -351,6 +360,6 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
 }
 @media (pointer: coarse) and (max-width: 755px) {
   .speedometer { bottom: 215px; }
-  #altimeter { bottom: 255px; }
+  #altimeter { bottom: 281px; }
   .flying .control-bar .flight-hint { display: none; }
 }

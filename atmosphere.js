@@ -226,9 +226,9 @@
     const forward=new T.Vector3(), lookAt=new T.Vector3();
     const clip=[new T.Plane(new T.Vector3(0,1,0),-2.65)];
     let target, last=-Infinity, ready=false;
-    function updateReflection(renderer,camera,seconds,enabled) {
+    function updateReflection(renderer,camera,seconds,enabled,refresh) {
       waves.mirrorMix.value=enabled&&ready?1:0;
-      if(!enabled || seconds-last<.24) return;
+      if(!enabled || !refresh || seconds-last<.24) return;
       if(!target) {
         target=new T.WebGLRenderTarget(480,300,{depthBuffer:true});
         waves.mirrorMap.value=target.texture;
@@ -274,10 +274,10 @@
         last=-Infinity;
         return {...mood,sunDirection:air.sun.value};
       },
-      render(renderer,camera,seconds,reflections) {
+      render(renderer,camera,seconds,reflections,refresh) {
         dome.position.copy(camera.position);
         air.time.value=seconds;
-        updateReflection(renderer,camera,seconds,reflections);
+        updateReflection(renderer,camera,seconds,reflections,refresh);
       }
     };
   }

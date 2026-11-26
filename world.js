@@ -1081,7 +1081,6 @@
     const gpu=gl.getExtension('WEBGL_debug_renderer_info');
     const software=gpu && /swiftshader|llvmpipe|software/i.test(gl.getParameter(gpu.UNMASKED_RENDERER_WEBGL));
     let resolution=software ? .68 : Math.min(window.devicePixelRatio || 1,1.35);
-    renderer.setPixelRatio(resolution);
     renderer.outputColorSpace=T.SRGBColorSpace;
     renderer.toneMapping=T.ACESFilmicToneMapping;
     renderer.toneMappingExposure=1.18;
@@ -1160,17 +1159,24 @@
       stadium?.(evening.value);
       storefronts.light(evening.value);
     }
+    let drawWidth,drawHeight,drawResolution;
     function resize() {
-      renderer.setSize(host.clientWidth,host.clientHeight,false);
-      camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);
+      const width=host.clientWidth,height=host.clientHeight;
+      if(!width || !height || width===drawWidth && height===drawHeight && resolution===drawResolution) return;
+      renderer.setDrawingBufferSize(width,height,resolution);
+      camera.aspect=width/height;
       camera.updateProjectionMatrix();
+      drawWidth=width;
+      drawHeight=height;
+      drawResolution=resolution;
     }
     setLight(1);
     resize();
     window.addEventListener('resize',resize);
-    let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
+    let frameTime=1/60,lastFrame=0,resolutionCheck=0,reflectionQuality=!software,reducedDetail=Boolean(software);
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
+    await renderer.compileAsync(scene,camera);
     return {camera,car,market,parking,city,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
       siteTarget:storefronts.target,capture() {
         try {
@@ -1186,15 +1192,18 @@
         city.advance(time,(a,b)=>traffic.crossingClear(a,b,driving?player:null,parked));
         traffic.advance(time,player,parked);
       },platforms:layout.stops,
-      rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
+      rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null,cameraCut=false) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
-      if(elapsed>0) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
-      if(player && seconds>resolutionCheck) {
+      if(elapsed>0 && elapsed<1 && !cameraCut) frameTime=mix(frameTime,Math.min(.2,elapsed),.10);
+      if(!software) {
+        if(frameTime>.065) reducedDetail=true;
+        else if(frameTime<.044) reducedDetail=false;
+      }
+      if(player && !cameraCut && seconds>resolutionCheck) {
         resolutionCheck=seconds+3;
         if(frameTime>.065 && resolution>.58) {
           resolution=Math.max(.58,resolution*.82);
-          renderer.setPixelRatio(resolution);
           resize();
         }
       }
@@ -1213,14 +1222,15 @@
       const ahead=Math.max(0,height-65)*.61;
       const sx=clamp(x+direction.x*ahead,west,east), sz=clamp(z+direction.z*ahead,north,south);
       const span=height<55?206:380;
-      if(span!==shadowSpan) {
+      if(!cameraCut && span!==shadowSpan) {
         shadowSpan=span;
         sun.shadow.camera.left=sun.shadow.camera.bottom=-span;
         sun.shadow.camera.right=sun.shadow.camera.top=span;
         sun.shadow.camera.updateProjectionMatrix();
         shadowX=shadowZ=Infinity;
       }
-      if(Math.hypot(sx-shadowX,sz-shadowZ)>span*.18) {
+      const refreshShadow=!cameraCut && Math.hypot(sx-shadowX,sz-shadowZ)>span*.18;
+      if(refreshShadow) {
         shadowX=sx;
         shadowZ=sz;
         sun.target.position.set(sx,11,sz);
@@ -1229,14 +1239,14 @@
       }
       const nearLake=!player || height>26 || lakeName(x+direction.x*100,z+direction.z*100);
       wind.value=seconds;
-      landscape(player,camera,software || frameTime>.063);
+      landscape(player,camera,reducedDetail,cameraCut);
       storefronts.update(seconds);
       streets.update();
       traffic.render(camera);
-      pedestrians(seconds,camera,software || frameTime>.063);
+      pedestrians(seconds,camera,reducedDetail);
       if(frameTime>.073) reflectionQuality=false;
       if(!software && frameTime<.034) reflectionQuality=true;
-      atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake));
+      atmosphere.render(renderer,camera,seconds,reflectionQuality && Boolean(nearLake) && !cameraCut,!refreshShadow);
       renderer.render(scene,camera);
     }};
   }
