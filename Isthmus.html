@@ -521,8 +521,10 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <button type="button" data-page="jobs" aria-pressed="false">Jobs</button>
         <button type="button" data-page="inventory" aria-pressed="false">Inventory</button>
         <button type="button" data-page="properties" aria-pressed="false">Properties</button>
+        <button type="button" data-page="projects" aria-pressed="false">Projects</button>
       </nav>
       <p id="journal-complete" hidden>Chapter complete. You have a home on the isthmus.</p>
+      <p id="dispatch-status" class="save-status" hidden></p>
       <ul id="journal-list" class="journal-list"></ul>
       <p id="save-status" class="save-status"></p>
     </dialog>
@@ -3564,6 +3566,68 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 (() => {
   'use strict';
 
+  const contracts={
+    libraryKit:{
+      title:'Soundcheck Supplies', pickup:'books', drop:'libraryStage', item:'micKit', pay:18, activity:'library',
+      brief:'Carry a cable and spare batteries to the guitar set on Library Mall.',
+      rush:{activity:'library',size:5,note:'The Library Mall audience is growing.'}
+    },
+    statePrints:{
+      title:'Posters for State Street', pickup:'libraryStage', drop:'stateStage', item:'setPosters', pay:42, activity:'state',
+      brief:'Bring the weekend set posters east along State Street.',
+      rush:{activity:'state',size:5,note:'The State Street audience is growing.'}
+    },
+    squareSketch:{
+      title:'The Sketch Circle', pickup:'monona', drop:'squareStage', item:'sketchKit', pay:30, activity:'square',
+      brief:'Drop off pencils and spare sketchbooks at the Capitol Square gathering.',
+      rush:{activity:'square',size:4,note:'The sketch circle has more people than supplies.'}
+    },
+    breeseCrew:{
+      title:'Welcome Crew', pickup:'capitol', drop:'field', item:'meetupKit', pay:68, activity:'paterson',
+      brief:'Take a box of name tags and neighborhood maps to the Breese Stevens meetup.',
+      rush:{station:'paterson',size:6,note:'Riders are lining up at Paterson.'}
+    },
+    blairSurvey:{
+      title:'On the A to Blair', pickup:'cheese', drop:'blairCrossing', item:'accessSurvey', pay:52, unlock:2, arrival:'blair',
+      brief:'Ride Route A to Blair and meet the survey crew at the crossing. Earn $12 extra for staying aboard through the ride.',
+      rush:{station:'blair',size:4,note:'Blair has a busy platform to survey.'}
+    }
+  };
+  const payout={rush:14,workshop:12,ride:12};
+  const projects={
+    noticeboard:{
+      title:'Library Mall noticeboard',site:'libraryStage',price:65,shift:'libraryKit',
+      activity:'library',interval:44,recruit:true,
+      brief:'The Library Mall set starts more often and draws passersby from farther away.'
+    },
+    openMic:{
+      title:'State Street open mic',site:'stateStage',price:95,shift:'statePrints',
+      activity:'state',duration:22,capacity:15,
+      brief:'Give State Street sets a longer slot and room for more listeners. Some of that larger crowd will head to Route A.'
+    },
+    blairSignal:{
+      title:'Blair crossing fund',site:'blairCrossing',price:110,shift:'blairSurvey',
+      crossing:'blair',
+      brief:'Shorten the time between eligible walk phases when riders are waiting at Blair.'
+    }
+  };
+
+  function quote(contract,readCity,hasWorkshop) {
+    const {rush}=contract;
+    const demand=readCity(rush);
+    const busy=demand>=rush.size;
+    return {busy,pay:contract.pay+(busy?payout.rush:0)+(hasWorkshop?payout.workshop:0),note:busy?rush.note:''};
+  }
+
+  window.MadisonDispatch={contracts,projects,payout,quote};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const {contracts,projects,payout,quote}=MadisonDispatch;
   const sites={
     books:{name:'University Book Store',address:'711 State Street',x:-1130.5,z:-19.6,yaw:3.12,reach:5.2},
     union:{name:'Memorial Union Terrace',address:'Lake Mendota',x:-1249,z:-230,yaw:-.13,reach:7},
@@ -3573,7 +3637,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     park:{name:'James Madison Park',address:'East Gorham Street',x:135,z:-777,yaw:-.65,reach:8},
     field:{name:'Breese Stevens Field',address:'North Paterson Street',x:839,z:-886,yaw:.73,reach:8},
     studio:{name:'Bassett Studio',address:'West Dayton Street · fictional property',x:-557,z:262,yaw:-.56,reach:5},
-    workshop:{name:'East Wash Workshop',address:'Livingston Street · fictional property',x:716,z:-733,yaw:-.57,reach:5}
+    workshop:{name:'East Wash Workshop',address:'Livingston Street · fictional property',x:716,z:-733,yaw:-.57,reach:5},
+    libraryStage:{name:'Library Mall guitar set',address:'West end of State Street',x:-1144,z:-32,yaw:2.05,reach:6},
+    stateStage:{name:'State Street sidewalk set',address:'400 block of State Street',x:-443,z:-5.9,yaw:1.57,reach:6},
+    squareStage:{name:'Capitol Square sketch circle',address:'South side of Capitol Square',x:33,z:115,yaw:2.7,reach:6},
+    blairCrossing:{name:'Blair crossing',address:'East Washington Avenue',x:439.96,z:-408.13,yaw:2.35,reach:6}
   };
   const arrival={...sites.books,x:-1120,z:-27.8,yaw:-2.47};
   const items={
@@ -3592,7 +3660,14 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     eventPass:['Neighborhood open house pass','A keepsake from the first open house you helped organize.'],
     chairs:['Folding-chair bundle','A delivery for the community table on Lake Monona.'],
     studioKey:['Bassett Studio key','Your home base on West Dayton Street.'],
-    shopKey:['Workshop key','The keys to your East Wash Workshop.']
+    shopKey:['Workshop key','The keys to your East Wash Workshop.'],
+    micKit:['Soundcheck kit','A spare cable and batteries for the Library Mall guitarist.'],
+    setPosters:['Weekend set posters','A roll of posters for the State Street guitar set.'],
+    sketchKit:['Sketch kit','Sketchbooks and pencils for the Capitol Square group.'],
+    meetupKit:['Welcome kit','Name tags and neighborhood maps for the Breese Stevens meetup.'],
+    accessSurvey:['Route A access survey','The survey crew is waiting by the Blair crossing.'],
+    fieldBook:['City Pulse notebook','Pages for two firsthand observations on the isthmus.'],
+    fieldReport:['City Pulse field notes','Your notes on the State Street crowd and the Blair walk phase.']
   };
   const quests={
     first:{kind:'Main',title:'A First Shift',brief:'Help put together a lakeside welcome table.',steps:[
@@ -3619,6 +3694,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     line:{kind:'Side',title:'Take the A',requires:'first',brief:'Try Metro Rapid, then compare notes with the crew at Breese Stevens Field.',steps:[
       {site:'union',objective:'Pick up the Route A field card at the Terrace',label:'Pick up the Route A field card',detail:'Jules wants you to learn which stops are useful for a visitor coming across town.',give:'tickets'},
       {site:'field',objective:'Bring your stamped card to Breese Stevens Field',label:'Turn in the ride survey',detail:'Tell the crew which stop you used and how far you walked.',take:'tickets',consume:'stamp',pay:68}
+    ]},
+    pulse:{kind:'Side',title:'City Pulse',requires:'first',brief:'See for yourself how people change the pace of the city.',steps:[
+      {site:'capitol',objective:'Meet the field reporter at Capitol Square',label:'Pick up the City Pulse notebook',
+        detail:'Iris is collecting firsthand notes about the things that make people stop, stick around, or move on.',give:'fieldBook'},
+      {site:'stateStage',objective:'Find four or more listeners at the State Street set',label:'Record the crowd',
+        detail:'Make a note of how a few listeners can become a crowd.',observe:{activity:'state',size:4,
+          waiting:'Record this once at least four listeners have gathered. You can start a set when it is nearly due.'}},
+      {site:'blairCrossing',objective:'Observe a walk phase at Blair',label:'Record the walk phase',
+        detail:'Write down what happens to traffic during the walk phase.',observe:{crossing:'blair',size:1,
+          waiting:'Wait for the walk signal to turn on. You can call it here yourself.'}},
+      {site:'field',objective:'Compare your notes at Breese Stevens Field',label:'File your City Pulse report',
+        detail:'Iris wants to know what connected the two observations.',take:'fieldBook',give:'fieldReport',pay:92}
     ]},
     openHouse:{kind:'Main',title:'Open House',requires:'home',brief:'Put your new place on the neighborhood’s open-house list.',steps:[
       {site:'studio',objective:'Meet the organizer at Bassett Studio',label:'Pick up the room plan',detail:'A neighbor wants to use the studio for a small book swap.',give:'blueprint'},
@@ -3647,19 +3734,32 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   const jpeg=value=>typeof value==='string' && value.length<85000 && /^data:image\/jpeg;base64,[a-z0-9+/]+=*$/i.test(value);
 
   function open(storage) {
-    let canSave=Boolean(storage);
+    let canSave=Boolean(storage),readCity=()=>0;
     function read() {
       try { return JSON.parse(storage?.getItem(saveKey)) || {}; }
       catch { return {}; }
     }
     function normalize(raw) {
-      const state={cash:count(raw.cash),steps:{},pack:{},photos:{},owned:{},runs:{},job:null,tracked:null,last:'books'};
+      const state={cash:count(raw.cash),steps:{},pack:{},photos:{},owned:{},runs:{},dispatchRuns:{},funded:{},
+        dispatch:null,job:null,tracked:null,last:'books'};
       for(const [id,quest] of Object.entries(quests)) state.steps[id]=count(raw.steps?.[id],quest.steps.length);
       for(const id of Object.keys(items)) if(count(raw.pack?.[id],99)) state.pack[id]=count(raw.pack[id],99);
       for(const id of Object.keys(properties)) if(raw.owned?.[id]===true) state.owned[id]=true;
       for(const id of Object.keys(jobs)) state.runs[id]=count(raw.runs?.[id]);
+      for(const id of Object.keys(contracts)) state.dispatchRuns[id]=count(raw.dispatchRuns?.[id]);
+      for(const id of Object.keys(projects)) if(raw.funded?.[id]===true) state.funded[id]=true;
       for(const {site,photo} of quests.views.steps) if(photo && jpeg(raw.photos?.[site])) state.photos[site]=raw.photos[site];
       if(Object.hasOwn(jobs,raw.job)) state.job=raw.job;
+      const saved=raw.dispatch,contract=saved && Object.hasOwn(contracts,saved.id)?contracts[saved.id]:null;
+      if(contract && !state.job) {
+        state.dispatch={id:saved.id,reward:contract.pay+(saved.rush===true?payout.rush:0)+(saved.workshop===true?payout.workshop:0),
+          rush:saved.rush===true,workshop:saved.workshop===true,
+          ride:contract.arrival && ['express','regular'].includes(saved.ride)?saved.ride:null};
+      }
+      for(const [id,entry] of Object.entries(contracts)) {
+        if(state.dispatch?.id===id) state.pack[entry.item]=1;
+        else delete state.pack[entry.item];
+      }
       if(typeof raw.tracked==='string') state.tracked=raw.tracked;
       if(Object.hasOwn(sites,raw.last)) state.last=raw.last;
       return state;
@@ -3675,9 +3775,13 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const unlocked=(entry,s=state)=>!entry.requires || done(entry.requires,s);
     const main=()=>Object.keys(quests).find(id=>quests[id].kind==='Main'&&!done(id));
     const payFor=job=>job.pay+(state.owned.workshop?12:0);
+    const quoteFor=contract=>quote(contract,readCity,state.owned.workshop);
+    const dispatchCount=()=>Object.values(state.dispatchRuns).reduce((sum,n)=>sum+n,0);
+    const hasShift=()=>Boolean(state.job || state.dispatch);
+    const dispatchPay=shift=>shift.reward+(shift.ride==='regular'?payout.ride:0);
 
     function entries() {
-      const rows={quests:[],jobs:[],properties:[]};
+      const rows={quests:[],jobs:[],properties:[],projects:[]};
       for(const [id,quest] of Object.entries(quests)) {
         const step=quest.steps[state.steps[id]],available=Boolean(step)&&unlocked(quest);
         const needsRide=available && step.consume==='stamp' && !state.pack.stamp;
@@ -3696,11 +3800,31 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           objective:active?'Deliver to '+sites[job.destination].name:available?'Pick up at '+sites[job.site].name:'Unlocks after '+quests[job.requires].title,
           target:active?job.destination:available?job.site:null,status:active?'On shift':available?money(payFor(job))+' per run':'Locked',runs:state.runs[id]});
       }
+      const tier=dispatchCount();
+      for(const [id,contract] of Object.entries(contracts)) {
+        const active=state.dispatch?.id===id,available=active || tier>=(contract.unlock || 0);
+        const needsRide=active && contract.arrival && !state.dispatch.ride;
+        const offer=available && !active?quoteFor(contract):null;
+        const objective=needsRide?'Ride Route A to Blair':active?'Deliver to '+sites[contract.drop].name:
+          available?'Pick up at '+sites[contract.pickup].name:'Complete '+contract.unlock+' City Dispatch shifts to unlock';
+        rows.jobs.push({key:'d:'+id,title:contract.title,kind:'City Dispatch',brief:contract.brief,objective,active,
+          target:needsRide?null:active?contract.drop:available?contract.pickup:null,needsRide,arrival:contract.arrival,
+          status:active?money(dispatchPay(state.dispatch))+' on delivery':offer?money(offer.pay)+(offer.busy?' · rush':''):'Locked',
+          runs:state.dispatchRuns[id],demand:offer?.note});
+      }
+      rows.jobs.sort((a,b)=>Number(b.active)-Number(a.active) || Number(b.kind==='City Dispatch')-Number(a.kind==='City Dispatch'));
       for(const [id,property] of Object.entries(properties)) {
         const owned=Boolean(state.owned[id]),available=unlocked(property);
         rows.properties.push({key:'p:'+id,title:sites[id].name,kind:'Property',brief:property.brief,owned,
           objective:owned?sites[id].address:available?'Visit the property to buy it':'Unlocks after '+quests[property.requires].title,
           status:owned?'Owned':available?money(property.price):'Locked',target:available?id:null});
+      }
+      for(const [id,project] of Object.entries(projects)) {
+        const funded=Boolean(state.funded[id]),available=funded || Boolean(state.dispatchRuns[project.shift]);
+        rows.projects.push({key:'c:'+id,id,title:project.title,kind:'Community project',brief:project.brief,funded,
+          objective:funded?'Active at '+sites[project.site].name:available?'Fund at '+sites[project.site].name:
+            'Complete '+contracts[project.shift].title+' to unlock',
+          status:funded?'Funded':available?money(project.price):'Locked',target:available?project.site:null});
       }
       return rows;
     }
@@ -3710,8 +3834,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const tracked=all.find(row=>row.key===state.tracked && (row.target || row.needsRide))
         || list.quests.find(row=>row.key==='q:'+main() && row.target)
         || list.jobs.find(row=>row.active) || null;
-      return {...list,tracked,cash:state.cash,job:state.job,last:state.last,canSave,hasSave:state.last!=='books'||
-        Object.values(state.steps).some(Boolean)||Boolean(state.job)||Object.values(state.runs).some(Boolean),chapterComplete:done('home'),
+      return {...list,tracked,cash:state.cash,job:state.job,last:state.last,canSave,dispatchCount:dispatchCount(),hasSave:state.last!=='books'||
+        Object.values(state.steps).some(Boolean)||hasShift()||dispatchCount()>0||Object.values(state.runs).some(Boolean),chapterComplete:done('home'),
         photos:Object.entries(state.photos).map(([site,src])=>({src,name:sites[site].name})),
         pack:Object.entries(state.pack).map(([id,quantity])=>({id,quantity,name:items[id][0],detail:items[id][1]}))};
     }
@@ -3725,12 +3849,34 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         if(step.consume && !state.pack[step.consume]) {
           Object.assign(actions.at(-1),{detail:'First ride Route A and get off at a different stop.',disabled:true});
         }
+        if(step.observe) {
+          const ready=readCity(step.observe)>=step.observe.size;
+          Object.assign(actions.at(-1),{live:true,detail:ready?step.detail:step.observe.waiting,disabled:!ready});
+        }
       }
       for(const [id,job] of Object.entries(jobs)) {
         if(state.job===id && site===job.destination) actions.push({id:`j:${id}:deliver`,title:'Complete '+job.title,
           detail:'Hand over your delivery and earn '+money(payFor(job))+'.',kind:'Odd job'});
-        else if(site===job.site && !state.job && unlocked(job)) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
+        else if(site===job.site && !hasShift() && unlocked(job)) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
           detail:job.brief+' Earn '+money(payFor(job))+'.',kind:'Odd job'});
+      }
+      for(const [id,contract] of Object.entries(contracts)) {
+        const shift=state.dispatch?.id===id?state.dispatch:null;
+        if(shift && site===contract.drop) {
+          const needed=Boolean(contract.arrival && !shift.ride);
+          actions.push({id:`d:${id}:deliver`,title:'Complete '+contract.title,kind:'City Dispatch',disabled:needed,
+            detail:needed?'Ride Route A here from another stop first.':'Finish the shift and earn '+money(dispatchPay(shift))+'.'});
+        } else if(site===contract.pickup && !hasShift() && dispatchCount()>=(contract.unlock || 0)) {
+          const offer=quoteFor(contract);
+          actions.push({id:`d:${id}:accept`,title:'Take '+contract.title+' · '+money(offer.pay),kind:'City Dispatch',
+            detail:[contract.brief,offer.note].filter(Boolean).join(' '),rush:offer.busy});
+        }
+      }
+      for(const [id,project] of Object.entries(projects)) {
+        if(site!==project.site || state.funded[id] || !state.dispatchRuns[project.shift]) continue;
+        const short=project.price-state.cash;
+        actions.push({id:`c:${id}:fund`,title:'Fund '+project.title+' · '+money(project.price),kind:'Community project',
+          detail:project.brief+(short>0?' '+money(short)+' still needed.':''),disabled:short>0});
       }
       const property=properties[site];
       if(property && unlocked(property)) {
@@ -3755,14 +3901,14 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       return nearest;
     }
 
-    function perform(site,action,photo) {
+    function perform(site,action,photo,presentedRush) {
       sync();
       const choice=actionsAt(site).find(entry=>entry.id===action && !entry.disabled);
       if(!choice) return null;
       const [kind,id,verb]=choice.id.split(':');
       if(kind==='seat') return {seat:terraceSeat,message:'Press E to stand up'};
       const next={...state,steps:{...state.steps},pack:{...state.pack},owned:{...state.owned},runs:{...state.runs},last:site};
-      let award=0,message,rest=false,repark=false;
+      let award=0,message,rest=false,repark=false,cityActivity,dispatchReport,cityProject;
       function put(item) { if(item) next.pack[item]=(next.pack[item] || 0)+1; }
       function take(item) {
         if(!item) return true;
@@ -3797,6 +3943,33 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           award=payFor(job);
           message='Delivery complete';
         }
+      } else if(kind==='d') {
+        const contract=contracts[id];
+        repark=true;
+        if(verb==='accept') {
+          const rush=typeof presentedRush==='boolean'?presentedRush:choice.rush;
+          const workshop=Boolean(state.owned.workshop);
+          put(contract.item);
+          next.dispatch={id,rush,workshop,reward:contract.pay+(rush?payout.rush:0)+(workshop?payout.workshop:0),ride:null};
+          next.tracked='d:'+id;
+          message='Dispatch accepted · '+contract.title;
+        } else {
+          if(!take(contract.item)) return null;
+          award=dispatchPay(state.dispatch);
+          next.dispatch=null;
+          next.dispatchRuns={...state.dispatchRuns,[id]:state.dispatchRuns[id]+1};
+          next.tracked=state.tracked==='d:'+id?null:state.tracked;
+          cityActivity=contract.activity;
+          dispatchReport=contract.arrival;
+          message='City Dispatch complete';
+        }
+      } else if(kind==='c') {
+        const project=projects[id];
+        next.cash-=project.price;
+        next.funded={...next.funded,[id]:true};
+        if(next.tracked==='c:'+id) next.tracked=null;
+        cityProject=id;
+        message=project.title+' funded';
       } else if(verb==='buy') {
         const property=properties[id];
         next.cash-=property.price;
@@ -3812,7 +3985,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       next.cash=count(next.cash+award);
       commit(next);
-      return {message:message+(award?' · +'+money(award):''),rest,repark};
+      return {message:message+(award?' · +'+money(award):''),rest,repark,cityActivity,dispatchReport,cityProject};
     }
 
     function track(key) {
@@ -3824,10 +3997,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
     function abandonJob() {
       sync();
-      if(!state.job) return false;
+      if(!hasShift()) return false;
       const pack={...state.pack};
-      delete pack[jobs[state.job].item];
-      commit({...state,pack,tracked:state.tracked==='j:'+state.job?null:state.tracked,job:null});
+      const id=state.dispatch?.id || state.job,key=state.dispatch?'d:'+id:'j:'+id;
+      delete pack[(state.dispatch?contracts:jobs)[id].item];
+      commit({...state,pack,tracked:state.tracked===key?null:state.tracked,job:null,dispatch:null});
       return true;
     }
 
@@ -3838,14 +4012,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       return true;
     }
 
-    function recordTransit(origin,arrival) {
+    function recordTransit(origin,arrival,express=false) {
       sync();
-      if(!origin || origin===arrival || state.steps.line!==1 || state.pack.stamp) return false;
-      commit({...state,pack:{...state.pack,stamp:1}});
-      return true;
+      if(!origin || origin===arrival) return {stamp:false,survey:false};
+      const stamp=state.steps.line===1 && !state.pack.stamp;
+      const shift=state.dispatch;
+      const survey=Boolean(shift && contracts[shift.id].arrival===arrival && (shift.ride===null || shift.ride==='express' && !express));
+      if(stamp || survey) commit({...state,pack:stamp?{...state.pack,stamp:1}:state.pack,
+        dispatch:survey?{...shift,ride:express?'express':'regular'}:shift});
+      return {stamp,survey};
     }
 
-    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome,recordTransit};
+    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome,recordTransit,setCityReader:reader=>{readCity=reader;}};
   }
 
   window.MadisonCampaign={sites,arrival,open,money,saveKey,terraceSeat,contacts};
@@ -3859,7 +4037,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   const {sites,money,saveKey}=MadisonCampaign;
   const $=id=>document.getElementById(id);
 
-  function create(model,{nearby,pause,onAction,onReturn,canReturn,onTrack,capture}) {
+  function create(model,{nearby,pause,onAction,onReturn,canReturn,onTrack,capture,localAction,onRestore}) {
     const journal=$('journal'),encounter=$('encounter');
     const tabs=[...$('journal-tabs').querySelectorAll('button')];
     let page='quests',snapshot=model.view();
@@ -3891,6 +4069,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const list=$('journal-list');
       list.replaceChildren();
       $('journal-complete').hidden=!snapshot.chapterComplete || page!=='quests';
+      $('dispatch-status').hidden=page!=='jobs';
+      const n=snapshot.dispatchCount;
+      if(page==='jobs') set('dispatch-status',n===1?'1 City Dispatch shift completed':n+' City Dispatch shifts completed');
       for(const tab of tabs) tab.setAttribute('aria-pressed',String(tab.dataset.page===page));
       if(page==='inventory') {
         if(!snapshot.pack.length) list.append(text('li','Your bag is empty.','journal-empty'));
@@ -3922,6 +4103,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         if(selected) row.classList.add('tracked');
         details.append(text('p',entry.kind,'eyebrow'),text('h3',entry.title),text('p',entry.brief),
           text('p',entry.objective,'journal-goal'));
+        if(entry.demand) details.append(text('p',entry.demand,'journal-runs'));
         if(entry.runs) details.append(text('p',entry.runs+' completed','journal-runs'));
         const aside=text('div','','journal-actions');
         aside.append(text('span',entry.status,'journal-status'));
@@ -3946,6 +4128,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           if(!model.abandonJob()) return;
           refresh();
           renderJournal();
+          onTrack();
         }));
         row.append(details,aside);
         list.append(row);
@@ -3963,6 +4146,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const id=nearby();
       if(!id || encounter.open) return;
       const site=sites[id],actions=model.actionsAt(id);
+      const activity=localAction();
+      if(activity) actions.push(activity);
       if(!actions.length) return;
       pause();
       set('encounter-title',site.name);
@@ -3975,11 +4160,18 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         description.id='choice-'+choice.id.replaceAll(':','-');
         const action=button(choice.title,()=>{
           if(nearby()!==id) return;
-          const result=model.perform(id,choice.id,choice.photo?capture():undefined);
+          if(choice.activate) {
+            encounter.close();
+            choice.activate();
+            return;
+          }
+          const result=model.perform(id,choice.id,choice.photo?capture():undefined,choice.rush);
+          if(choice.live && !result) return;
           encounter.close();
           refresh();
           if(result) onAction(result,site);
         },choice.disabled);
+        if(choice.live) action.id='action-'+choice.id.replaceAll(':','-');
         action.setAttribute('aria-describedby',description.id);
         row.append(text('p',choice.kind,'eyebrow'),action,description);
         list.append(row);
@@ -4000,6 +4192,14 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         set('encounter-place',seated?'Terrace chair':sites[near].name);
         set('encounter-label',seated?'Stand up':'Interact');
       }
+      if(near && encounter.open) {
+        for(const choice of model.actionsAt(near).filter(row=>row.live)) {
+          const key=choice.id.replaceAll(':','-'),button=$('action-'+key);
+          if(!button) continue;
+          button.disabled=choice.disabled;
+          set('choice-'+key,choice.detail);
+        }
+      }
     }
     $('journal-toggle').addEventListener('click',()=>openJournal());
     $('journal-close').addEventListener('click',()=>journal.close());
@@ -4009,9 +4209,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(event.key!==null && event.key!==saveKey) return;
       model.sync();
       refresh();
+      onRestore(snapshot);
       if(journal.open) renderJournal();
     });
     refresh();
+    onRestore(snapshot);
     function track(key) {
       if(!model.track(key)) return false;
       refresh();
@@ -5286,7 +5488,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   function create(geo,layout,routes,market) {
     const rng=geo.random(66291),people=Array.from({length:size},(_,id)=>({id,phase:'idle'}));
     const coaches=routes.filter(route=>route.kind==='bus');
-    const platforms=new Map(),crossings=new Map(),log=[];
+    const platforms=new Map(),crossings=new Map(),projects=new Set(),log=[];
     let age=0,lastTime,second=0,revision=0,feedId=0;
     const metrics={turnedHeads:0,boarded:0,exited:0,walks:0,crossed:0,delays:0,encores:0,missed:0};
     const events=sites.map(site=>({...site,place:site.name,next:site.start,until:0,cast:null,slots:[]}));
@@ -5630,7 +5832,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         if(cross.inside===0 && age>=cross.holdUntil) {signal.cityHold=false;cross.last=age;revision++;}
         return;
       }
-      if(!cross.waiting.length && !cross.requested || age-cross.last<20) return;
+      const interval=cross.funded || cross.priorityUntil>age?10:20;
+      if(!cross.waiting.length && !cross.requested || age-cross.last<interval) return;
       const {signalPhase,yellow}=MadisonTraffic;
       if(signalPhase(signal,0,absolute)<yellow || signalPhase(signal,1,absolute)<yellow || !clear(center,outer)) return;
       const wave=cross.waiting.splice(0,8);
@@ -5671,9 +5874,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       for(const event of events) {
         if(!event.cast) {eventStart(event);continue;}
         if(age>=event.until) {afterShow(event);continue;}
-        if(age<event.source || event.slots.filter(slot=>slot.person).length>=11) continue;
-        const following=crowdAt(event)>=4;
-        event.source=age+(following?1.8:4.7)+rng()*2.1;
+        if(age<event.source || event.slots.filter(slot=>slot.person).length>=(event.capacity || 11)) continue;
+        const promoted=event.supportUntil>age;
+        const following=promoted || event.recruit || crowdAt(event)>=4;
+        event.source=age+(promoted?.75:following?1.8:4.7)+rng()*2.1;
         const p=scatterPoint(event,following?7:4.7,following?16:8.5),person=free();
         if(!p || !person) continue;
         place(person,p);
@@ -5724,7 +5928,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
     function eventsView() {
       return events.map(event=>({id:event.id,name:event.title,place:event.place,active:Boolean(event.cast),listeners:crowdAt(event),
-        inTime:Math.ceil(Math.max(0,(event.cast?event.until:event.next)-age)),x:event.x,z:event.z,yaw:event.yaw,
+        funded:event.funded,supplied:event.supportUntil>age,inTime:Math.ceil(Math.max(0,(event.cast?event.until:event.next)-age)),x:event.x,z:event.z,yaw:event.yaw,
         watch:{name:event.place+' activity',x:event.x-9.4,z:event.z-2,yaw:1.78}}));
     }
 
@@ -5734,7 +5938,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
     function snapshot() {
       const activities=eventsView(),crosswalks=[...crossings.values()].map(cross=>({x:cross.x,z:cross.z,name:cross.name,id:cross.id,
-        active:Boolean(cross.signal.cityHold),waiting:cross.waiting.length,requested:cross.requested}));
+        active:Boolean(cross.signal.cityHold),waiting:cross.waiting.length,requested:cross.requested,
+        priority:cross.funded || cross.priorityUntil>age}));
       return {activities,crosswalks,version:revision,age,feed:log,stats:{...metrics},
         crowds:[...platforms.values()].filter(row=>row.queue.length>=4).map(row=>({x:row.x,z:row.z,count:row.queue.length}))};
     }
@@ -5745,7 +5950,49 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       return false;
     }
-    return {people,serve,advance,status,snapshot,nearby,act,blocksCar,time:()=>age};
+
+    function support(id) {
+      const event=events.find(row=>row.id===id);
+      if(!event) return;
+      event.supportUntil=age+34;
+      if(event.cast) {
+        event.source=Math.min(event.source,age+.25);
+        event.until=Math.max(event.until,age+24);
+      } else event.next=Math.min(event.next,age+4);
+      announce('Dispatch','Fresh supplies at '+event.name+'. More people are heading over.',event);
+    }
+
+    function applySurvey(id) {
+      const cross=crossings.get(id);
+      if(!cross) return;
+      cross.priorityUntil=age+180;
+      announce('Dispatch','Walk signal requests at '+signalName(id)+' are getting priority after your Route A survey.',cross);
+    }
+
+    function fund(id,silent=false) {
+      const project=MadisonDispatch.projects[id];
+      if(!project || projects.has(id)) return;
+      const event=events.find(row=>row.id===project.activity),cross=crossings.get(project.crossing);
+      if(!event && !cross) return;
+      projects.add(id);
+      if(event) {
+        event.funded=true;
+        if(project.interval) {
+          event.period-=project.interval;
+          if(!event.cast) event.next=Math.max(age+4,event.next-project.interval);
+        }
+        if(project.duration) {
+          event.duration+=project.duration;
+          if(event.cast) event.until+=project.duration;
+        }
+        if(project.capacity) event.capacity=project.capacity;
+        if(project.recruit) event.recruit=true;
+      } else cross.funded=true;
+      if(silent) revision++;
+      else announce('Project',project.title+' funded. '+project.brief,event || cross);
+    }
+
+    return {people,serve,advance,status,snapshot,nearby,act,blocksCar,support,applySurvey,fund,time:()=>age};
   }
 
   window.MadisonCity={create};
@@ -5791,10 +6038,12 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const rows=$('map-city-list');
       if(force || mapPaint!==version) {
         mapPaint=version;
-        const items=activities.map(row=>({...row,detail:row.active?count(row.listeners,'listener'):'Starts in '+row.inTime+' s'}));
+        const items=activities.map(row=>({...row,detail:(row.active?count(row.listeners,'listener'):'Starts in '+row.inTime+' s')+
+          (row.supplied?' · fresh supplies':row.funded?' · community funded':'')}));
         for(const row of crosswalks) {
           const waiting=row.waiting===1?'1 person waiting':row.waiting+' people waiting';
-          items.push({...row,detail:row.active?'Walk signal holding traffic':row.waiting?waiting:'Signal crossing'});
+          items.push({...row,detail:(row.active?'Walk signal holding traffic':row.waiting?waiting:'Signal crossing')+
+            (row.priority?' · walk priority':'')});
         }
         rows.replaceChildren(...items.map(button));
       }
@@ -7253,8 +7502,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   function destination() {
     if(state==='intro') return manualTarget;
     if(manualTarget || story?.target()) return manualTarget || story.target();
-    if(story?.tracked()?.needsRide && state!=='ride') {
-      const origin=stationPoints.filter(point=>engine.transit.services(point.stationId).length)
+    const tracked=story?.tracked();
+    if(tracked?.needsRide && state!=='ride') {
+      const origin=stationPoints.filter(point=>engine.transit.services(point.stationId)
+        .some(service=>!tracked.arrival || service.stops.some(stop=>stop.id===tracked.arrival)))
         .reduce((best,point)=>!best || Math.hypot(point.x-x,point.z-z)<Math.hypot(best.x-x,best.z-z)?point:best,null);
       return origin;
     }
@@ -7358,13 +7609,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return state==='walk' && !seated && !engine.transit.platformAt(x,z)?campaign.nearby(x,z):null;
   }
 
-  function cityOffer() {
-    if(state!=='walk' || seated || engine.transit.platformAt(x,z) || engine.market?.nearby(x,z) || story && storyNearby()) return null;
+  function cityActivityOffer() {
+    if(state!=='walk' || seated || engine.transit.platformAt(x,z) || engine.market?.nearby(x,z)) return null;
     return engine.city.nearby(x,z);
   }
 
+  function cityOffer() { return story && storyNearby()?null:cityActivityOffer(); }
+
   function cityInteract() {
-    if(!cityOffer()) return;
+    if(!cityActivityOffer()) return;
     cityUI.notify(engine.city.act(x,z));
     updateHUD();
   }
@@ -7570,10 +7823,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   function arriveByBus(platform,express=false) {
     const station=stationPoints.find(point=>point.stationId===platform.id);
     changeMode('walk',{...station,...platform,name:station?.name || platform.name});
-    const stamp=story && campaign.recordTransit(boardingStop,platform.id);
+    const record=story?campaign.recordTransit(boardingStop,platform.id,express):null;
     boardingStop=null;
-    if(stamp) { manualTarget=null;story.refresh();updateHUD(); }
-    toast((express?'Express arrival · ':'Stepped off at ')+platform.name+(stamp?' · Route A card stamped':'')+'.');
+    if(record?.stamp || record?.survey) { manualTarget=null;story.refresh();updateHUD(); }
+    const notes=[record?.stamp?'Route A card stamped':null,record?.survey?'Blair survey ready':null].filter(Boolean);
+    toast((express?'Express arrival · ':'Stepped off at ')+[platform.name,...notes].join(' · ')+'.');
   }
 
   function startRide(origin,direction=null) {
@@ -7902,14 +8156,30 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('home').addEventListener('click',returnTitle);
     $('map-home').addEventListener('click',returnTitle);
     if(storyMode) {
+      campaign.setCityReader(rule=>{
+        if(rule.station) return engine.city.status(rule.station);
+        const city=cityUI.read();
+        if(rule.crossing) return Number(Boolean(city.crosswalks.find(row=>row.id===rule.crossing)?.active));
+        return city.activities.find(row=>row.id===rule.activity)?.listeners || 0;
+      });
       story=MadisonCampaignUI.create(campaign,{
         nearby:storyNearby,
+        onRestore(snapshot) {
+          for(const project of snapshot.projects) if(project.funded) engine.city.fund(project.id,true);
+        },
+        localAction() {
+          const offer=cityActivityOffer();
+          return offer?{id:'city:'+offer.key,title:offer.action,detail:offer.name,kind:'City activity',disabled:offer.disabled,activate:cityInteract}:null;
+        },
         pause() {
           setMap(false);
           $('help').hidden=true;
           $('help-toggle').setAttribute('aria-expanded','false');
         },
         onAction(result,site) {
+          if(result.cityActivity) engine.city.support(result.cityActivity);
+          if(result.dispatchReport) engine.city.applySurvey(result.dispatchReport);
+          if(result.cityProject) engine.city.fund(result.cityProject);
           const moved=!result.seat && result.repark && recallCar(site);
           if(!result.seat) manualTarget=null;
           if(result.rest) {

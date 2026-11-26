@@ -36,10 +36,12 @@
       const rows=$('map-city-list');
       if(force || mapPaint!==version) {
         mapPaint=version;
-        const items=activities.map(row=>({...row,detail:row.active?count(row.listeners,'listener'):'Starts in '+row.inTime+' s'}));
+        const items=activities.map(row=>({...row,detail:(row.active?count(row.listeners,'listener'):'Starts in '+row.inTime+' s')+
+          (row.supplied?' · fresh supplies':row.funded?' · community funded':'')}));
         for(const row of crosswalks) {
           const waiting=row.waiting===1?'1 person waiting':row.waiting+' people waiting';
-          items.push({...row,detail:row.active?'Walk signal holding traffic':row.waiting?waiting:'Signal crossing'});
+          items.push({...row,detail:(row.active?'Walk signal holding traffic':row.waiting?waiting:'Signal crossing')+
+            (row.priority?' · walk priority':'')});
         }
         rows.replaceChildren(...items.map(button));
       }

@@ -69,8 +69,10 @@
   function destination() {
     if(state==='intro') return manualTarget;
     if(manualTarget || story?.target()) return manualTarget || story.target();
-    if(story?.tracked()?.needsRide && state!=='ride') {
-      const origin=stationPoints.filter(point=>engine.transit.services(point.stationId).length)
+    const tracked=story?.tracked();
+    if(tracked?.needsRide && state!=='ride') {
+      const origin=stationPoints.filter(point=>engine.transit.services(point.stationId)
+        .some(service=>!tracked.arrival || service.stops.some(stop=>stop.id===tracked.arrival)))
         .reduce((best,point)=>!best || Math.hypot(point.x-x,point.z-z)<Math.hypot(best.x-x,best.z-z)?point:best,null);
       return origin;
     }
@@ -174,13 +176,15 @@
     return state==='walk' && !seated && !engine.transit.platformAt(x,z)?campaign.nearby(x,z):null;
   }
 
-  function cityOffer() {
-    if(state!=='walk' || seated || engine.transit.platformAt(x,z) || engine.market?.nearby(x,z) || story && storyNearby()) return null;
+  function cityActivityOffer() {
+    if(state!=='walk' || seated || engine.transit.platformAt(x,z) || engine.market?.nearby(x,z)) return null;
     return engine.city.nearby(x,z);
   }
 
+  function cityOffer() { return story && storyNearby()?null:cityActivityOffer(); }
+
   function cityInteract() {
-    if(!cityOffer()) return;
+    if(!cityActivityOffer()) return;
     cityUI.notify(engine.city.act(x,z));
     updateHUD();
   }
@@ -386,10 +390,11 @@
   function arriveByBus(platform,express=false) {
     const station=stationPoints.find(point=>point.stationId===platform.id);
     changeMode('walk',{...station,...platform,name:station?.name || platform.name});
-    const stamp=story && campaign.recordTransit(boardingStop,platform.id);
+    const record=story?campaign.recordTransit(boardingStop,platform.id,express):null;
     boardingStop=null;
-    if(stamp) { manualTarget=null;story.refresh();updateHUD(); }
-    toast((express?'Express arrival · ':'Stepped off at ')+platform.name+(stamp?' · Route A card stamped':'')+'.');
+    if(record?.stamp || record?.survey) { manualTarget=null;story.refresh();updateHUD(); }
+    const notes=[record?.stamp?'Route A card stamped':null,record?.survey?'Blair survey ready':null].filter(Boolean);
+    toast((express?'Express arrival · ':'Stepped off at ')+[platform.name,...notes].join(' · ')+'.');
   }
 
   function startRide(origin,direction=null) {
@@ -718,14 +723,30 @@
     $('home').addEventListener('click',returnTitle);
     $('map-home').addEventListener('click',returnTitle);
     if(storyMode) {
+      campaign.setCityReader(rule=>{
+        if(rule.station) return engine.city.status(rule.station);
+        const city=cityUI.read();
+        if(rule.crossing) return Number(Boolean(city.crosswalks.find(row=>row.id===rule.crossing)?.active));
+        return city.activities.find(row=>row.id===rule.activity)?.listeners || 0;
+      });
       story=MadisonCampaignUI.create(campaign,{
         nearby:storyNearby,
+        onRestore(snapshot) {
+          for(const project of snapshot.projects) if(project.funded) engine.city.fund(project.id,true);
+        },
+        localAction() {
+          const offer=cityActivityOffer();
+          return offer?{id:'city:'+offer.key,title:offer.action,detail:offer.name,kind:'City activity',disabled:offer.disabled,activate:cityInteract}:null;
+        },
         pause() {
           setMap(false);
           $('help').hidden=true;
           $('help-toggle').setAttribute('aria-expanded','false');
         },
         onAction(result,site) {
+          if(result.cityActivity) engine.city.support(result.cityActivity);
+          if(result.dispatchReport) engine.city.applySurvey(result.dispatchReport);
+          if(result.cityProject) engine.city.fund(result.cityProject);
           const moved=!result.seat && result.repark && recallCar(site);
           if(!result.seat) manualTarget=null;
           if(result.rest) {

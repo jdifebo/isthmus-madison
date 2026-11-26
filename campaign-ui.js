@@ -4,7 +4,7 @@
   const {sites,money,saveKey}=MadisonCampaign;
   const $=id=>document.getElementById(id);
 
-  function create(model,{nearby,pause,onAction,onReturn,canReturn,onTrack,capture}) {
+  function create(model,{nearby,pause,onAction,onReturn,canReturn,onTrack,capture,localAction,onRestore}) {
     const journal=$('journal'),encounter=$('encounter');
     const tabs=[...$('journal-tabs').querySelectorAll('button')];
     let page='quests',snapshot=model.view();
@@ -36,6 +36,9 @@
       const list=$('journal-list');
       list.replaceChildren();
       $('journal-complete').hidden=!snapshot.chapterComplete || page!=='quests';
+      $('dispatch-status').hidden=page!=='jobs';
+      const n=snapshot.dispatchCount;
+      if(page==='jobs') set('dispatch-status',n===1?'1 City Dispatch shift completed':n+' City Dispatch shifts completed');
       for(const tab of tabs) tab.setAttribute('aria-pressed',String(tab.dataset.page===page));
       if(page==='inventory') {
         if(!snapshot.pack.length) list.append(text('li','Your bag is empty.','journal-empty'));
@@ -67,6 +70,7 @@
         if(selected) row.classList.add('tracked');
         details.append(text('p',entry.kind,'eyebrow'),text('h3',entry.title),text('p',entry.brief),
           text('p',entry.objective,'journal-goal'));
+        if(entry.demand) details.append(text('p',entry.demand,'journal-runs'));
         if(entry.runs) details.append(text('p',entry.runs+' completed','journal-runs'));
         const aside=text('div','','journal-actions');
         aside.append(text('span',entry.status,'journal-status'));
@@ -91,6 +95,7 @@
           if(!model.abandonJob()) return;
           refresh();
           renderJournal();
+          onTrack();
         }));
         row.append(details,aside);
         list.append(row);
@@ -108,6 +113,8 @@
       const id=nearby();
       if(!id || encounter.open) return;
       const site=sites[id],actions=model.actionsAt(id);
+      const activity=localAction();
+      if(activity) actions.push(activity);
       if(!actions.length) return;
       pause();
       set('encounter-title',site.name);
@@ -120,11 +127,18 @@
         description.id='choice-'+choice.id.replaceAll(':','-');
         const action=button(choice.title,()=>{
           if(nearby()!==id) return;
-          const result=model.perform(id,choice.id,choice.photo?capture():undefined);
+          if(choice.activate) {
+            encounter.close();
+            choice.activate();
+            return;
+          }
+          const result=model.perform(id,choice.id,choice.photo?capture():undefined,choice.rush);
+          if(choice.live && !result) return;
           encounter.close();
           refresh();
           if(result) onAction(result,site);
         },choice.disabled);
+        if(choice.live) action.id='action-'+choice.id.replaceAll(':','-');
         action.setAttribute('aria-describedby',description.id);
         row.append(text('p',choice.kind,'eyebrow'),action,description);
         list.append(row);
@@ -145,6 +159,14 @@
         set('encounter-place',seated?'Terrace chair':sites[near].name);
         set('encounter-label',seated?'Stand up':'Interact');
       }
+      if(near && encounter.open) {
+        for(const choice of model.actionsAt(near).filter(row=>row.live)) {
+          const key=choice.id.replaceAll(':','-'),button=$('action-'+key);
+          if(!button) continue;
+          button.disabled=choice.disabled;
+          set('choice-'+key,choice.detail);
+        }
+      }
     }
     $('journal-toggle').addEventListener('click',()=>openJournal());
     $('journal-close').addEventListener('click',()=>journal.close());
@@ -154,9 +176,11 @@
       if(event.key!==null && event.key!==saveKey) return;
       model.sync();
       refresh();
+      onRestore(snapshot);
       if(journal.open) renderJournal();
     });
     refresh();
+    onRestore(snapshot);
     function track(key) {
       if(!model.track(key)) return false;
       refresh();

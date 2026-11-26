@@ -15,7 +15,7 @@
   function create(geo,layout,routes,market) {
     const rng=geo.random(66291),people=Array.from({length:size},(_,id)=>({id,phase:'idle'}));
     const coaches=routes.filter(route=>route.kind==='bus');
-    const platforms=new Map(),crossings=new Map(),log=[];
+    const platforms=new Map(),crossings=new Map(),projects=new Set(),log=[];
     let age=0,lastTime,second=0,revision=0,feedId=0;
     const metrics={turnedHeads:0,boarded:0,exited:0,walks:0,crossed:0,delays:0,encores:0,missed:0};
     const events=sites.map(site=>({...site,place:site.name,next:site.start,until:0,cast:null,slots:[]}));
@@ -359,7 +359,8 @@
         if(cross.inside===0 && age>=cross.holdUntil) {signal.cityHold=false;cross.last=age;revision++;}
         return;
       }
-      if(!cross.waiting.length && !cross.requested || age-cross.last<20) return;
+      const interval=cross.funded || cross.priorityUntil>age?10:20;
+      if(!cross.waiting.length && !cross.requested || age-cross.last<interval) return;
       const {signalPhase,yellow}=MadisonTraffic;
       if(signalPhase(signal,0,absolute)<yellow || signalPhase(signal,1,absolute)<yellow || !clear(center,outer)) return;
       const wave=cross.waiting.splice(0,8);
@@ -400,9 +401,10 @@
       for(const event of events) {
         if(!event.cast) {eventStart(event);continue;}
         if(age>=event.until) {afterShow(event);continue;}
-        if(age<event.source || event.slots.filter(slot=>slot.person).length>=11) continue;
-        const following=crowdAt(event)>=4;
-        event.source=age+(following?1.8:4.7)+rng()*2.1;
+        if(age<event.source || event.slots.filter(slot=>slot.person).length>=(event.capacity || 11)) continue;
+        const promoted=event.supportUntil>age;
+        const following=promoted || event.recruit || crowdAt(event)>=4;
+        event.source=age+(promoted?.75:following?1.8:4.7)+rng()*2.1;
         const p=scatterPoint(event,following?7:4.7,following?16:8.5),person=free();
         if(!p || !person) continue;
         place(person,p);
@@ -453,7 +455,7 @@
 
     function eventsView() {
       return events.map(event=>({id:event.id,name:event.title,place:event.place,active:Boolean(event.cast),listeners:crowdAt(event),
-        inTime:Math.ceil(Math.max(0,(event.cast?event.until:event.next)-age)),x:event.x,z:event.z,yaw:event.yaw,
+        funded:event.funded,supplied:event.supportUntil>age,inTime:Math.ceil(Math.max(0,(event.cast?event.until:event.next)-age)),x:event.x,z:event.z,yaw:event.yaw,
         watch:{name:event.place+' activity',x:event.x-9.4,z:event.z-2,yaw:1.78}}));
     }
 
@@ -463,7 +465,8 @@
 
     function snapshot() {
       const activities=eventsView(),crosswalks=[...crossings.values()].map(cross=>({x:cross.x,z:cross.z,name:cross.name,id:cross.id,
-        active:Boolean(cross.signal.cityHold),waiting:cross.waiting.length,requested:cross.requested}));
+        active:Boolean(cross.signal.cityHold),waiting:cross.waiting.length,requested:cross.requested,
+        priority:cross.funded || cross.priorityUntil>age}));
       return {activities,crosswalks,version:revision,age,feed:log,stats:{...metrics},
         crowds:[...platforms.values()].filter(row=>row.queue.length>=4).map(row=>({x:row.x,z:row.z,count:row.queue.length}))};
     }
@@ -474,7 +477,49 @@
       }
       return false;
     }
-    return {people,serve,advance,status,snapshot,nearby,act,blocksCar,time:()=>age};
+
+    function support(id) {
+      const event=events.find(row=>row.id===id);
+      if(!event) return;
+      event.supportUntil=age+34;
+      if(event.cast) {
+        event.source=Math.min(event.source,age+.25);
+        event.until=Math.max(event.until,age+24);
+      } else event.next=Math.min(event.next,age+4);
+      announce('Dispatch','Fresh supplies at '+event.name+'. More people are heading over.',event);
+    }
+
+    function applySurvey(id) {
+      const cross=crossings.get(id);
+      if(!cross) return;
+      cross.priorityUntil=age+180;
+      announce('Dispatch','Walk signal requests at '+signalName(id)+' are getting priority after your Route A survey.',cross);
+    }
+
+    function fund(id,silent=false) {
+      const project=MadisonDispatch.projects[id];
+      if(!project || projects.has(id)) return;
+      const event=events.find(row=>row.id===project.activity),cross=crossings.get(project.crossing);
+      if(!event && !cross) return;
+      projects.add(id);
+      if(event) {
+        event.funded=true;
+        if(project.interval) {
+          event.period-=project.interval;
+          if(!event.cast) event.next=Math.max(age+4,event.next-project.interval);
+        }
+        if(project.duration) {
+          event.duration+=project.duration;
+          if(event.cast) event.until+=project.duration;
+        }
+        if(project.capacity) event.capacity=project.capacity;
+        if(project.recruit) event.recruit=true;
+      } else cross.funded=true;
+      if(silent) revision++;
+      else announce('Project',project.title+' funded. '+project.brief,event || cross);
+    }
+
+    return {people,serve,advance,status,snapshot,nearby,act,blocksCar,support,applySurvey,fund,time:()=>age};
   }
 
   window.MadisonCity={create};

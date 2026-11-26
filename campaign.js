@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const {contracts,projects,payout,quote}=MadisonDispatch;
   const sites={
     books:{name:'University Book Store',address:'711 State Street',x:-1130.5,z:-19.6,yaw:3.12,reach:5.2},
     union:{name:'Memorial Union Terrace',address:'Lake Mendota',x:-1249,z:-230,yaw:-.13,reach:7},
@@ -10,7 +11,11 @@
     park:{name:'James Madison Park',address:'East Gorham Street',x:135,z:-777,yaw:-.65,reach:8},
     field:{name:'Breese Stevens Field',address:'North Paterson Street',x:839,z:-886,yaw:.73,reach:8},
     studio:{name:'Bassett Studio',address:'West Dayton Street · fictional property',x:-557,z:262,yaw:-.56,reach:5},
-    workshop:{name:'East Wash Workshop',address:'Livingston Street · fictional property',x:716,z:-733,yaw:-.57,reach:5}
+    workshop:{name:'East Wash Workshop',address:'Livingston Street · fictional property',x:716,z:-733,yaw:-.57,reach:5},
+    libraryStage:{name:'Library Mall guitar set',address:'West end of State Street',x:-1144,z:-32,yaw:2.05,reach:6},
+    stateStage:{name:'State Street sidewalk set',address:'400 block of State Street',x:-443,z:-5.9,yaw:1.57,reach:6},
+    squareStage:{name:'Capitol Square sketch circle',address:'South side of Capitol Square',x:33,z:115,yaw:2.7,reach:6},
+    blairCrossing:{name:'Blair crossing',address:'East Washington Avenue',x:439.96,z:-408.13,yaw:2.35,reach:6}
   };
   const arrival={...sites.books,x:-1120,z:-27.8,yaw:-2.47};
   const items={
@@ -29,7 +34,14 @@
     eventPass:['Neighborhood open house pass','A keepsake from the first open house you helped organize.'],
     chairs:['Folding-chair bundle','A delivery for the community table on Lake Monona.'],
     studioKey:['Bassett Studio key','Your home base on West Dayton Street.'],
-    shopKey:['Workshop key','The keys to your East Wash Workshop.']
+    shopKey:['Workshop key','The keys to your East Wash Workshop.'],
+    micKit:['Soundcheck kit','A spare cable and batteries for the Library Mall guitarist.'],
+    setPosters:['Weekend set posters','A roll of posters for the State Street guitar set.'],
+    sketchKit:['Sketch kit','Sketchbooks and pencils for the Capitol Square group.'],
+    meetupKit:['Welcome kit','Name tags and neighborhood maps for the Breese Stevens meetup.'],
+    accessSurvey:['Route A access survey','The survey crew is waiting by the Blair crossing.'],
+    fieldBook:['City Pulse notebook','Pages for two firsthand observations on the isthmus.'],
+    fieldReport:['City Pulse field notes','Your notes on the State Street crowd and the Blair walk phase.']
   };
   const quests={
     first:{kind:'Main',title:'A First Shift',brief:'Help put together a lakeside welcome table.',steps:[
@@ -56,6 +68,18 @@
     line:{kind:'Side',title:'Take the A',requires:'first',brief:'Try Metro Rapid, then compare notes with the crew at Breese Stevens Field.',steps:[
       {site:'union',objective:'Pick up the Route A field card at the Terrace',label:'Pick up the Route A field card',detail:'Jules wants you to learn which stops are useful for a visitor coming across town.',give:'tickets'},
       {site:'field',objective:'Bring your stamped card to Breese Stevens Field',label:'Turn in the ride survey',detail:'Tell the crew which stop you used and how far you walked.',take:'tickets',consume:'stamp',pay:68}
+    ]},
+    pulse:{kind:'Side',title:'City Pulse',requires:'first',brief:'See for yourself how people change the pace of the city.',steps:[
+      {site:'capitol',objective:'Meet the field reporter at Capitol Square',label:'Pick up the City Pulse notebook',
+        detail:'Iris is collecting firsthand notes about the things that make people stop, stick around, or move on.',give:'fieldBook'},
+      {site:'stateStage',objective:'Find four or more listeners at the State Street set',label:'Record the crowd',
+        detail:'Make a note of how a few listeners can become a crowd.',observe:{activity:'state',size:4,
+          waiting:'Record this once at least four listeners have gathered. You can start a set when it is nearly due.'}},
+      {site:'blairCrossing',objective:'Observe a walk phase at Blair',label:'Record the walk phase',
+        detail:'Write down what happens to traffic during the walk phase.',observe:{crossing:'blair',size:1,
+          waiting:'Wait for the walk signal to turn on. You can call it here yourself.'}},
+      {site:'field',objective:'Compare your notes at Breese Stevens Field',label:'File your City Pulse report',
+        detail:'Iris wants to know what connected the two observations.',take:'fieldBook',give:'fieldReport',pay:92}
     ]},
     openHouse:{kind:'Main',title:'Open House',requires:'home',brief:'Put your new place on the neighborhood’s open-house list.',steps:[
       {site:'studio',objective:'Meet the organizer at Bassett Studio',label:'Pick up the room plan',detail:'A neighbor wants to use the studio for a small book swap.',give:'blueprint'},
@@ -84,19 +108,32 @@
   const jpeg=value=>typeof value==='string' && value.length<85000 && /^data:image\/jpeg;base64,[a-z0-9+/]+=*$/i.test(value);
 
   function open(storage) {
-    let canSave=Boolean(storage);
+    let canSave=Boolean(storage),readCity=()=>0;
     function read() {
       try { return JSON.parse(storage?.getItem(saveKey)) || {}; }
       catch { return {}; }
     }
     function normalize(raw) {
-      const state={cash:count(raw.cash),steps:{},pack:{},photos:{},owned:{},runs:{},job:null,tracked:null,last:'books'};
+      const state={cash:count(raw.cash),steps:{},pack:{},photos:{},owned:{},runs:{},dispatchRuns:{},funded:{},
+        dispatch:null,job:null,tracked:null,last:'books'};
       for(const [id,quest] of Object.entries(quests)) state.steps[id]=count(raw.steps?.[id],quest.steps.length);
       for(const id of Object.keys(items)) if(count(raw.pack?.[id],99)) state.pack[id]=count(raw.pack[id],99);
       for(const id of Object.keys(properties)) if(raw.owned?.[id]===true) state.owned[id]=true;
       for(const id of Object.keys(jobs)) state.runs[id]=count(raw.runs?.[id]);
+      for(const id of Object.keys(contracts)) state.dispatchRuns[id]=count(raw.dispatchRuns?.[id]);
+      for(const id of Object.keys(projects)) if(raw.funded?.[id]===true) state.funded[id]=true;
       for(const {site,photo} of quests.views.steps) if(photo && jpeg(raw.photos?.[site])) state.photos[site]=raw.photos[site];
       if(Object.hasOwn(jobs,raw.job)) state.job=raw.job;
+      const saved=raw.dispatch,contract=saved && Object.hasOwn(contracts,saved.id)?contracts[saved.id]:null;
+      if(contract && !state.job) {
+        state.dispatch={id:saved.id,reward:contract.pay+(saved.rush===true?payout.rush:0)+(saved.workshop===true?payout.workshop:0),
+          rush:saved.rush===true,workshop:saved.workshop===true,
+          ride:contract.arrival && ['express','regular'].includes(saved.ride)?saved.ride:null};
+      }
+      for(const [id,entry] of Object.entries(contracts)) {
+        if(state.dispatch?.id===id) state.pack[entry.item]=1;
+        else delete state.pack[entry.item];
+      }
       if(typeof raw.tracked==='string') state.tracked=raw.tracked;
       if(Object.hasOwn(sites,raw.last)) state.last=raw.last;
       return state;
@@ -112,9 +149,13 @@
     const unlocked=(entry,s=state)=>!entry.requires || done(entry.requires,s);
     const main=()=>Object.keys(quests).find(id=>quests[id].kind==='Main'&&!done(id));
     const payFor=job=>job.pay+(state.owned.workshop?12:0);
+    const quoteFor=contract=>quote(contract,readCity,state.owned.workshop);
+    const dispatchCount=()=>Object.values(state.dispatchRuns).reduce((sum,n)=>sum+n,0);
+    const hasShift=()=>Boolean(state.job || state.dispatch);
+    const dispatchPay=shift=>shift.reward+(shift.ride==='regular'?payout.ride:0);
 
     function entries() {
-      const rows={quests:[],jobs:[],properties:[]};
+      const rows={quests:[],jobs:[],properties:[],projects:[]};
       for(const [id,quest] of Object.entries(quests)) {
         const step=quest.steps[state.steps[id]],available=Boolean(step)&&unlocked(quest);
         const needsRide=available && step.consume==='stamp' && !state.pack.stamp;
@@ -133,11 +174,31 @@
           objective:active?'Deliver to '+sites[job.destination].name:available?'Pick up at '+sites[job.site].name:'Unlocks after '+quests[job.requires].title,
           target:active?job.destination:available?job.site:null,status:active?'On shift':available?money(payFor(job))+' per run':'Locked',runs:state.runs[id]});
       }
+      const tier=dispatchCount();
+      for(const [id,contract] of Object.entries(contracts)) {
+        const active=state.dispatch?.id===id,available=active || tier>=(contract.unlock || 0);
+        const needsRide=active && contract.arrival && !state.dispatch.ride;
+        const offer=available && !active?quoteFor(contract):null;
+        const objective=needsRide?'Ride Route A to Blair':active?'Deliver to '+sites[contract.drop].name:
+          available?'Pick up at '+sites[contract.pickup].name:'Complete '+contract.unlock+' City Dispatch shifts to unlock';
+        rows.jobs.push({key:'d:'+id,title:contract.title,kind:'City Dispatch',brief:contract.brief,objective,active,
+          target:needsRide?null:active?contract.drop:available?contract.pickup:null,needsRide,arrival:contract.arrival,
+          status:active?money(dispatchPay(state.dispatch))+' on delivery':offer?money(offer.pay)+(offer.busy?' · rush':''):'Locked',
+          runs:state.dispatchRuns[id],demand:offer?.note});
+      }
+      rows.jobs.sort((a,b)=>Number(b.active)-Number(a.active) || Number(b.kind==='City Dispatch')-Number(a.kind==='City Dispatch'));
       for(const [id,property] of Object.entries(properties)) {
         const owned=Boolean(state.owned[id]),available=unlocked(property);
         rows.properties.push({key:'p:'+id,title:sites[id].name,kind:'Property',brief:property.brief,owned,
           objective:owned?sites[id].address:available?'Visit the property to buy it':'Unlocks after '+quests[property.requires].title,
           status:owned?'Owned':available?money(property.price):'Locked',target:available?id:null});
+      }
+      for(const [id,project] of Object.entries(projects)) {
+        const funded=Boolean(state.funded[id]),available=funded || Boolean(state.dispatchRuns[project.shift]);
+        rows.projects.push({key:'c:'+id,id,title:project.title,kind:'Community project',brief:project.brief,funded,
+          objective:funded?'Active at '+sites[project.site].name:available?'Fund at '+sites[project.site].name:
+            'Complete '+contracts[project.shift].title+' to unlock',
+          status:funded?'Funded':available?money(project.price):'Locked',target:available?project.site:null});
       }
       return rows;
     }
@@ -147,8 +208,8 @@
       const tracked=all.find(row=>row.key===state.tracked && (row.target || row.needsRide))
         || list.quests.find(row=>row.key==='q:'+main() && row.target)
         || list.jobs.find(row=>row.active) || null;
-      return {...list,tracked,cash:state.cash,job:state.job,last:state.last,canSave,hasSave:state.last!=='books'||
-        Object.values(state.steps).some(Boolean)||Boolean(state.job)||Object.values(state.runs).some(Boolean),chapterComplete:done('home'),
+      return {...list,tracked,cash:state.cash,job:state.job,last:state.last,canSave,dispatchCount:dispatchCount(),hasSave:state.last!=='books'||
+        Object.values(state.steps).some(Boolean)||hasShift()||dispatchCount()>0||Object.values(state.runs).some(Boolean),chapterComplete:done('home'),
         photos:Object.entries(state.photos).map(([site,src])=>({src,name:sites[site].name})),
         pack:Object.entries(state.pack).map(([id,quantity])=>({id,quantity,name:items[id][0],detail:items[id][1]}))};
     }
@@ -162,12 +223,34 @@
         if(step.consume && !state.pack[step.consume]) {
           Object.assign(actions.at(-1),{detail:'First ride Route A and get off at a different stop.',disabled:true});
         }
+        if(step.observe) {
+          const ready=readCity(step.observe)>=step.observe.size;
+          Object.assign(actions.at(-1),{live:true,detail:ready?step.detail:step.observe.waiting,disabled:!ready});
+        }
       }
       for(const [id,job] of Object.entries(jobs)) {
         if(state.job===id && site===job.destination) actions.push({id:`j:${id}:deliver`,title:'Complete '+job.title,
           detail:'Hand over your delivery and earn '+money(payFor(job))+'.',kind:'Odd job'});
-        else if(site===job.site && !state.job && unlocked(job)) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
+        else if(site===job.site && !hasShift() && unlocked(job)) actions.push({id:`j:${id}:accept`,title:'Take '+job.title,
           detail:job.brief+' Earn '+money(payFor(job))+'.',kind:'Odd job'});
+      }
+      for(const [id,contract] of Object.entries(contracts)) {
+        const shift=state.dispatch?.id===id?state.dispatch:null;
+        if(shift && site===contract.drop) {
+          const needed=Boolean(contract.arrival && !shift.ride);
+          actions.push({id:`d:${id}:deliver`,title:'Complete '+contract.title,kind:'City Dispatch',disabled:needed,
+            detail:needed?'Ride Route A here from another stop first.':'Finish the shift and earn '+money(dispatchPay(shift))+'.'});
+        } else if(site===contract.pickup && !hasShift() && dispatchCount()>=(contract.unlock || 0)) {
+          const offer=quoteFor(contract);
+          actions.push({id:`d:${id}:accept`,title:'Take '+contract.title+' · '+money(offer.pay),kind:'City Dispatch',
+            detail:[contract.brief,offer.note].filter(Boolean).join(' '),rush:offer.busy});
+        }
+      }
+      for(const [id,project] of Object.entries(projects)) {
+        if(site!==project.site || state.funded[id] || !state.dispatchRuns[project.shift]) continue;
+        const short=project.price-state.cash;
+        actions.push({id:`c:${id}:fund`,title:'Fund '+project.title+' · '+money(project.price),kind:'Community project',
+          detail:project.brief+(short>0?' '+money(short)+' still needed.':''),disabled:short>0});
       }
       const property=properties[site];
       if(property && unlocked(property)) {
@@ -192,14 +275,14 @@
       return nearest;
     }
 
-    function perform(site,action,photo) {
+    function perform(site,action,photo,presentedRush) {
       sync();
       const choice=actionsAt(site).find(entry=>entry.id===action && !entry.disabled);
       if(!choice) return null;
       const [kind,id,verb]=choice.id.split(':');
       if(kind==='seat') return {seat:terraceSeat,message:'Press E to stand up'};
       const next={...state,steps:{...state.steps},pack:{...state.pack},owned:{...state.owned},runs:{...state.runs},last:site};
-      let award=0,message,rest=false,repark=false;
+      let award=0,message,rest=false,repark=false,cityActivity,dispatchReport,cityProject;
       function put(item) { if(item) next.pack[item]=(next.pack[item] || 0)+1; }
       function take(item) {
         if(!item) return true;
@@ -234,6 +317,33 @@
           award=payFor(job);
           message='Delivery complete';
         }
+      } else if(kind==='d') {
+        const contract=contracts[id];
+        repark=true;
+        if(verb==='accept') {
+          const rush=typeof presentedRush==='boolean'?presentedRush:choice.rush;
+          const workshop=Boolean(state.owned.workshop);
+          put(contract.item);
+          next.dispatch={id,rush,workshop,reward:contract.pay+(rush?payout.rush:0)+(workshop?payout.workshop:0),ride:null};
+          next.tracked='d:'+id;
+          message='Dispatch accepted · '+contract.title;
+        } else {
+          if(!take(contract.item)) return null;
+          award=dispatchPay(state.dispatch);
+          next.dispatch=null;
+          next.dispatchRuns={...state.dispatchRuns,[id]:state.dispatchRuns[id]+1};
+          next.tracked=state.tracked==='d:'+id?null:state.tracked;
+          cityActivity=contract.activity;
+          dispatchReport=contract.arrival;
+          message='City Dispatch complete';
+        }
+      } else if(kind==='c') {
+        const project=projects[id];
+        next.cash-=project.price;
+        next.funded={...next.funded,[id]:true};
+        if(next.tracked==='c:'+id) next.tracked=null;
+        cityProject=id;
+        message=project.title+' funded';
       } else if(verb==='buy') {
         const property=properties[id];
         next.cash-=property.price;
@@ -249,7 +359,7 @@
       }
       next.cash=count(next.cash+award);
       commit(next);
-      return {message:message+(award?' · +'+money(award):''),rest,repark};
+      return {message:message+(award?' · +'+money(award):''),rest,repark,cityActivity,dispatchReport,cityProject};
     }
 
     function track(key) {
@@ -261,10 +371,11 @@
 
     function abandonJob() {
       sync();
-      if(!state.job) return false;
+      if(!hasShift()) return false;
       const pack={...state.pack};
-      delete pack[jobs[state.job].item];
-      commit({...state,pack,tracked:state.tracked==='j:'+state.job?null:state.tracked,job:null});
+      const id=state.dispatch?.id || state.job,key=state.dispatch?'d:'+id:'j:'+id;
+      delete pack[(state.dispatch?contracts:jobs)[id].item];
+      commit({...state,pack,tracked:state.tracked===key?null:state.tracked,job:null,dispatch:null});
       return true;
     }
 
@@ -275,14 +386,18 @@
       return true;
     }
 
-    function recordTransit(origin,arrival) {
+    function recordTransit(origin,arrival,express=false) {
       sync();
-      if(!origin || origin===arrival || state.steps.line!==1 || state.pack.stamp) return false;
-      commit({...state,pack:{...state.pack,stamp:1}});
-      return true;
+      if(!origin || origin===arrival) return {stamp:false,survey:false};
+      const stamp=state.steps.line===1 && !state.pack.stamp;
+      const shift=state.dispatch;
+      const survey=Boolean(shift && contracts[shift.id].arrival===arrival && (shift.ride===null || shift.ride==='express' && !express));
+      if(stamp || survey) commit({...state,pack:stamp?{...state.pack,stamp:1}:state.pack,
+        dispatch:survey?{...shift,ride:express?'express':'regular'}:shift});
+      return {stamp,survey};
     }
 
-    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome,recordTransit};
+    return {view,actionsAt,nearby,perform,track,sync,abandonJob,returnHome,recordTransit,setCityReader:reader=>{readCity=reader;}};
   }
 
   window.MadisonCampaign={sites,arrival,open,money,saveKey,terraceSeat,contacts};

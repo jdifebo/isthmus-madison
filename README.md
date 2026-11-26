@@ -6,7 +6,7 @@ Make a life for yourself in downtown Madison, Wisconsin, or explore on foot, by 
 
 Choose **Start the story** to begin *A Place of Your Own*. You start outside the University Book Store with a volunteer shift to pick up. Follow the tracked objective, press **E** to interact on foot, and check the **Journal** with **J**. The **I** shortcut opens your inventory.
 
-- Three main quests lead to your first property. Organize a book swap in **Open House** after you move in. Three side quests and three repeatable jobs let you earn cash along the way.
+- Three main quests lead to your first property. Organize a book swap in **Open House** after you move in. Side quests, repeatable deliveries, and City Dispatch shifts let you earn cash along the way.
 - Your inventory carries quest items, souvenirs, keys, and the in-game photos you take during the postcard quest.
 - Buy Bassett Studio or East Wash Workshop with in-game earnings. Return to an owned property from the journal. The studio completes the chapter and the workshop increases delivery pay.
 - Progress saves in your current browser. **Continue story** returns you to your most recent story interaction. Free roam and Saturday Market are also available from the title screen.
@@ -14,6 +14,14 @@ Choose **Start the story** to begin *A Place of Your Own*. You start outside the
 - Press **M** or **Esc** for the full-screen pause map. Choose an objective, place, or bus stop for a walking or driving route. Switch the minimap between **North up** and **Heading up** with its orientation button. Free roam still lets you jump directly to landmarks.
 
 The current chapter uses fictional characters, events, and purchasable properties. The University Book Store and Fromagination have handcrafted storefronts at their mapped locations. Memorial Union Terrace has sunburst chairs and sailboats on Lake Mendota. [Start the story](https://jdifebo.github.io/isthmus-madison/?story=1) · [University Book Store exterior](https://strategiccommunication.wisc.edu/contact-us/) · [Fromagination storefront design](https://www.cricketdesignworks.com/portfolio/fromagination) · [Wisconsin Union Terrace](https://union.wisc.edu/visit/terrace-at-the-memorial-union)
+
+### City Dispatch and community projects
+
+Open **Journal → Jobs** to see five City Dispatch shifts. The closest first pickup is **Soundcheck Supplies** at the University Book Store. Busy crowds and platform queues can add $14 in rush pay. The pickup quote stays with the shift until you deliver. After two Dispatch shifts, you can survey Route A to Blair. Express counts for the survey, and riding the full trip pays a $12 bonus.
+
+Handing over supplies draws people to the gathering or brings forward its next start. The Blair survey gives walk requests temporary priority. Completing different shifts unlocks projects you can fund with in-game cash. The Library Mall noticeboard brings sets around sooner, the State Street open mic supports longer sets and larger crowds, and the Blair crossing fund gives walk requests lasting priority. Funded projects carry over when you return to your story.
+
+After **A First Shift**, pick up **City Pulse** at Capitol Square. Record a live crowd at the State Street set and watch a walk phase at Blair before filing your notes at Breese Stevens Field.
 
 ## City Watch
 
