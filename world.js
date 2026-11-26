@@ -1117,7 +1117,7 @@
     const geo={data,ground,nearestRoad,inBuilding,onWater,random,clamp,batch,box,cylinder,mergeLandmark,
       area,center,bounds,inPolygon,indexGrid,segmentDistance,chunkedBatch,triangulate,roofLevels,pavingMaterial,fill,
       streetCandidates:(x,z)=>roadGrid.at(x,z)};
-    const stationLighting=MadisonStreetscape.create(scene,{...layout,stencils},geo,wind);
+    const streets=MadisonStreetscape.create(scene,{...layout,stencils},geo,wind);
     const lightStreet=streetLights(scene);
     await stage(56,'Building downtown');
     const homes=MadisonHomes.create(scene,geo,evening);
@@ -1131,8 +1131,9 @@
     const yards={...homes,paved:(x,z)=>homes.paved(x,z)||storefronts.paved(x,z)||market?.paved(x,z)};
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,yards);
     const parking=MadisonParking.create(geo,layout,market,rapid.routes);
-    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes,parking);
-    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[]);
+    const city=MadisonCity.create(geo,layout,rapid.routes,market);
+    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes,parking,city);
+    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[],city);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -1155,7 +1156,7 @@
       renderer.toneMappingExposure=mood.exposure;
       evening.value=i===2?.85:i===1?.15:0;
       lightStreet(evening.value);
-      stationLighting(evening.value);
+      streets.light(evening.value);
       stadium?.(evening.value);
       storefronts.light(evening.value);
     }
@@ -1170,7 +1171,7 @@
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
-    return {camera,car,market,parking,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+    return {camera,car,market,parking,city,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
       siteTarget:storefronts.target,capture() {
         try {
           renderer.render(scene,camera);
@@ -1181,7 +1182,10 @@
           return canvas.toDataURL('image/jpeg',.78);
         } catch { return null; }
       },
-      transit:traffic.transit,advanceTraffic:traffic.advance,platforms:layout.stops,
+      transit:traffic.transit,advanceTraffic(time,player,parked,driving=false) {
+        city.advance(time,(a,b)=>traffic.crossingClear(a,b,driving?player:null,parked));
+        traffic.advance(time,player,parked);
+      },platforms:layout.stops,
       rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
@@ -1227,6 +1231,7 @@
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
       storefronts.update(seconds);
+      streets.update();
       traffic.render(camera);
       pedestrians(seconds,camera,software || frameTime>.063);
       if(frameTime>.073) reflectionQuality=false;

@@ -69,7 +69,7 @@
     return tracks;
   }
 
-  function create(scene,geo,layout,market,contacts=[]) {
+  function create(scene,geo,layout,market,contacts=[],city) {
     const shelters=layout.stops.filter(([name])=>name==='State Street').map(([,x,z,dx,dz])=>{
       const position=(px,pz)=>[(px-x)*dx+(pz-z)*dz,(px-x)*dz-(pz-z)*dx];
       return {
@@ -121,6 +121,7 @@
       });
       person({lane,signals,along:s,direction:rng()<.5?-1:1});
     }
+    for(const actor of city?.people || []) person({cityActor:actor});
     if(!walkers.length) return ()=>{};
     const crossings=layout.signals.filter(({x,z})=>x>=-1004&&x<=-191&&Math.abs(z-(.021*x-1.8))<11)
       .map(signal=>({signal,axis:Math.abs(signal.axes[0].dx)>Math.abs(signal.axes[1].dx)?0:1}));
@@ -141,6 +142,8 @@
     const arms=parts(new T.CapsuleGeometry(.048,.44,3,7),walkers.length*2);
     const shoes=parts(new T.SphereGeometry(1,8,5),walkers.length*2);
     const bags=parts(new T.CapsuleGeometry(.133,.19,3,8),walkers.length);
+    const instruments=parts(new T.SphereGeometry(1,10,7),city?4:0);
+    const guitarNecks=parts(new T.BoxGeometry(1,1,1),city?4:0);
     const shadowSize=10,shadowInk=document.createElement('canvas');
     shadowInk.width=shadowInk.height=shadowSize;
     const ink=shadowInk.getContext('2d');
@@ -151,9 +154,10 @@
     ink.fillRect(0,0,shadowSize,shadowSize);
     const shade=parts(new T.PlaneGeometry(.95,.66).rotateX(-Math.PI/2),walkers.length,
       new T.MeshBasicMaterial({map:new T.CanvasTexture(shadowInk),transparent:true,depthWrite:false}));
-    const motions=[torso,hips,head,hair,legs,arms,shoes,bags,shade];
+    const motions=[torso,hips,head,hair,legs,arms,shoes,bags,shade,instruments,guitarNecks];
     const step=new T.Object3D();
     const bagColor=new T.Color(0x52564e),shoeColor=new T.Color(0x383838);
+    const maple=new T.Color(0xb8773e),fingerboard=new T.Color(0x613f30);
     let lastTime;
     return (seconds,camera,reduced)=>{
       const dt=lastTime===undefined?0:Math.min(.2,Math.max(0,seconds-lastTime));
@@ -162,7 +166,12 @@
       for(const walker of walkers) {
         const {points,height,pace,side}=walker;
         let x,z,dx,dz,lift;
-        if(walker.fixed) {
+        const actor=walker.cityActor;
+        if(actor) {
+          if(actor.phase==='idle' || actor.phase==='onboard') continue;
+          ({x,z,dx,dz,lift}=actor);
+          walker.progress=actor.moving?1:0;
+        } else if(walker.fixed) {
           [x,z,dx,dz]=walker.fixed;
           walker.progress=0;
           lift=.19;
@@ -231,12 +240,20 @@
         place(hips,0,.954+bob,0,0,.179,.109,.110,walker.trousers);
         place(head,0,1.625+bob,.015,0,.92,1.05,.95,walker.skin);
         place(hair,0,1.657+bob,.007,0,.93,.83,.99,walker.hair);
-        if(walker.bag) place(bags,0,1.21+bob,-.177,.04,1,.84,.53,bagColor);
+        const performing=actor?.phase==='perform';
+        const music=performing && (actor.feature==='library'||actor.feature==='state');
+        if(music) {
+          place(instruments,-.107,1.085,.208,.09,.158,.198,.057,maple);
+          place(guitarNecks,.106,1.135,.22,.035,.295,.049,.035,fingerboard);
+        } else if(walker.bag) place(bags,0,1.21+bob,-.177,.04,1,.84,.53,bagColor);
         for(const side of [-1,1]) {
           const stride=side*swing*.38,leg=Math.sin(stride);
           place(legs,side*.101,.906+bob-.388*Math.cos(stride),leg*.388,-stride,1,1,1,walker.trousers);
           place(shoes,side*.105,.906+bob-.812*Math.cos(stride),leg*.75+.055,0,.074,.055,.143,shoeColor);
-          place(arms,side*.218,1.39+bob-.25*Math.cos(stride),-leg*.22,stride*.90,.90,1,.93,walker.jacket);
+          const gesture=performing?Math.sin(seconds*3.7+side*.56)*.22:0;
+          const handY=performing?1.23+gesture*.43:1.39+bob-.25*Math.cos(stride);
+          place(arms,side*(performing?.145:.218),handY,performing?.15:-leg*.22,
+            performing?-1.05+gesture:stride*.90,.90,performing?.77:1,.93,walker.jacket);
         }
         place(shade,0,.012,0,0,1,1,1);
       }

@@ -149,7 +149,7 @@
     }
     function draw(state) {
       last=state;
-      const {player,target,route,points,buses,car}=state;
+      const {player,target,route,points,buses,car,activity}=state;
       size();
       const {width:w,height:h}=canvas,angle=expanded || northUp?0:-player.yaw;
       const scale=expanded?zoom*Math.min(1.6,window.devicePixelRatio || 1):w/(player.flying?1120:650);
@@ -194,6 +194,19 @@
         }
       }
       for(const p of points) flag(p.x,p.z,p.transit?'stop':'place',p.transit?colors.bus:colors.place);
+      if(activity) {
+        for(const row of [...activity.activities,...activity.crosswalks]) {
+          if(!row.active) continue;
+          const [x,z]=project(row.x,row.z);
+          ctx.beginPath();ctx.arc(x,z,expanded?10:6,0,Math.PI*2);
+          ctx.strokeStyle='#b9f1c3';ctx.lineWidth=2;ctx.stroke();
+        }
+        for(const row of activity.crowds) {
+          const [x,z]=project(row.x,row.z);
+          ctx.beginPath();ctx.arc(x,z,Math.min(12,4+row.count*.55),0,Math.PI*2);
+          ctx.strokeStyle='#9ed8e2b0';ctx.lineWidth=1.5;ctx.stroke();
+        }
+      }
       for(const [x,z,dx,dz,boarding] of buses) flag(x,z,'bus',boarding?'#b7f1db':colors.bus,false,Math.atan2(dx,-dz)+angle);
       if(car) flag(car.x,car.z,'car',colors.parked,true,car.yaw+angle);
       if(target) flag(target.x,target.z,'goal',colors.route,true);

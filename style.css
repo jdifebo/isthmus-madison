@@ -162,6 +162,27 @@ h1, h2, p { margin: 0; }
 #transit-status, #market-stall-name { margin-top: 3px; font-size: 14px; }
 #transit-action, #transit-destinations, #market-browse, #car-action { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
 #car-panel { border-color: #93c8ff8a; }
+#city-panel { border-left-color: #a6e3c3; }
+#city-action { padding: 7px 9px; font-size: 14px; }
+#city-place { font-size: 14px; font-weight: 700; }
+.city-watch {
+  position: absolute; left: clamp(18px,3.3vw,55px); bottom: 148px; z-index: 3; width: min(390px,calc(100% - 36px));
+  max-height: min(360px,calc(100% - 250px)); overflow: auto; background: #182b36f2;
+}
+.city-watch header { display: flex; align-items: center; gap: 7px; padding: 12px; background: #182b36; position: sticky; top: 0; }
+.city-watch header > div { margin-right: auto; }
+.city-watch h2 { font: 24px/1.1 var(--serif); }
+.city-watch header p { font-size: 11px; color: #a6e3c3; margin-top: 3px; }
+.city-watch ol { list-style: none; margin: 0; padding: 0 12px 7px; }
+.city-watch li { padding: 8px 0; border-top: 1px solid var(--line); }
+.city-watch li p { font-size: 13px; line-height: 1.38; }
+.city-topic { display: block; margin-bottom: 2px; color: #a6e3c3; font-size: 11px; font-weight: 700; }
+.map-activity { display: grid; gap: 5px; margin-top: 8px; }
+.map-activity button { display: grid; gap: 2px; text-align: left; border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; }
+.map-activity button:hover, .map-activity button[aria-current="true"] { background: #40544b; }
+.map-activity strong { font-size: 13px; }
+.map-activity span { color: #b2d8c8; font-size: 12px; }
+.hud-free .city-watch { display: none; }
 .driving #speedometer { left: auto; right: clamp(18px, 3.3vw, 55px); bottom: max(44vh,245px); }
 .transit-choices { display: grid; gap: 8px; }
 .transit-choices button { text-align: left; }
@@ -310,6 +331,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .story-mode .place { top: 65px; }
   .story-mode .story-balance { font-size: 13px; }
   #encounter-action kbd { display: none; }
+  .city-watch { bottom: 284px; max-height: max(130px,calc(100% - 440px)); }
 }
 @media (max-height: 430px) and (max-width: 755px) {
   .story-objective { top: 70px; width: min(218px, 40vw); }
@@ -322,6 +344,10 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .wordmark { letter-spacing: .18em; }
   .rail-actions .small { padding-inline: 7px; font-size: 12px; }
   .rail-actions .small > span[aria-hidden="true"] { display: none; }
+}
+@media (max-width: 460px) {
+  .rail-actions #city-toggle { padding-inline: 5px; }
+  .story-mode .rail-actions { flex-wrap: wrap; justify-content: flex-end; }
 }
 @media (pointer: coarse) and (max-width: 755px) {
   .speedometer { bottom: 215px; }

@@ -17,12 +17,13 @@
   ];
   const stationPoints=[];
   const query=new URLSearchParams(window.location.search);
+  const watchQuery=query.get('watch');
   const marketDay=query.get('market')==='1';
   const storyMode=!marketDay && query.get('story')==='1';
   let storage;
   try { storage=window.localStorage; } catch {}
   const campaign=MadisonCampaign.open(storage);
-  let story;
+  let story,cityUI,citySound;
   const marketBasket=new Set();
   const stallDialog=$('stall-dialog'),transitDialog=$('transit-dialog');
   const stopQuery=query.get('stop')?.toLowerCase();
@@ -90,7 +91,8 @@
     fieldMap.draw({player:player(),target,route,points:points.map(point=>{
       const [x,z]=point.marker || [point.x,point.z];
       return {x,z,transit:point.transit};
-    }),buses:engine?.buses || [],car:story && state!=='drive'?parkedCar:null});
+    }),buses:engine?.buses || [],car:story && state!=='drive'?parkedCar:null,activity:cityUI?.read()});
+    if(expanded) cityUI?.mapRows(target);
     const meters=target?route?.distance ?? Math.hypot(x-target.x,z-target.z):0;
     const length=meters>=1000?(meters/1000).toFixed(1)+' km':Math.round(meters)+' m';
     $('map-destination').textContent=target?.name || 'No destination';
@@ -139,7 +141,7 @@
     game.classList.toggle('map-open',open);
     $('map-toggle').setAttribute('aria-expanded',String(open));
     for(const id of ['map-close','map-details','map-tools']) $(id).hidden=!open;
-    for(const id of ['hud','intro']) $(id).inert=open;
+    for(const id of ['hud','intro','city-watch']) $(id).inert=open;
     game.querySelector('.rail').inert=open;
     game.querySelector('.credits').inert=open;
     keys.clear();
@@ -150,6 +152,7 @@
       $('help-toggle').setAttribute('aria-expanded','false');
       showObjectives();
       $('map-close').focus();
+      cityUI?.mapRows(destination(),true);
     }
     drawMap();
   }
@@ -171,6 +174,17 @@
     return state==='walk' && !seated && !engine.transit.platformAt(x,z)?campaign.nearby(x,z):null;
   }
 
+  function cityOffer() {
+    if(state!=='walk' || seated || engine.transit.platformAt(x,z) || engine.market?.nearby(x,z) || story && storyNearby()) return null;
+    return engine.city.nearby(x,z);
+  }
+
+  function cityInteract() {
+    if(!cityOffer()) return;
+    cityUI.notify(engine.city.act(x,z));
+    updateHUD();
+  }
+
   function storyStart() {
     const {last,hasSave}=campaign.view();
     return hasSave?MadisonCampaign.sites[last]:MadisonCampaign.arrival;
@@ -190,7 +204,8 @@
 
   function carAllowed(cx,cz,angle,ignoreCar=false) {
     const dx=Math.sin(angle), dz=-Math.cos(angle);
-    const blocked=(x,z,radius)=>groundBlocked(x,z,radius,ignoreCar)||engine.market?.drivingBlocked(x,z,radius);
+    const blocked=(x,z,radius)=>groundBlocked(x,z,radius,ignoreCar)
+      || engine.market?.drivingBlocked(x,z,radius) || engine.city.blocksCar(x,z);
     return !blocked(cx,cz,1) && !blocked(cx+dx*1.42,cz+dz*1.42,.93)
       && !blocked(cx-dx*1.42,cz-dz*1.42,.93);
   }
@@ -343,6 +358,7 @@
     game.classList.remove('hud-free');
     $('intro').hidden=next!=='intro';
     $('hud').hidden=next==='intro';
+    $('city-toggle').hidden=next==='intro';
     $('help').hidden=true;
     $('help-toggle').setAttribute('aria-expanded','false');
     $('speedometer').hidden=next!=='drive';
@@ -445,9 +461,11 @@
       else if(stopRequested) status='Stop requested for '+riding.next;
       else if(riding.station) status='At '+riding.station;
       else status='Next stop · '+riding.next;
+      if(riding.riders) status+=' · '+riding.riders+(riding.riders===1?' rider':' riders');
     } else {
       action='Travel';
       status=waiting.boarding?'Doors open at '+waiting.name:waiting.name+' platform';
+      if(waiting.waiting) status+=' · '+waiting.waiting+' waiting';
     }
     const labels={'transit-status':status,'transit-route':direction?'Route A · '+direction:'Route A','transit-action-label':action};
     for(const [id,label] of Object.entries(labels)) {
@@ -588,7 +606,9 @@
     if(stall && $('market-stall-name').textContent!==stall.name) $('market-stall-name').textContent=stall.name;
     story?.update(x,z,state!=='intro',seated);
     if(story) engine.siteTarget(state==='intro'?null:story.target());
-    $('car-panel').hidden=!story || state!=='drive' && !(state==='walk' && !seated && carNear() && !milestone && $('transit-panel').hidden);
+    cityUI?.update(state!=='intro');
+    $('car-panel').hidden=!story || state!=='drive' && !(state==='walk' && !seated && carNear()
+      && !milestone && $('transit-panel').hidden && $('city-panel').hidden);
     $('car-action-label').textContent=state==='drive'?'Get out':'Get in';
     drawMap();
   }
@@ -607,7 +627,8 @@
     let seconds=stamp/1000;
     if(state==='intro' && reducedMotion.matches) seconds=0;
     lastRender=stamp;
-    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null,state==='drive'?null:parkedCar);
+    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null,
+      state==='drive'?null:parkedCar,state==='drive');
     if(state==='ride') {
       rideView=engine.transit.ride();
       if(rideView?.open && (stopRequested || rideView.final)) stepOff();
@@ -618,6 +639,7 @@
       updateHUD();
     }
     engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
+    if(state!=='intro') citySound.update(cityUI.read(),player(),engine.buses,engine.city.time());
   }
 
   function browseMarket(stall=engine.market?.nearby(x,z)) {
@@ -668,10 +690,13 @@
   }
 
   function bind() {
+    citySound=MadisonCitySound.create();
+    cityUI=MadisonCityUI.create(engine.city,{guide,offer:cityOffer,toast,sound:citySound});
     const walkStart=()=>story?storyStart():engine.market?.start || points[0];
     function returnTitle() {
       if(story && state==='drive' && !leaveCar()) {setMap(false);return;}
       manualTarget=null;
+      cityUI.toggle(false);
       changeMode('intro',points[0]);
     }
     $('walk').addEventListener('click',()=>changeMode('walk',walkStart()));
@@ -689,6 +714,7 @@
     $('market-close').addEventListener('click',()=>stallDialog.close());
     $('encounter-action').addEventListener('click',storyInteract);
     $('car-action').addEventListener('click',()=>state==='drive'?leaveCar():enterCar());
+    $('city-action').addEventListener('click',cityInteract);
     $('home').addEventListener('click',returnTitle);
     $('map-home').addEventListener('click',returnTitle);
     if(storyMode) {
@@ -803,13 +829,21 @@
         } else if(!$('credits').hidden) {
           $('credits').hidden=true;
           $('credits-toggle').setAttribute('aria-expanded','false');
-        } else if(state!=='intro') setMap(true);
+        } else if(cityUI.visible()) cityUI.toggle(false);
+        else if(state!=='intro') setMap(true);
         return;
       }
       if(event.code==='KeyM' && !event.repeat) { game.classList.remove('hud-free'); setMap(!expanded); return; }
       if(!event.repeat && modeKeys[key] && !expanded) { selectMode(modeKeys[key]); return; }
       if(!event.repeat && key==='KeyF' && !expanded) { selectMode(state==='fly'?'walk':'fly'); return; }
       if(state==='intro' || expanded) return;
+      if(key==='KeyL' && !event.repeat) {
+        game.classList.remove('hud-free');
+        $('help').hidden=true;
+        $('help-toggle').setAttribute('aria-expanded','false');
+        cityUI.toggle();
+        return;
+      }
       if(state!=='ride' && ['KeyW','KeyS','KeyA','KeyD','KeyC','Space','ShiftLeft','ShiftRight'].includes(key)) {
         if(key==='Space' && state==='walk') return;
         event.preventDefault();
@@ -820,6 +854,7 @@
         if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
         else if(stall) browseMarket(stall);
         else if(story && (seated || storyNearby())) storyInteract();
+        else if(cityOffer()) cityInteract();
         else if(story && state==='drive') leaveCar();
         else if(story && state==='walk' && carNear()) enterCar();
         else if(story) return;
@@ -887,10 +922,15 @@
       engine.advanceTraffic(0,null);
       if(storyMode) restoreCar();
       bind();
+      const watchSite=watchQuery && engine.city.snapshot().activities.find(row=>row.id===watchQuery);
       if(openingStop) {
         if(query.get('platform')==='1') visitPlatform(openingStop);
         else changeMode('walk',openingStop);
       } else if(story) changeMode('walk',storyStart());
+      else if(watchSite) {
+        changeMode('walk',watchSite.watch);
+        cityUI.toggle(true);
+      }
       else if(engine.market) changeMode('walk',engine.market.start);
       setCamera(0,0);
       engine.render(0,state==='intro'?null:[x,z,0]);

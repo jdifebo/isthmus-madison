@@ -8,7 +8,7 @@
   <meta name="madison-aerial" content="assets/madison-aerial.jpg">
   <meta name="madison-region" content="assets/madison-region.jpg">
   <title>Isthmus · Downtown Madison</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <main id="game" aria-label="Downtown Madison open world">
@@ -20,6 +20,7 @@
         <span>ISTHMUS</span>
       </button>
       <div class="rail-actions">
+        <button id="city-toggle" class="glass small" type="button" aria-controls="city-watch" aria-expanded="false" hidden>City <kbd>L</kbd></button>
         <button id="journal-toggle" class="glass small" type="button" aria-haspopup="dialog" hidden>Journal <kbd>J</kbd></button>
         <a id="scene-toggle" class="glass small" href="?market=1">Market</a>
         <button id="light" class="glass small" type="button" aria-label="Change time of day"><span aria-hidden="true">☀</span> <span id="light-label">Golden hour</span></button>
@@ -37,6 +38,7 @@
         <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
         <button id="ride-start" type="button" class="glass secondary" disabled>Ride Metro Rapid</button>
         <a id="market-start" class="glass secondary" href="?market=1">Saturday Market</a>
+        <a class="glass secondary" href="?watch=state">Watch city life</a>
         <a id="story-exit" class="glass secondary" href="?" hidden>Free roam</a>
       </div>
       <div id="loading">
@@ -75,6 +77,9 @@
         <p id="encounter-place"></p>
         <button id="encounter-action" class="glass" type="button"><span id="encounter-label">Interact</span> <kbd>E</kbd></button>
       </section>
+      <section id="city-panel" class="transit-panel glass" aria-label="Nearby city activity" hidden>
+        <p id="city-place"></p><button id="city-action" class="glass" type="button"><span id="city-action-label"></span> <kbd>E</kbd></button>
+      </section>
       <div class="control-bar glass" aria-label="Keyboard shortcuts">
         <span class="movement-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
         <span id="look-tip">Drag to look</span>
@@ -109,12 +114,19 @@
             <div class="map-actions"><button id="map-find-car" class="glass small" type="button" hidden>Find my car</button><button id="map-clear" class="glass small" type="button" hidden>Clear waypoint</button></div>
           </section>
           <section id="map-objectives" hidden><h3>Objectives</h3><div id="map-objective-list" class="map-locations"></div></section>
+          <details id="map-city"><summary>City activity</summary><div id="map-city-list" class="map-activity"></div></details>
           <section><h3>Places</h3><div id="landmarks" class="map-locations"></div></section>
           <details><summary>Metro Rapid stops</summary><div id="map-stops" class="map-locations"></div></details>
           <p class="map-key"><i></i> You <i></i> Destination <i></i> Your car <i></i> Metro Rapid</p>
           <button id="map-home" type="button" class="glass small">Return to title</button>
         </div>
       </div>
+    </aside>
+    <aside id="city-watch" class="city-watch glass" aria-labelledby="city-title" hidden>
+      <header><div><h2 id="city-title">City Watch</h2><p id="city-counts"></p></div>
+        <button id="city-sound" class="glass small" type="button" aria-pressed="false">Sound off</button>
+        <button id="city-close" class="glass small" type="button" aria-label="Close City Watch">×</button></header>
+      <ol id="city-feed"></ol>
     </aside>
     <section id="help" class="glass help" aria-label="All controls" hidden>
       <h2>Controls</h2>
@@ -127,6 +139,7 @@
         <div><dt>Walk / drive / fly</dt><dd>1 / 2 / 3</dd></div>
         <div><dt>Interact / board bus</dt><dd>E</dd></div>
         <div id="story-help" hidden><dt>Journal / inventory</dt><dd>J / I</dd></div>
+        <div><dt>City Watch</dt><dd>L</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
         <div><dt>Pause map / reset</dt><dd>M or Esc / R</dd></div>
@@ -185,17 +198,20 @@
   <script src="homes.js?v=5"></script>
   <script src="places.js"></script>
   <script src="landscape.js?v=7"></script>
-  <script src="traffic.js?v=5"></script>
+  <script src="traffic.js?v=6"></script>
   <script src="parking.js"></script>
   <script src="market.js"></script>
   <script src="campaign.js?v=2"></script>
   <script src="campaign-ui.js?v=2"></script>
   <script src="storefronts.js"></script>
-  <script src="pedestrians.js?v=4"></script>
-  <script src="streetscape.js?v=4"></script>
+  <script src="pedestrians.js?v=5"></script>
+  <script src="streetscape.js?v=5"></script>
   <script src="navigation.js"></script>
-  <script src="field-map.js"></script>
-  <script src="world.js?v=11"></script>
-  <script src="game.js?v=10"></script>
+  <script src="field-map.js?v=2"></script>
+  <script src="city.js"></script>
+  <script src="city-ui.js"></script>
+  <script src="city-sound.js"></script>
+  <script src="world.js?v=12"></script>
+  <script src="game.js?v=11"></script>
 </body>
 </html>

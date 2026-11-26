@@ -15,6 +15,12 @@ Choose **Start the story** to begin *A Place of Your Own*. You start outside the
 
 The current chapter uses fictional characters, events, and purchasable properties. The University Book Store and Fromagination have handcrafted storefronts at their mapped locations. Memorial Union Terrace has sunburst chairs and sailboats on Lake Mendota. [Start the story](https://jdifebo.github.io/isthmus-madison/?story=1) · [University Book Store exterior](https://strategiccommunication.wisc.edu/contact-us/) · [Fromagination storefront design](https://www.cricketdesignworks.com/portfolio/fromagination) · [Wisconsin Union Terrace](https://union.wisc.edu/visit/terrace-at-the-memorial-union)
 
+## City Watch
+
+Sidewalk sets on State Street and Library Mall, a sketch circle on Capitol Square, and a meetup near Breese Stevens bring people together. Some listeners head to Route A when a set ends. A busy stop holds the bus longer while riders board. At Blair and Paterson, people getting off can gather at the crosswalk and trigger a walk phase that backs up traffic. Some riders set off on foot when the wait gets long. The simulated activities and transit run while you explore.
+
+Press **L** for City Watch and its activity feed. Turn on **Sound** there to hear nearby guitar, bus, and crossing sounds. On foot, press **E** near a performer to ask for an encore, or at a marked crossing to request a walk signal. The **City activity** list on the pause map shows where things are happening and lets you set a route there. All events and timing are fictional. [Watch State Street](https://jdifebo.github.io/isthmus-madison/?watch=state) · [Watch near Breese Stevens](https://jdifebo.github.io/isthmus-madison/?watch=paterson)
+
 ## Controls
 
 | Action | Input |
@@ -30,6 +36,7 @@ The current chapter uses fictional characters, events, and purchasable propertie
 | Take off / land | F |
 | Open the pause map | M or Esc |
 | Hide or restore the HUD | H |
+| Open City Watch | L |
 | Return to your current starting point | R |
 | Close a panel or resume play | Esc |
 

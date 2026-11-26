@@ -139,7 +139,8 @@
     const metal=new T.MeshLambertMaterial({color:0x313735});
     const backs=new T.MeshLambertMaterial({color:0x68604a});
     const chunks=new Map(), lenses=[];
-    for(const {x,z,axes,phase} of layout) {
+    for(const intersection of layout) {
+      const {x,z,axes,phase}=intersection;
       const key=Math.floor(x/330)+','+Math.floor(z/330);
       if(!chunks.has(key)) chunks.set(key,new T.Group());
       const chunk=chunks.get(key);
@@ -163,7 +164,7 @@
             const y=top-.14-signal*.315;
             const visor=box(chunk,.259,.043,.25,hx+ux*.176,y+.13,hz+uz*.176,metal);
             visor.rotation.y=Math.atan2(ux,uz);
-            lenses.push([hx+ux*.155,y,hz+uz*.155,ux,uz,phase,axis,signal]);
+            lenses.push([hx+ux*.155,y,hz+uz*.155,ux,uz,phase,axis,signal,intersection]);
           }
         }
       }
@@ -177,14 +178,17 @@
       }
       scene.add(chunk);
     }
-    if(!lenses.length) return;
+    if(!lenses.length) return ()=>{};
     const meta=new Float32Array(lenses.length*3);
     const lens=new T.SphereGeometry(.105,9,5);
     const material=new T.MeshBasicMaterial();
     const colors=new T.InstancedMesh(lens,material,lenses.length);
     const dummy=new T.Object3D();
-    lenses.forEach(([x,y,z,dx,dz,time,axis,index],i)=>{
+    const ranges=new Map();
+    lenses.forEach(([x,y,z,dx,dz,time,axis,index,intersection],i)=>{
       meta.set([time,axis,index],i*3);
+      if(!ranges.has(intersection)) ranges.set(intersection,{indices:[],hold:false});
+      ranges.get(intersection).indices.push(i);
       dummy.position.set(x,y,z);
       dummy.rotation.y=Math.atan2(dx,dz);
       dummy.scale.set(1,1,.43);
@@ -192,21 +196,26 @@
       colors.setMatrixAt(i,dummy.matrix);
     });
     lens.setAttribute('signalInfo',new T.InstancedBufferAttribute(meta,3));
+    const control=new T.InstancedBufferAttribute(new Float32Array(lenses.length),1).setUsage(T.DynamicDrawUsage);
+    lens.setAttribute('walkHold',control);
     material.onBeforeCompile=shader=>{
       shader.uniforms.signalClock=clock;
       shader.vertexShader=shader.vertexShader.replace('#include <common>',`
         #include <common>
         attribute vec3 signalInfo;
+        attribute float walkHold;
         varying vec3 phaseInfo;
-      `).replace('#include <begin_vertex>','#include <begin_vertex>\nphaseInfo=signalInfo;');
+        varying float walkActive;
+      `).replace('#include <begin_vertex>','#include <begin_vertex>\nphaseInfo=signalInfo;walkActive=walkHold;');
       shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`
         #include <common>
         uniform float signalClock;
         varying vec3 phaseInfo;
+        varying float walkActive;
       `).replace('#include <color_fragment>',`
         #include <color_fragment>
         float phase=mod(signalClock+phaseInfo.x+phaseInfo.y*${(cycle/2).toFixed(1)},${cycle.toFixed(1)});
-        float litLens=phase<${green.toFixed(1)}?2.:phase<${yellow.toFixed(1)}?1.:0.;
+        float litLens=walkActive>.5?0.:phase<${green.toFixed(1)}?2.:phase<${yellow.toFixed(1)}?1.:0.;
         vec3 lampColor=phaseInfo.z<.5?vec3(1.,.026,.012):
           phaseInfo.z<1.5?vec3(1.,.48,.018):vec3(.027,.91,.247);
         float power=abs(litLens-phaseInfo.z)<.20?1.68:.034;
@@ -214,12 +223,22 @@
       `);
     };
     scene.add(colors);
+    return ()=>{
+      let updated=false;
+      for(const [signal,range] of ranges) {
+        const hold=Boolean(signal.cityHold);
+        if(range.hold===hold) continue;
+        range.hold=hold;
+        for(const i of range.indices) control.setX(i,Number(hold));
+        updated=true;
+      }
+      if(updated) control.needsUpdate=true;
+    };
   }
 
   function create(scene,{stencils,stops,signals},geo,clock) {
     busLettering(scene,stencils,geo.ground);
-    trafficSignals(scene,signals,geo,clock);
-    return stations(scene,stops,geo);
+    return {update:trafficSignals(scene,signals,geo,clock),light:stations(scene,stops,geo)};
   }
 
   window.MadisonStreetscape={create};

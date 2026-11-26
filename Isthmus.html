@@ -173,6 +173,27 @@ h1, h2, p { margin: 0; }
 #transit-status, #market-stall-name { margin-top: 3px; font-size: 14px; }
 #transit-action, #transit-destinations, #market-browse, #car-action { padding: 7px 9px; font-size: 14px; white-space: nowrap; }
 #car-panel { border-color: #93c8ff8a; }
+#city-panel { border-left-color: #a6e3c3; }
+#city-action { padding: 7px 9px; font-size: 14px; }
+#city-place { font-size: 14px; font-weight: 700; }
+.city-watch {
+  position: absolute; left: clamp(18px,3.3vw,55px); bottom: 148px; z-index: 3; width: min(390px,calc(100% - 36px));
+  max-height: min(360px,calc(100% - 250px)); overflow: auto; background: #182b36f2;
+}
+.city-watch header { display: flex; align-items: center; gap: 7px; padding: 12px; background: #182b36; position: sticky; top: 0; }
+.city-watch header > div { margin-right: auto; }
+.city-watch h2 { font: 24px/1.1 var(--serif); }
+.city-watch header p { font-size: 11px; color: #a6e3c3; margin-top: 3px; }
+.city-watch ol { list-style: none; margin: 0; padding: 0 12px 7px; }
+.city-watch li { padding: 8px 0; border-top: 1px solid var(--line); }
+.city-watch li p { font-size: 13px; line-height: 1.38; }
+.city-topic { display: block; margin-bottom: 2px; color: #a6e3c3; font-size: 11px; font-weight: 700; }
+.map-activity { display: grid; gap: 5px; margin-top: 8px; }
+.map-activity button { display: grid; gap: 2px; text-align: left; border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; }
+.map-activity button:hover, .map-activity button[aria-current="true"] { background: #40544b; }
+.map-activity strong { font-size: 13px; }
+.map-activity span { color: #b2d8c8; font-size: 12px; }
+.hud-free .city-watch { display: none; }
 .driving #speedometer { left: auto; right: clamp(18px, 3.3vw, 55px); bottom: max(44vh,245px); }
 .transit-choices { display: grid; gap: 8px; }
 .transit-choices button { text-align: left; }
@@ -321,6 +342,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .story-mode .place { top: 65px; }
   .story-mode .story-balance { font-size: 13px; }
   #encounter-action kbd { display: none; }
+  .city-watch { bottom: 284px; max-height: max(130px,calc(100% - 440px)); }
 }
 @media (max-height: 430px) and (max-width: 755px) {
   .story-objective { top: 70px; width: min(218px, 40vw); }
@@ -333,6 +355,10 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
   .wordmark { letter-spacing: .18em; }
   .rail-actions .small { padding-inline: 7px; font-size: 12px; }
   .rail-actions .small > span[aria-hidden="true"] { display: none; }
+}
+@media (max-width: 460px) {
+  .rail-actions #city-toggle { padding-inline: 5px; }
+  .story-mode .rail-actions { flex-wrap: wrap; justify-content: flex-end; }
 }
 @media (pointer: coarse) and (max-width: 755px) {
   .speedometer { bottom: 215px; }
@@ -352,6 +378,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <span>ISTHMUS</span>
       </button>
       <div class="rail-actions">
+        <button id="city-toggle" class="glass small" type="button" aria-controls="city-watch" aria-expanded="false" hidden>City <kbd>L</kbd></button>
         <button id="journal-toggle" class="glass small" type="button" aria-haspopup="dialog" hidden>Journal <kbd>J</kbd></button>
         <a id="scene-toggle" class="glass small" href="?market=1">Market</a>
         <button id="light" class="glass small" type="button" aria-label="Change time of day"><span aria-hidden="true">☀</span> <span id="light-label">Golden hour</span></button>
@@ -369,6 +396,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <button id="drive" type="button" class="glass secondary" disabled>Take a drive</button>
         <button id="ride-start" type="button" class="glass secondary" disabled>Ride Metro Rapid</button>
         <a id="market-start" class="glass secondary" href="?market=1">Saturday Market</a>
+        <a class="glass secondary" href="?watch=state">Watch city life</a>
         <a id="story-exit" class="glass secondary" href="?" hidden>Free roam</a>
       </div>
       <div id="loading">
@@ -407,6 +435,9 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <p id="encounter-place"></p>
         <button id="encounter-action" class="glass" type="button"><span id="encounter-label">Interact</span> <kbd>E</kbd></button>
       </section>
+      <section id="city-panel" class="transit-panel glass" aria-label="Nearby city activity" hidden>
+        <p id="city-place"></p><button id="city-action" class="glass" type="button"><span id="city-action-label"></span> <kbd>E</kbd></button>
+      </section>
       <div class="control-bar glass" aria-label="Keyboard shortcuts">
         <span class="movement-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span id="motion-label">Move</span></span>
         <span id="look-tip">Drag to look</span>
@@ -441,12 +472,19 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
             <div class="map-actions"><button id="map-find-car" class="glass small" type="button" hidden>Find my car</button><button id="map-clear" class="glass small" type="button" hidden>Clear waypoint</button></div>
           </section>
           <section id="map-objectives" hidden><h3>Objectives</h3><div id="map-objective-list" class="map-locations"></div></section>
+          <details id="map-city"><summary>City activity</summary><div id="map-city-list" class="map-activity"></div></details>
           <section><h3>Places</h3><div id="landmarks" class="map-locations"></div></section>
           <details><summary>Metro Rapid stops</summary><div id="map-stops" class="map-locations"></div></details>
           <p class="map-key"><i></i> You <i></i> Destination <i></i> Your car <i></i> Metro Rapid</p>
           <button id="map-home" type="button" class="glass small">Return to title</button>
         </div>
       </div>
+    </aside>
+    <aside id="city-watch" class="city-watch glass" aria-labelledby="city-title" hidden>
+      <header><div><h2 id="city-title">City Watch</h2><p id="city-counts"></p></div>
+        <button id="city-sound" class="glass small" type="button" aria-pressed="false">Sound off</button>
+        <button id="city-close" class="glass small" type="button" aria-label="Close City Watch">×</button></header>
+      <ol id="city-feed"></ol>
     </aside>
     <section id="help" class="glass help" aria-label="All controls" hidden>
       <h2>Controls</h2>
@@ -459,6 +497,7 @@ kbd { font: 600 11px/1.4 system-ui, sans-serif; padding: 1px 4px; border: 1px so
         <div><dt>Walk / drive / fly</dt><dd>1 / 2 / 3</dd></div>
         <div><dt>Interact / board bus</dt><dd>E</dd></div>
         <div id="story-help" hidden><dt>Journal / inventory</dt><dd>J / I</dd></div>
+        <div><dt>City Watch</dt><dd>L</dd></div>
         <div><dt>Take off / land</dt><dd>F</dd></div>
         <div><dt>Hide or restore HUD</dt><dd>H</dd></div>
         <div><dt>Pause map / reset</dt><dd>M or Esc / R</dd></div>
@@ -2299,7 +2338,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   const T=THREE;
   const avenue='East Washington Avenue';
   const cycle=44, green=18.5, yellow=21;
-  const signalPhase=(signal,axis,time)=>(time+signal.phase+axis*cycle/2)%cycle;
+  const signalPhase=(signal,axis,time)=>signal.cityHold?cycle-1:(time+signal.phase+axis*cycle/2)%cycle;
 
   function corridor(roads,direction) {
     const edges=roads.filter(([name,kind,width,,line])=>name===avenue && kind<=1 && width>=7.5 &&
@@ -2492,7 +2531,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return stops.sort((a,b)=>a.s-b.s);
   }
 
-  function updateRoute(route,dt,time,obstacles) {
+  function updateRoute(route,dt,time,obstacles,city) {
     const {vehicles,line,stations,signals}=route;
     vehicles.sort((a,b)=>b.s-a.s);
     for(let index=0;index<vehicles.length;index++) {
@@ -2541,6 +2580,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(station && station.s-car.s<.12 && station.s<=barrier+.01) {
         car.s=station.s;
         car.speed=0;
+        car.dwellTime=car.baseDwell+(city?.serve(car,route,car.stop) || 0);
         car.dwell=car.dwellTime;
       }
     }
@@ -2856,7 +2896,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return {bus,car,parked};
   }
 
-  function create(scene,geo,layout,routes,parking) {
+  function create(scene,geo,layout,routes,parking,city) {
     const models=vehicleModels(scene,geo);
     if(parking) models.parked(parking.parked);
     const rng=geo.random(421433);
@@ -2877,8 +2917,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         const stop=route.stations.findIndex(marker=>marker.s>=target-.015);
         const cruise=route.kind==='local'?7.6+rng()*2.5:bus?11.7+rng()*2.5:12.2+rng()*3.7;
         const dwellTime=docked?10.4:6.3+rng()*2.7;
-        route.vehicles.push({...actor,bus,s:target,stop:stop<0?route.stations.length:stop,cruise,
-          speed:docked?0:cruise*(.59+rng()*.29),dwell:docked?dwellTime:0,dwellTime,braking:Boolean(docked)});
+        const vehicle={...actor,bus,s:target,stop:stop<0?route.stations.length:stop,cruise,baseDwell:dwellTime,
+          speed:docked?0:cruise*(.59+rng()*.29),dwell:docked?dwellTime:0,dwellTime,braking:Boolean(docked)};
+        if(docked && city) vehicle.dwell=vehicle.dwellTime=dwellTime+city.serve(vehicle,route,stop);
+        route.vehicles.push(vehicle);
       }
     }
     const canvas=document.createElement('canvas');
@@ -2931,7 +2973,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         const obstacles=[];
         if(player && !(onPlatform && route.kind==='bus')) obstacles.push(line.project(player[0],player[1]));
         if(parked) obstacles.push(line.project(parked.x,parked.z));
-        for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),obstacles);
+        for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),obstacles,city);
         if(route.kind!=='bus') continue;
         for(const actor of vehicles) {
           const [x,z,dx,dz]=line.sample(actor.s-8);
@@ -3052,10 +3094,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
     function dock(actor,route,index) {
       const stop=route.stations[index];
+      const alreadyHere=actor.stop===index && actor.dwell>0;
       actor.stop=index;
       actor.s=stop.s;
-      actor.dwellTime=12;
-      actor.dwell=10;
+      if(alreadyHere) {
+        actor.dwellTime=Math.max(actor.dwellTime,actor.dwell+1.2);
+        actor.dwell=Math.max(1.7,actor.dwell);
+      } else {
+        const extra=city?.serve(actor,route,index) || 0;
+        actor.dwellTime=12+extra;
+        actor.dwell=10+extra;
+      }
       actor.speed=0;
       actor.braking=true;
     }
@@ -3067,7 +3116,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       if(index<0 || index>=route.stations.length-1) return null;
       const station=route.stations[index];
       const sorted=route.vehicles.slice().sort((a,b)=>Math.abs(a.s-station.s)-Math.abs(b.s-station.s));
-      const actor=sorted[0] && Math.abs(sorted[0].s-station.s)<28?sorted[0]:sorted.at(-1);
+      const outside=sorted.filter(a=>Math.abs(a.s-station.s)>=28);
+      const empty=outside.filter(a=>!a.riders?.length).at(-1);
+      const actor=sorted[0] && Math.abs(sorted[0].s-station.s)<28?sorted[0]:empty || sorted.at(-1);
       if(!actor) return null;
       dock(actor,route,index);
       passenger={actor,route,station:station.name};
@@ -3116,7 +3167,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         y:cabin.y+1.94+Math.sin(cabin.slope)*seatAlong,
         z:cabin.z+cabin.dz*seatAlong-cabin.dx*seatAcross,yaw:Math.atan2(cabin.dx,-cabin.dz),
         direction:route.direction>0?'Eastbound':'Westbound',station:stopped?current.name:null,next:next?.name,
-        final,open};
+        final,open,riders:actor.riders?.length || 0};
     }
 
     function exit() {
@@ -3135,10 +3186,34 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       const offer=boardingAt(x,z);
       const info=layout.stops.find(stop=>stop[5]?.id===platform.id)?.[5];
       const direction=offer?.route.direction || info?.direction;
-      return {name:platform.name,boarding:Boolean(offer),direction:direction?direction>0?'Eastbound':'Westbound':null};
+      return {name:platform.name,boarding:Boolean(offer),direction:direction?direction>0?'Eastbound':'Westbound':null,
+        waiting:city?.status(platform.id) || 0};
     }
 
-    return {advance,render,blocked,buses,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release,
+    const crossLanes=new WeakMap();
+    function crossingClear(a,b,playerCar,parked) {
+      const occupied=(x,z,range)=>geo.segmentDistance(x,z,a.x,a.z,b.x,b.z)<range*range;
+      if(playerCar && occupied(playerCar[0],playerCar[1],3.65) || parked && occupied(parked.x,parked.z,3.05)) return false;
+      if(!crossLanes.has(a)) {
+        const x=(a.x+b.x)*.5,z=(a.z+b.z)*.5,radius=Math.hypot(b.x-a.x,b.z-a.z)*.53+3;
+        crossLanes.set(a,routes.flatMap(route=>{
+          const hit=route.line.project(x,z);
+          return hit.distance<radius?[{route,at:hit.s,radius}]:[];
+        }));
+      }
+      for(const {route,at,radius} of crossLanes.get(a)) for(const actor of route.vehicles) {
+        const front=actor.s+(actor.bus?0:actor.length*.5),back=front-actor.length;
+        if(back>at+radius || front<at-radius) continue;
+        const probes=actor.bus?8:3;
+        for(let i=0;i<=probes;i++) {
+          const [x,z]=route.line.sample(back+actor.length*i/probes);
+          if(occupied(x,z,actor.bus?1.88:1.55)) return false;
+        }
+      }
+      return true;
+    }
+
+    return {advance,render,blocked,buses,crossingClear,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release,
       services,summon,destinations,express}};
   }
 
@@ -4286,7 +4361,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return tracks;
   }
 
-  function create(scene,geo,layout,market,contacts=[]) {
+  function create(scene,geo,layout,market,contacts=[],city) {
     const shelters=layout.stops.filter(([name])=>name==='State Street').map(([,x,z,dx,dz])=>{
       const position=(px,pz)=>[(px-x)*dx+(pz-z)*dz,(px-x)*dz-(pz-z)*dx];
       return {
@@ -4338,6 +4413,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       });
       person({lane,signals,along:s,direction:rng()<.5?-1:1});
     }
+    for(const actor of city?.people || []) person({cityActor:actor});
     if(!walkers.length) return ()=>{};
     const crossings=layout.signals.filter(({x,z})=>x>=-1004&&x<=-191&&Math.abs(z-(.021*x-1.8))<11)
       .map(signal=>({signal,axis:Math.abs(signal.axes[0].dx)>Math.abs(signal.axes[1].dx)?0:1}));
@@ -4358,6 +4434,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const arms=parts(new T.CapsuleGeometry(.048,.44,3,7),walkers.length*2);
     const shoes=parts(new T.SphereGeometry(1,8,5),walkers.length*2);
     const bags=parts(new T.CapsuleGeometry(.133,.19,3,8),walkers.length);
+    const instruments=parts(new T.SphereGeometry(1,10,7),city?4:0);
+    const guitarNecks=parts(new T.BoxGeometry(1,1,1),city?4:0);
     const shadowSize=10,shadowInk=document.createElement('canvas');
     shadowInk.width=shadowInk.height=shadowSize;
     const ink=shadowInk.getContext('2d');
@@ -4368,9 +4446,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     ink.fillRect(0,0,shadowSize,shadowSize);
     const shade=parts(new T.PlaneGeometry(.95,.66).rotateX(-Math.PI/2),walkers.length,
       new T.MeshBasicMaterial({map:new T.CanvasTexture(shadowInk),transparent:true,depthWrite:false}));
-    const motions=[torso,hips,head,hair,legs,arms,shoes,bags,shade];
+    const motions=[torso,hips,head,hair,legs,arms,shoes,bags,shade,instruments,guitarNecks];
     const step=new T.Object3D();
     const bagColor=new T.Color(0x52564e),shoeColor=new T.Color(0x383838);
+    const maple=new T.Color(0xb8773e),fingerboard=new T.Color(0x613f30);
     let lastTime;
     return (seconds,camera,reduced)=>{
       const dt=lastTime===undefined?0:Math.min(.2,Math.max(0,seconds-lastTime));
@@ -4379,7 +4458,12 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       for(const walker of walkers) {
         const {points,height,pace,side}=walker;
         let x,z,dx,dz,lift;
-        if(walker.fixed) {
+        const actor=walker.cityActor;
+        if(actor) {
+          if(actor.phase==='idle' || actor.phase==='onboard') continue;
+          ({x,z,dx,dz,lift}=actor);
+          walker.progress=actor.moving?1:0;
+        } else if(walker.fixed) {
           [x,z,dx,dz]=walker.fixed;
           walker.progress=0;
           lift=.19;
@@ -4448,12 +4532,20 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         place(hips,0,.954+bob,0,0,.179,.109,.110,walker.trousers);
         place(head,0,1.625+bob,.015,0,.92,1.05,.95,walker.skin);
         place(hair,0,1.657+bob,.007,0,.93,.83,.99,walker.hair);
-        if(walker.bag) place(bags,0,1.21+bob,-.177,.04,1,.84,.53,bagColor);
+        const performing=actor?.phase==='perform';
+        const music=performing && (actor.feature==='library'||actor.feature==='state');
+        if(music) {
+          place(instruments,-.107,1.085,.208,.09,.158,.198,.057,maple);
+          place(guitarNecks,.106,1.135,.22,.035,.295,.049,.035,fingerboard);
+        } else if(walker.bag) place(bags,0,1.21+bob,-.177,.04,1,.84,.53,bagColor);
         for(const side of [-1,1]) {
           const stride=side*swing*.38,leg=Math.sin(stride);
           place(legs,side*.101,.906+bob-.388*Math.cos(stride),leg*.388,-stride,1,1,1,walker.trousers);
           place(shoes,side*.105,.906+bob-.812*Math.cos(stride),leg*.75+.055,0,.074,.055,.143,shoeColor);
-          place(arms,side*.218,1.39+bob-.25*Math.cos(stride),-leg*.22,stride*.90,.90,1,.93,walker.jacket);
+          const gesture=performing?Math.sin(seconds*3.7+side*.56)*.22:0;
+          const handY=performing?1.23+gesture*.43:1.39+bob-.25*Math.cos(stride);
+          place(arms,side*(performing?.145:.218),handY,performing?.15:-leg*.22,
+            performing?-1.05+gesture:stride*.90,.90,performing?.77:1,.93,walker.jacket);
         }
         place(shade,0,.012,0,0,1,1,1);
       }
@@ -4611,7 +4703,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const metal=new T.MeshLambertMaterial({color:0x313735});
     const backs=new T.MeshLambertMaterial({color:0x68604a});
     const chunks=new Map(), lenses=[];
-    for(const {x,z,axes,phase} of layout) {
+    for(const intersection of layout) {
+      const {x,z,axes,phase}=intersection;
       const key=Math.floor(x/330)+','+Math.floor(z/330);
       if(!chunks.has(key)) chunks.set(key,new T.Group());
       const chunk=chunks.get(key);
@@ -4635,7 +4728,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
             const y=top-.14-signal*.315;
             const visor=box(chunk,.259,.043,.25,hx+ux*.176,y+.13,hz+uz*.176,metal);
             visor.rotation.y=Math.atan2(ux,uz);
-            lenses.push([hx+ux*.155,y,hz+uz*.155,ux,uz,phase,axis,signal]);
+            lenses.push([hx+ux*.155,y,hz+uz*.155,ux,uz,phase,axis,signal,intersection]);
           }
         }
       }
@@ -4649,14 +4742,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       }
       scene.add(chunk);
     }
-    if(!lenses.length) return;
+    if(!lenses.length) return ()=>{};
     const meta=new Float32Array(lenses.length*3);
     const lens=new T.SphereGeometry(.105,9,5);
     const material=new T.MeshBasicMaterial();
     const colors=new T.InstancedMesh(lens,material,lenses.length);
     const dummy=new T.Object3D();
-    lenses.forEach(([x,y,z,dx,dz,time,axis,index],i)=>{
+    const ranges=new Map();
+    lenses.forEach(([x,y,z,dx,dz,time,axis,index,intersection],i)=>{
       meta.set([time,axis,index],i*3);
+      if(!ranges.has(intersection)) ranges.set(intersection,{indices:[],hold:false});
+      ranges.get(intersection).indices.push(i);
       dummy.position.set(x,y,z);
       dummy.rotation.y=Math.atan2(dx,dz);
       dummy.scale.set(1,1,.43);
@@ -4664,21 +4760,26 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       colors.setMatrixAt(i,dummy.matrix);
     });
     lens.setAttribute('signalInfo',new T.InstancedBufferAttribute(meta,3));
+    const control=new T.InstancedBufferAttribute(new Float32Array(lenses.length),1).setUsage(T.DynamicDrawUsage);
+    lens.setAttribute('walkHold',control);
     material.onBeforeCompile=shader=>{
       shader.uniforms.signalClock=clock;
       shader.vertexShader=shader.vertexShader.replace('#include <common>',`
         #include <common>
         attribute vec3 signalInfo;
+        attribute float walkHold;
         varying vec3 phaseInfo;
-      `).replace('#include <begin_vertex>','#include <begin_vertex>\nphaseInfo=signalInfo;');
+        varying float walkActive;
+      `).replace('#include <begin_vertex>','#include <begin_vertex>\nphaseInfo=signalInfo;walkActive=walkHold;');
       shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`
         #include <common>
         uniform float signalClock;
         varying vec3 phaseInfo;
+        varying float walkActive;
       `).replace('#include <color_fragment>',`
         #include <color_fragment>
         float phase=mod(signalClock+phaseInfo.x+phaseInfo.y*${(cycle/2).toFixed(1)},${cycle.toFixed(1)});
-        float litLens=phase<${green.toFixed(1)}?2.:phase<${yellow.toFixed(1)}?1.:0.;
+        float litLens=walkActive>.5?0.:phase<${green.toFixed(1)}?2.:phase<${yellow.toFixed(1)}?1.:0.;
         vec3 lampColor=phaseInfo.z<.5?vec3(1.,.026,.012):
           phaseInfo.z<1.5?vec3(1.,.48,.018):vec3(.027,.91,.247);
         float power=abs(litLens-phaseInfo.z)<.20?1.68:.034;
@@ -4686,12 +4787,22 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       `);
     };
     scene.add(colors);
+    return ()=>{
+      let updated=false;
+      for(const [signal,range] of ranges) {
+        const hold=Boolean(signal.cityHold);
+        if(range.hold===hold) continue;
+        range.hold=hold;
+        for(const i of range.indices) control.setX(i,Number(hold));
+        updated=true;
+      }
+      if(updated) control.needsUpdate=true;
+    };
   }
 
   function create(scene,{stencils,stops,signals},geo,clock) {
     busLettering(scene,stencils,geo.ground);
-    trafficSignals(scene,signals,geo,clock);
-    return stations(scene,stops,geo);
+    return {update:trafficSignals(scene,signals,geo,clock),light:stations(scene,stops,geo)};
   }
 
   window.MadisonStreetscape={create};
@@ -5062,7 +5173,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     }
     function draw(state) {
       last=state;
-      const {player,target,route,points,buses,car}=state;
+      const {player,target,route,points,buses,car,activity}=state;
       size();
       const {width:w,height:h}=canvas,angle=expanded || northUp?0:-player.yaw;
       const scale=expanded?zoom*Math.min(1.6,window.devicePixelRatio || 1):w/(player.flying?1120:650);
@@ -5107,6 +5218,19 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         }
       }
       for(const p of points) flag(p.x,p.z,p.transit?'stop':'place',p.transit?colors.bus:colors.place);
+      if(activity) {
+        for(const row of [...activity.activities,...activity.crosswalks]) {
+          if(!row.active) continue;
+          const [x,z]=project(row.x,row.z);
+          ctx.beginPath();ctx.arc(x,z,expanded?10:6,0,Math.PI*2);
+          ctx.strokeStyle='#b9f1c3';ctx.lineWidth=2;ctx.stroke();
+        }
+        for(const row of activity.crowds) {
+          const [x,z]=project(row.x,row.z);
+          ctx.beginPath();ctx.arc(x,z,Math.min(12,4+row.count*.55),0,Math.PI*2);
+          ctx.strokeStyle='#9ed8e2b0';ctx.lineWidth=1.5;ctx.stroke();
+        }
+      }
       for(const [x,z,dx,dz,boarding] of buses) flag(x,z,'bus',boarding?'#b7f1db':colors.bus,false,Math.atan2(dx,-dz)+angle);
       if(car) flag(car.x,car.z,'car',colors.parked,true,car.yaw+angle);
       if(target) flag(target.x,target.z,'goal',colors.route,true);
@@ -5141,6 +5265,671 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   }
 
   window.MadisonFieldMap={create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const size=144;
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+  const point=(x,z)=>({x,z});
+  const key=(id,direction)=>id+'/'+direction;
+  const sites=[
+    {id:'library',name:'Library Mall',title:'Library Mall guitar set',x:-1144,z:-32,yaw:2.05,start:0,period:195,duration:78},
+    {id:'state',name:'State Street',title:'State Street sidewalk set',x:-443,z:-5.9,yaw:Math.PI/2,start:0,period:175,duration:55,stop:'state-east',direction:1},
+    {id:'square',name:'Capitol Square',title:'Square sketch circle',x:33,z:115,yaw:2.70,start:34,period:220,duration:68,stop:'square-east',direction:1},
+    {id:'paterson',name:'North Paterson Street',title:'Breese Stevens meetup',x:846,z:-876,yaw:.72,start:63,period:188,duration:62,stop:'paterson',direction:-1}
+  ];
+
+  function create(geo,layout,routes,market) {
+    const rng=geo.random(66291),people=Array.from({length:size},(_,id)=>({id,phase:'idle'}));
+    const coaches=routes.filter(route=>route.kind==='bus');
+    const platforms=new Map(),crossings=new Map(),log=[];
+    let age=0,lastTime,second=0,revision=0,feedId=0;
+    const metrics={turnedHeads:0,boarded:0,exited:0,walks:0,crossed:0,delays:0,encores:0,missed:0};
+    const events=sites.map(site=>({...site,place:site.name,next:site.start,until:0,cast:null,slots:[]}));
+    if(market) {
+      const square=events.find(event=>event.id==='square');
+      Object.assign(square,{title:'Saturday Market demonstration',name:'Capitol Square market',x:market.start.x,z:market.start.z,
+        yaw:market.start.yaw,stop:null,start:17,next:17,duration:72});
+    }
+
+    function open(x,z,radius=.28) {
+      return !geo.inBuilding(x,z,radius) && !geo.onWater(x,z) && !market?.blocked(x,z,radius);
+    }
+
+    function footpath(a,b) {
+      function clear(from,to) {
+        const count=Math.ceil(dist(from,to)/1.25);
+        for(let i=1;i<=count;i++) {
+          const t=i/count;
+          if(!open(from.x+(to.x-from.x)*t,from.z+(to.z-from.z)*t)) return false;
+        }
+        return true;
+      }
+      if(clear(a,b)) return [b];
+      const x=(a.x+b.x)*.5,z=(a.z+b.z)*.5;
+      for(const r of [3.8,7.5,11.5,17,23]) for(let i=0;i<12;i++) {
+        const p=point(x+Math.cos(i*Math.PI/6)*r,z+Math.sin(i*Math.PI/6)*r);
+        if(clear(a,p) && clear(p,b)) return [p,b];
+      }
+      return null;
+    }
+
+    function announce(topic,text,at) {
+      log.unshift({id:++feedId,topic,text,age,x:at.x,z:at.z,name:at.name});
+      if(log.length>14) log.pop();
+      revision++;
+    }
+
+    function free() { return people.find(person=>person.phase==='idle'); }
+
+    function place(person,at) {
+      Object.assign(person,{x:at.x,z:at.z,dx:0,dz:1,lift:.13,moving:false});
+    }
+
+    function walk(person,way,phase,finish,pace=1.36,delay=0) {
+      if(!way) return false;
+      person.phase=phase;
+      person.moving=false;
+      person.travel={way,next:0,finish,pace:pace+rng()*.24,delay};
+      return true;
+    }
+
+    function retire(person) { person.phase='idle';person.travel=null; }
+
+    function seek(person,dx,dz) {
+      const l=Math.hypot(dx,dz);
+      if(l>.002) {person.dx=dx/l;person.dz=dz/l;}
+    }
+
+    function advanceWalk(person,dt) {
+      const job=person.travel;
+      if(job.delay>0) {job.delay-=dt;return;}
+      if(!person.moving) person.moving=true;
+      let step=job.pace*dt;
+      while(step>0 && job.next<job.way.length) {
+        const p=job.way[job.next],dx=p.x-person.x,dz=p.z-person.z,d=Math.hypot(dx,dz);
+        seek(person,dx,dz);
+        if(d>step) {person.x+=person.dx*step;person.z+=person.dz*step;return;}
+        person.x=p.x;person.z=p.z;
+        step-=d;job.next++;
+      }
+      person.travel=null;
+      person.moving=false;
+      job.finish();
+    }
+
+    for(const route of coaches) for(const [index,stop] of route.stations.entries()) {
+      const id=key(stop.id,route.direction);
+      const at=(u,v)=>point(stop.x+stop.dx*u-stop.dz*v,stop.z+stop.dz*u+stop.dx*v);
+      const slots=Array.from({length:12},(_,i)=>{
+        const side=stop.curb?-1:route.direction;
+        return at(1.8+(stop.curb?1.1:0)-i*.69,side*(.67+.42*(i%2)));
+      });
+      platforms.set(id,{id,route,index,stop,slots,at,queue:[],next:4+rng()*20,x:stop.x,z:stop.z,name:stop.name});
+    }
+
+    function crossingFor(id,side) {
+      const platform=platforms.get(key(id,1));
+      if(!platform) return;
+      const station=platform.stop;
+      const signal=layout.signals.find(row=>dist(row,station)<12);
+      if(!signal) return;
+      const align=signal.axes.map(axis=>Math.abs(axis.dx*station.dx+axis.dz*station.dz));
+      const axis=align[0]>=align[1]?0:1;
+      const main=signal.axes[axis],perp=signal.axes[1-axis];
+      const offset=-Math.sign(main.dx || 1)*(perp.extent+1.35);
+      const ax=signal.x+main.dx*offset,az=signal.z+main.dz*offset;
+      let px=-main.dz,pz=main.dx;
+      if((px+pz)*side<0) {px=-px;pz=-pz;}
+      const edge=main.extent+1.75;
+      const center=point(ax,az),outer=point(ax+px*edge,az+pz*edge);
+      if(!open(outer.x,outer.z) || !open(center.x,center.z)) return;
+      const cross={id,signal,center,outer,waiting:[],inside:0,requested:false,holdUntil:0,last:-40,
+        name:station.name+' crossing',x:outer.x,z:outer.z,yaw:Math.atan2(-px,pz)};
+      crossings.set(id,cross);
+    }
+    crossingFor('paterson',-1);
+    crossingFor('blair',1);
+
+    function standing(person,target,face) {
+      person.moving=false;
+      person.x=target.x;person.z=target.z;
+      seek(person,face.x-person.x,face.z-person.z);
+    }
+
+    function crowdAt(event) { return event.slots.filter(slot=>slot.person?.phase==='watch').length; }
+
+    function clearSlot(person) {
+      if(person.event) {
+        const slot=person.event.slots.find(slot=>slot.person===person);
+        if(slot) slot.person=null;
+        person.event=null;
+        revision++;
+      }
+    }
+
+    function watch(person,event,delay=0) {
+      const slot=event.slots.find(s=>!s.person);
+      if(!event.cast || !slot) return false;
+      const route=footpath(person,slot);
+      if(!route) return false;
+      slot.person=person;person.event=event;
+      walk(person,route,'to-event',()=>{
+        if(!event.cast) {clearSlot(person);wander(person);return;}
+        person.phase='watch';
+        standing(person,slot,event);
+        metrics.turnedHeads++;
+        const listening=crowdAt(event);
+        if(listening===4) announce('Crowd','A few listeners stopped at '+event.name+' and others are joining them.',event);
+        revision++;
+      },1.1,delay);
+      return true;
+    }
+
+    function scatterPoint(at,near,far) {
+      for(let i=0;i<19;i++) {
+        const a=rng()*Math.PI*2,r=near+rng()*(far-near),p=point(at.x+Math.cos(a)*r,at.z+Math.sin(a)*r);
+        if(open(p.x,p.z)) return p;
+      }
+      return null;
+    }
+
+    function wander(person) {
+      for(let i=0;i<5;i++) {
+        const p=scatterPoint(person,11,24);
+        if(p && walk(person,footpath(person,p),'leaving',()=>retire(person),1.27)) return;
+      }
+      retire(person);
+    }
+
+    function eventStart(event,manual=false) {
+      if(event.cast || age<event.next-(manual?20:0)) return false;
+      const performer=free();
+      if(!performer) return false;
+      place(performer,event);
+      const yaw=event.yaw+.8;
+      seek(performer,Math.sin(yaw),-Math.cos(yaw));
+      performer.phase='perform';
+      performer.feature=event.id;
+      Object.assign(event,{cast:performer,until:age+event.duration,extended:false,source:age+.5});
+      announce('Activity',event.title+' is starting.',event);
+      return true;
+    }
+
+    function destination(platform) {
+      const reachable=platform.route.stations.slice(platform.index+1);
+      if(!reachable.length) return null;
+      const attracted=events.filter(event=>event.cast || event.next-age<95);
+      const crowd=reachable.find(stop=>attracted.some(event=>event.stop===stop.id && event.id!=='state'));
+      const pick=crowd && rng()<.56?crowd:reachable[Math.floor(rng()*Math.min(reachable.length,4))];
+      return pick.id;
+    }
+
+    function headFor(platform,person,delay=0) {
+      if(!platform || platform.queue.length>=platform.slots.length) return false;
+      const at=platform.slots[0],to=destination(platform);
+      if(!to) return false;
+      const leg=footpath(person,at);
+      if(!leg) return false;
+      walk(person,leg,'to-stop',()=>{
+        if(!lineUp(platform,person,to)) wander(person);
+      },1.48,delay);
+      return true;
+    }
+
+    function lineUp(platform,person,to) {
+      const slot=platform.slots[platform.queue.length];
+      if(!slot || !to) return false;
+      platform.queue.push(person);
+      Object.assign(person,{phase:'waiting',to,joined:age,travel:null,lift:.43});
+      if(dist(person,slot)>14) place(person,slot);
+      revision++;
+      return true;
+    }
+
+    function leaveQueue(platform,person) {
+      const i=platform.queue.indexOf(person);
+      if(i<0) return;
+      platform.queue.splice(i,1);
+      revision++;
+    }
+
+    function callCross(person,cross,outbound,finish,delay=0) {
+      const end=outbound?cross.center:cross.outer;
+      return walk(person,footpath(person,end),'to-crossing',()=>{
+        cross.waiting.push({person,outbound,finish});
+        person.phase='waiting-cross';
+        const other=outbound?cross.outer:cross.center;
+        const rank=cross.waiting.filter(entry=>entry.outbound===outbound).length-1;
+        const lateral=(rank%4-.5)*.56;
+        standing(person,point(end.x+(other.z-end.z)*lateral*.063,end.z+(end.x-other.x)*lateral*.063),other);
+        revision++;
+      },1.53,delay);
+    }
+
+    function afterShow(event) {
+      const audience=event.slots.map(slot=>slot.person).filter(Boolean);
+      const platform=platforms.get(key(event.stop,event.direction));
+      const cross=crossings.get(event.stop);
+      for(const [index,person] of audience.entries()) {
+        clearSlot(person);
+        if(platform && index%4!==3) {
+          const reach=()=>{if(!headFor(platform,person)) wander(person);};
+          if(cross && callCross(person,cross,false,reach,index*.43)) continue;
+          if(!cross && headFor(platform,person,index*.46)) continue;
+        }
+        wander(person);
+      }
+      retire(event.cast);
+      event.cast=null;
+      event.next=age+event.period-event.duration+rng()*22;
+      announce('Activity',event.title+' has wrapped up. '+(platform?'Some listeners are heading to Route A.':'Listeners are returning to the neighborhood.'),event);
+    }
+
+    for(const event of events) {
+      for(let ring=0;ring<2;ring++) for(let n=0;n<9;n++) {
+        const a=event.yaw+n*Math.PI*.222+ring*.21,r=2.5+ring*1.65;
+        const x=event.x+Math.cos(a)*r,z=event.z+Math.sin(a)*r;
+        if(open(x,z,.34)) event.slots.push({x,z,person:null});
+      }
+      if(event.start===0) eventStart(event);
+    }
+
+    function spawnWaiting(platform,initial=false) {
+      if(platform.index>=platform.route.stations.length-1 || platform.queue.length>=platform.slots.length-1) return;
+      const to=destination(platform),person=free();
+      if(!person || !to) return;
+      const at=platform.slots[platform.queue.length];
+      place(person,at);
+      const side=platform.stop.curb?-1:platform.route.direction;
+      const start=platform.at(7.3+rng()*2.65,side*.67);
+      const path=!initial && open(start.x,start.z)?footpath(start,at):null;
+      if(!path) {lineUp(platform,person,to);return;}
+      place(person,start);
+      person.lift=.42;
+      walk(person,path,'to-stop',()=>{if(!lineUp(platform,person,to)) wander(person);},1.41);
+    }
+
+    for(const platform of platforms.values()) {
+      const count=platform.stop.id==='state-east'?9:platform.stop.id==='paterson'?5:Math.floor(rng()*4);
+      for(let i=0;i<count;i++) spawnWaiting(platform,true);
+    }
+
+    function cabinet(route,stop) {
+      const [x,z,dx,dz]=route.line.sample(stop.s-5.02);
+      const side=stop.curb?-1:1;
+      return point(x+dx*3.67+dz*side*1.34,z+dz*3.67-dx*side*1.34);
+    }
+
+    function serve(actor,route,index) {
+      const stop=route.stations[index];
+      const platform=platforms.get(key(stop.id,route.direction)),door=cabinet(route,stop);
+      const before=actor.riders || [];
+      const alighting=before.filter(person=>{
+        const destinationIndex=route.stations.findIndex(candidate=>candidate.id===person.to);
+        return destinationIndex<=index || index===route.stations.length-1;
+      });
+      actor.riders=before.filter(person=>!alighting.includes(person));
+      const boarding=platform.queue.slice(0,Math.min(12,20-actor.riders.length));
+      for(const [i,person] of alighting.entries()) {
+        place(person,door);person.lift=.41;
+        const wait=platform.at(2.2-i*.29,stop.curb?.49:-.57*route.direction);
+        const event=events.find(row=>row.stop===stop.id && row.cast);
+        const after=()=>{if(!event || !watch(person,event)) wander(person);};
+        const cross=crossings.get(stop.id);
+        walk(person,[wait],'alighting',()=>{
+          metrics.exited++;
+          announceExit();
+          if(cross && (i%3!==2 || event) && callCross(person,cross,true,after)) return;
+          after();
+        },1.45,.70+i*.39);
+      }
+      function announceExit() {
+        if(alighting.length>2 && !announced) {
+          announced=true;
+          announce('Transit',alighting.length+' riders got off at '+stop.name+(crossings.has(stop.id)?'. Some are heading to the crosswalk.':'.'),platform);
+        }
+      }
+      let announced=false;
+      for(const [i,person] of boarding.entries()) {
+        leaveQueue(platform,person);
+        actor.riders.push(person);
+        walk(person,[door],'boarding',()=>{person.phase='onboard';},1.85,1.18+i*.36);
+      }
+      metrics.boarded+=boarding.length;
+      const extra=Math.min(8,Math.max(0,(boarding.length-2)*.73+alighting.length*.32));
+      if(boarding.length>=3) {
+        metrics.delays++;
+        const seconds=Math.round(extra);
+        announce('Transit',boarding.length+' riders are boarding at '+stop.name+'. The coach is holding its doors '+seconds+
+          (seconds===1?' second longer.':' seconds longer.'),platform);
+      }
+      revision++;
+      return extra;
+    }
+
+    function updateQueue(platform,dt) {
+      for(const [i,person] of platform.queue.entries()) {
+        const slot=platform.slots[i],dx=slot.x-person.x,dz=slot.z-person.z,d=Math.hypot(dx,dz);
+        person.moving=d>.15;
+        if(person.moving) {
+          seek(person,dx,dz);
+          const step=Math.min(d,dt*1.15);
+          person.x+=person.dx*step;person.z+=person.dz*step;
+        } else seek(person,platform.x-person.x,platform.z-person.z);
+      }
+    }
+
+    function crossBatch(cross,absolute,clear) {
+      const {signal,center,outer}=cross;
+      if(signal.cityHold) {
+        if(cross.inside===0 && age>=cross.holdUntil) {signal.cityHold=false;cross.last=age;revision++;}
+        return;
+      }
+      if(!cross.waiting.length && !cross.requested || age-cross.last<20) return;
+      const {signalPhase,yellow}=MadisonTraffic;
+      if(signalPhase(signal,0,absolute)<yellow || signalPhase(signal,1,absolute)<yellow || !clear(center,outer)) return;
+      const wave=cross.waiting.splice(0,8);
+      cross.requested=false;
+      cross.inside=wave.length;
+      signal.cityHold=true;
+      cross.holdUntil=age+(wave.length?1.5:9.5);
+      metrics.walks++;
+      const walkers=wave.length===1?'1 person is':wave.length+' people are';
+      announce('Crossing',wave.length?walkers+' crossing at '+signalName(cross.id)+'. The traffic lights are holding red.':
+        'Walk signal called at '+signalName(cross.id)+'. The traffic lights are holding red.',cross);
+      for(const [i,{person,outbound,finish}] of wave.entries()) {
+        const end=outbound?outer:center;
+        person.lift=.25;
+        walk(person,[end],'crossing',()=>{
+          cross.inside--;metrics.crossed++;
+          finish();
+        },1.73,i*.42);
+      }
+    }
+
+    const signalName=id=>id==='paterson'?'Paterson':'Blair';
+
+    function everySecond() {
+      for(const platform of platforms.values()) {
+        if(age>=platform.next) {
+          spawnWaiting(platform);
+          platform.next=age+13+rng()*23;
+        }
+        const impatient=platform.queue[0];
+        if(impatient && age-impatient.joined>99 && platform.queue.length>2) {
+          leaveQueue(platform,impatient);
+          metrics.missed++;
+          if(platform.queue.length>=5) announce('Transit','Some riders at '+platform.name+' have started walking while they wait.',platform);
+          wander(impatient);
+        }
+      }
+      for(const event of events) {
+        if(!event.cast) {eventStart(event);continue;}
+        if(age>=event.until) {afterShow(event);continue;}
+        if(age<event.source || event.slots.filter(slot=>slot.person).length>=11) continue;
+        const following=crowdAt(event)>=4;
+        event.source=age+(following?1.8:4.7)+rng()*2.1;
+        const p=scatterPoint(event,following?7:4.7,following?16:8.5),person=free();
+        if(!p || !person) continue;
+        place(person,p);
+        if(!watch(person,event)) wander(person);
+      }
+    }
+
+    function advance(time,clear=()=>true) {
+      const dt=lastTime===undefined?0:Math.min(.25,Math.max(0,time-lastTime));
+      lastTime=time;
+      age+=dt;
+      if(!dt) return;
+      if(Math.floor(age)>second) {second=Math.floor(age);everySecond();}
+      for(const person of people) if(person.travel) advanceWalk(person,dt);
+      for(const platform of platforms.values()) if(platform.queue.length) updateQueue(platform,dt);
+      for(const cross of crossings.values()) crossBatch(cross,time,clear);
+    }
+
+    function nearby(x,z) {
+      const at={x,z};
+      const cross=[...crossings.values()].find(row=>dist(row,at)<4.8);
+      if(cross) return {key:'cross:'+cross.id,action:cross.signal.cityHold?'Walk signal on':cross.requested?'Walk signal requested':'Call walk signal',name:cross.name,
+        disabled:cross.signal.cityHold||cross.requested};
+      const event=events.find(row=>dist(row,at)<6 && (row.cast || age>=row.next-20));
+      if(!event) return null;
+      return {key:'event:'+event.id,action:event.cast?(event.extended?'Encore requested':'Ask for an encore'):'Start the activity',name:event.title,
+        disabled:Boolean(event.cast && event.extended)};
+    }
+
+    function act(x,z) {
+      const offer=nearby(x,z);
+      if(!offer || offer.disabled) return null;
+      const [kind,id]=offer.key.split(':');
+      if(kind==='cross') {
+        const cross=crossings.get(id);
+        cross.requested=true;
+        revision++;
+        return 'Walk requested. Wait for traffic to stop.';
+      }
+      const event=events.find(event=>event.id===id);
+      if(!event.cast) return eventStart(event,true)?event.title+' is starting.':null;
+      event.until+=33;
+      event.extended=true;
+      metrics.encores++;
+      announce('Activity','Encore at '+event.name+'. The audience is sticking around.',event);
+      return 'Encore requested. People are staying for another round.';
+    }
+
+    function eventsView() {
+      return events.map(event=>({id:event.id,name:event.title,place:event.place,active:Boolean(event.cast),listeners:crowdAt(event),
+        inTime:Math.ceil(Math.max(0,(event.cast?event.until:event.next)-age)),x:event.x,z:event.z,yaw:event.yaw,
+        watch:{name:event.place+' activity',x:event.x-9.4,z:event.z-2,yaw:1.78}}));
+    }
+
+    function status(id) {
+      return [1,-1].reduce((count,direction)=>count+(platforms.get(key(id,direction))?.queue.length || 0),0);
+    }
+
+    function snapshot() {
+      const activities=eventsView(),crosswalks=[...crossings.values()].map(cross=>({x:cross.x,z:cross.z,name:cross.name,id:cross.id,
+        active:Boolean(cross.signal.cityHold),waiting:cross.waiting.length,requested:cross.requested}));
+      return {activities,crosswalks,version:revision,age,feed:log,stats:{...metrics},
+        crowds:[...platforms.values()].filter(row=>row.queue.length>=4).map(row=>({x:row.x,z:row.z,count:row.queue.length}))};
+    }
+
+    function blocksCar(x,z) {
+      for(const cross of crossings.values()) {
+        if(cross.signal.cityHold && geo.segmentDistance(x,z,cross.center.x,cross.center.z,cross.outer.x,cross.outer.z)<1.51**2) return true;
+      }
+      return false;
+    }
+    return {people,serve,advance,status,snapshot,nearby,act,blocksCar,time:()=>age};
+  }
+
+  window.MadisonCity={create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const $=id=>document.getElementById(id);
+  const count=(n,name)=>`${n} ${name}${n===1?'':'s'}`;
+  function text(tag,value,className) {
+    const node=document.createElement(tag);
+    node.textContent=value;
+    if(className) node.className=className;
+    return node;
+  }
+
+  function create(city,{guide,offer,toast,sound}) {
+    let lastRead=-1,snapshot=city.snapshot(),paint=-1,mapPaint=-1;
+    const watch=$('city-watch');
+    function read(force=false) {
+      const time=performance.now();
+      if(force || time-lastRead>=360) {snapshot=city.snapshot();lastRead=time;}
+      return snapshot;
+    }
+    function toggle(open=watch.hidden) {
+      watch.hidden=!open;
+      $('city-toggle').setAttribute('aria-expanded',String(open));
+      if(open) render(true);
+    }
+    function button(row) {
+      const element=text('button','');
+      element.type='button';
+      element.append(text('strong',row.name),text('span',row.detail));
+      element.setAttribute('aria-label','Set route to '+row.name);
+      element.addEventListener('click',()=>guide(row));
+      return element;
+    }
+    function mapRows(activeTarget,force=false) {
+      const {activities,crosswalks,version}=read(force);
+      const rows=$('map-city-list');
+      if(force || mapPaint!==version) {
+        mapPaint=version;
+        const items=activities.map(row=>({...row,detail:row.active?count(row.listeners,'listener'):'Starts in '+row.inTime+' s'}));
+        for(const row of crosswalks) {
+          const waiting=row.waiting===1?'1 person waiting':row.waiting+' people waiting';
+          items.push({...row,detail:row.active?'Walk signal holding traffic':row.waiting?waiting:'Signal crossing'});
+        }
+        rows.replaceChildren(...items.map(button));
+      }
+      for(const item of rows.children) item.setAttribute('aria-current',String(item.firstChild.textContent===activeTarget?.name));
+    }
+    function render(force=false) {
+      if(watch.hidden) return;
+      const {feed,stats,version}=read(force);
+      if(!force && version===paint) return;
+      paint=version;
+      const feedRows=feed.slice(0,5).map(row=>{
+        const line=text('li','');
+        line.append(text('span',row.topic,'city-topic'),text('p',row.text));
+        return line;
+      });
+      $('city-feed').replaceChildren(...feedRows);
+      const statsText=count(stats.boarded,'boarding')+' · '+count(stats.walks,'walk phase');
+      $('city-counts').textContent=statsText;
+    }
+    function update(playing) {
+      const choice=playing?offer():null;
+      $('city-panel').hidden=!choice;
+      if(choice) {
+        const label=$('city-action-label');
+        if(label.textContent!==choice.action) label.textContent=choice.action;
+        if($('city-place').textContent!==choice.name) $('city-place').textContent=choice.name;
+        $('city-action').disabled=choice.disabled;
+      }
+      render();
+    }
+    async function toggleSound() {
+      const active=await sound.toggle(),button=$('city-sound');
+      button.textContent=active?'Sound on':'Sound off';
+      button.setAttribute('aria-pressed',String(active));
+    }
+    $('city-toggle').addEventListener('click',()=>toggle());
+    $('city-close').addEventListener('click',()=>toggle(false));
+    $('city-sound').addEventListener('click',toggleSound);
+    return {read,toggle,update,mapRows,visible:()=>!watch.hidden,notify:message=>{if(message) {toast(message);render(true);}}};
+  }
+  window.MadisonCityUI={create};
+})();
+
+</script>
+  <script>
+(() => {
+  'use strict';
+
+  const melody=[52,59,64,55,57,64,67,59,55,62,67,62,50,57,62,57];
+  const rate=.285;
+  const hz=n=>440*2**((n-69)/12);
+
+  function create() {
+    let context,volume,active=false,beat=-1,beep=-1,lastCoach=0;
+    async function toggle() {
+      try {
+        if(active) {
+          active=false;
+          volume.gain.setTargetAtTime(0,context.currentTime,.035);
+          return false;
+        }
+        if(!context) {
+          const Audio=window.AudioContext || window.webkitAudioContext;
+          if(!Audio) return false;
+          context=new Audio();
+          volume=context.createGain();
+          volume.gain.value=0;
+          volume.connect(context.destination);
+        }
+        await context.resume();
+        active=context.state==='running';
+        if(active) volume.gain.setTargetAtTime(.52,context.currentTime,.065);
+      } catch { active=false; }
+      return active;
+    }
+
+    function note(frequency,duration,gain,pan,type='sine') {
+      const now=context.currentTime,oscillator=context.createOscillator(),pulse=context.createGain();
+      oscillator.type=type;
+      oscillator.frequency.value=frequency;
+      pulse.gain.setValueAtTime(.0001,now);
+      pulse.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),now+.017);
+      pulse.gain.exponentialRampToValueAtTime(.0001,now+duration);
+      if(context.createStereoPanner) {
+        const position=context.createStereoPanner();
+        position.pan.value=pan;
+        pulse.connect(position);
+        position.connect(volume);
+        oscillator.onended=()=>{pulse.disconnect();position.disconnect();};
+      } else {
+        pulse.connect(volume);
+        oscillator.onended=()=>pulse.disconnect();
+      }
+      oscillator.connect(pulse);
+      oscillator.start(now);
+      oscillator.stop(now+duration+.025);
+    }
+
+    function update(snapshot,player,buses,age) {
+      if(!active || context.state!=='running' || !snapshot || player.flying) return;
+      const {x,z,yaw}=player;
+      const distance=row=>Math.hypot(row.x-x,row.z-z);
+      const panning=row=>Math.max(-.87,Math.min(.87,((row.x-x)*Math.cos(yaw)+(row.z-z)*Math.sin(yaw))/Math.max(7,distance(row))));
+      const nearby=snapshot.activities.filter(row=>row.active && (row.id==='library'||row.id==='state'))
+        .reduce((best,row)=>!best || distance(row)<distance(best)?row:best,null);
+      const step=Math.floor(age/rate);
+      if(step!==beat) {
+        beat=step;
+        if(nearby && distance(nearby)<100) {
+          const power=1-distance(nearby)/100,pan=panning(nearby),offset=nearby.id==='library'?3:0;
+          const pitch=melody[(step+offset)%melody.length],gain=.16*power*power;
+          note(hz(pitch),.42,gain,pan,'triangle');
+          if(step%4===0) note(hz(pitch-12),.53,gain*.49,pan);
+        }
+      }
+      const tick=Math.floor(age*.8);
+      if(tick!==beep) {
+        beep=tick;
+        const sign=snapshot.crosswalks.find(row=>row.active && distance(row)<34);
+        if(sign) note(650,.15,.075*(1-distance(sign)/34),panning(sign));
+      }
+      if(age-lastCoach>4) {
+        const doors=buses.find(([bx,bz,,,open])=>open && Math.hypot(bx-x,bz-z)<26);
+        if(doors) {
+          const bus={x:doors[0],z:doors[1]};
+          note(315,.36,.071*(1-distance(bus)/26),panning(bus),'triangle');
+          lastCoach=age;
+        }
+      }
+    }
+
+    return {update,toggle};
+  }
+
+  window.MadisonCitySound={create};
 })();
 
 </script>
@@ -6264,7 +7053,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const geo={data,ground,nearestRoad,inBuilding,onWater,random,clamp,batch,box,cylinder,mergeLandmark,
       area,center,bounds,inPolygon,indexGrid,segmentDistance,chunkedBatch,triangulate,roofLevels,pavingMaterial,fill,
       streetCandidates:(x,z)=>roadGrid.at(x,z)};
-    const stationLighting=MadisonStreetscape.create(scene,{...layout,stencils},geo,wind);
+    const streets=MadisonStreetscape.create(scene,{...layout,stencils},geo,wind);
     const lightStreet=streetLights(scene);
     await stage(56,'Building downtown');
     const homes=MadisonHomes.create(scene,geo,evening);
@@ -6278,8 +7067,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     const yards={...homes,paved:(x,z)=>homes.paved(x,z)||storefronts.paved(x,z)||market?.paved(x,z)};
     const landscape=MadisonLandscape.create(scene,geo,photos,wind,yards);
     const parking=MadisonParking.create(geo,layout,market,rapid.routes);
-    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes,parking);
-    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[]);
+    const city=MadisonCity.create(geo,layout,rapid.routes,market);
+    const traffic=MadisonTraffic.create(scene,geo,layout,rapid.routes,parking,city);
+    const pedestrians=MadisonPedestrians.create(scene,geo,layout,market,storyMode?MadisonCampaign.contacts:[],city);
     const car=carModel(scene);
     const detail=[];
     scene.traverse(mesh=>{
@@ -6302,7 +7092,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       renderer.toneMappingExposure=mood.exposure;
       evening.value=i===2?.85:i===1?.15:0;
       lightStreet(evening.value);
-      stationLighting(evening.value);
+      streets.light(evening.value);
       stadium?.(evening.value);
       storefronts.light(evening.value);
     }
@@ -6317,7 +7107,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     let frameTime=1/60, lastFrame=0, resolutionCheck=0, reflectionQuality=!software;
     const viewDirection=new T.Vector3();
     await stage(94,'Preparing the first view');
-    return {camera,car,market,parking,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
+    return {camera,car,market,parking,city,canvas:renderer.domElement,setLight,trafficBlocked:traffic.blocked,buses:traffic.buses,
       siteTarget:storefronts.target,capture() {
         try {
           renderer.render(scene,camera);
@@ -6328,7 +7118,10 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
           return canvas.toDataURL('image/jpeg',.78);
         } catch { return null; }
       },
-      transit:traffic.transit,advanceTraffic:traffic.advance,platforms:layout.stops,
+      transit:traffic.transit,advanceTraffic(time,player,parked,driving=false) {
+        city.advance(time,(a,b)=>traffic.crossingClear(a,b,driving?player:null,parked));
+        traffic.advance(time,player,parked);
+      },platforms:layout.stops,
       rapidLines:rapid.routes.filter(route=>route.kind==='bus').map(route=>route.line.points),render(seconds,player=null) {
       const elapsed=lastFrame?seconds-lastFrame:0;
       lastFrame=seconds;
@@ -6374,6 +7167,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       wind.value=seconds;
       landscape(player,camera,software || frameTime>.063);
       storefronts.update(seconds);
+      streets.update();
       traffic.render(camera);
       pedestrians(seconds,camera,software || frameTime>.063);
       if(frameTime>.073) reflectionQuality=false;
@@ -6407,12 +7201,13 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   ];
   const stationPoints=[];
   const query=new URLSearchParams(window.location.search);
+  const watchQuery=query.get('watch');
   const marketDay=query.get('market')==='1';
   const storyMode=!marketDay && query.get('story')==='1';
   let storage;
   try { storage=window.localStorage; } catch {}
   const campaign=MadisonCampaign.open(storage);
-  let story;
+  let story,cityUI,citySound;
   const marketBasket=new Set();
   const stallDialog=$('stall-dialog'),transitDialog=$('transit-dialog');
   const stopQuery=query.get('stop')?.toLowerCase();
@@ -6480,7 +7275,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     fieldMap.draw({player:player(),target,route,points:points.map(point=>{
       const [x,z]=point.marker || [point.x,point.z];
       return {x,z,transit:point.transit};
-    }),buses:engine?.buses || [],car:story && state!=='drive'?parkedCar:null});
+    }),buses:engine?.buses || [],car:story && state!=='drive'?parkedCar:null,activity:cityUI?.read()});
+    if(expanded) cityUI?.mapRows(target);
     const meters=target?route?.distance ?? Math.hypot(x-target.x,z-target.z):0;
     const length=meters>=1000?(meters/1000).toFixed(1)+' km':Math.round(meters)+' m';
     $('map-destination').textContent=target?.name || 'No destination';
@@ -6529,7 +7325,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     game.classList.toggle('map-open',open);
     $('map-toggle').setAttribute('aria-expanded',String(open));
     for(const id of ['map-close','map-details','map-tools']) $(id).hidden=!open;
-    for(const id of ['hud','intro']) $(id).inert=open;
+    for(const id of ['hud','intro','city-watch']) $(id).inert=open;
     game.querySelector('.rail').inert=open;
     game.querySelector('.credits').inert=open;
     keys.clear();
@@ -6540,6 +7336,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       $('help-toggle').setAttribute('aria-expanded','false');
       showObjectives();
       $('map-close').focus();
+      cityUI?.mapRows(destination(),true);
     }
     drawMap();
   }
@@ -6561,6 +7358,17 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     return state==='walk' && !seated && !engine.transit.platformAt(x,z)?campaign.nearby(x,z):null;
   }
 
+  function cityOffer() {
+    if(state!=='walk' || seated || engine.transit.platformAt(x,z) || engine.market?.nearby(x,z) || story && storyNearby()) return null;
+    return engine.city.nearby(x,z);
+  }
+
+  function cityInteract() {
+    if(!cityOffer()) return;
+    cityUI.notify(engine.city.act(x,z));
+    updateHUD();
+  }
+
   function storyStart() {
     const {last,hasSave}=campaign.view();
     return hasSave?MadisonCampaign.sites[last]:MadisonCampaign.arrival;
@@ -6580,7 +7388,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
 
   function carAllowed(cx,cz,angle,ignoreCar=false) {
     const dx=Math.sin(angle), dz=-Math.cos(angle);
-    const blocked=(x,z,radius)=>groundBlocked(x,z,radius,ignoreCar)||engine.market?.drivingBlocked(x,z,radius);
+    const blocked=(x,z,radius)=>groundBlocked(x,z,radius,ignoreCar)
+      || engine.market?.drivingBlocked(x,z,radius) || engine.city.blocksCar(x,z);
     return !blocked(cx,cz,1) && !blocked(cx+dx*1.42,cz+dz*1.42,.93)
       && !blocked(cx-dx*1.42,cz-dz*1.42,.93);
   }
@@ -6733,6 +7542,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     game.classList.remove('hud-free');
     $('intro').hidden=next!=='intro';
     $('hud').hidden=next==='intro';
+    $('city-toggle').hidden=next==='intro';
     $('help').hidden=true;
     $('help-toggle').setAttribute('aria-expanded','false');
     $('speedometer').hidden=next!=='drive';
@@ -6835,9 +7645,11 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       else if(stopRequested) status='Stop requested for '+riding.next;
       else if(riding.station) status='At '+riding.station;
       else status='Next stop · '+riding.next;
+      if(riding.riders) status+=' · '+riding.riders+(riding.riders===1?' rider':' riders');
     } else {
       action='Travel';
       status=waiting.boarding?'Doors open at '+waiting.name:waiting.name+' platform';
+      if(waiting.waiting) status+=' · '+waiting.waiting+' waiting';
     }
     const labels={'transit-status':status,'transit-route':direction?'Route A · '+direction:'Route A','transit-action-label':action};
     for(const [id,label] of Object.entries(labels)) {
@@ -6978,7 +7790,9 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     if(stall && $('market-stall-name').textContent!==stall.name) $('market-stall-name').textContent=stall.name;
     story?.update(x,z,state!=='intro',seated);
     if(story) engine.siteTarget(state==='intro'?null:story.target());
-    $('car-panel').hidden=!story || state!=='drive' && !(state==='walk' && !seated && carNear() && !milestone && $('transit-panel').hidden);
+    cityUI?.update(state!=='intro');
+    $('car-panel').hidden=!story || state!=='drive' && !(state==='walk' && !seated && carNear()
+      && !milestone && $('transit-panel').hidden && $('city-panel').hidden);
     $('car-action-label').textContent=state==='drive'?'Get out':'Get in';
     drawMap();
   }
@@ -6997,7 +7811,8 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     let seconds=stamp/1000;
     if(state==='intro' && reducedMotion.matches) seconds=0;
     lastRender=stamp;
-    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null,state==='drive'?null:parkedCar);
+    engine.advanceTraffic(state==='intro'?0:seconds,state==='walk' || state==='drive'?[x,z]:null,
+      state==='drive'?null:parkedCar,state==='drive');
     if(state==='ride') {
       rideView=engine.transit.ride();
       if(rideView?.open && (stopRequested || rideView.final)) stepOff();
@@ -7008,6 +7823,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       updateHUD();
     }
     engine.render(seconds,state==='intro'?null:[x,z,state==='fly'?altitude:0]);
+    if(state!=='intro') citySound.update(cityUI.read(),player(),engine.buses,engine.city.time());
   }
 
   function browseMarket(stall=engine.market?.nearby(x,z)) {
@@ -7058,10 +7874,13 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
   }
 
   function bind() {
+    citySound=MadisonCitySound.create();
+    cityUI=MadisonCityUI.create(engine.city,{guide,offer:cityOffer,toast,sound:citySound});
     const walkStart=()=>story?storyStart():engine.market?.start || points[0];
     function returnTitle() {
       if(story && state==='drive' && !leaveCar()) {setMap(false);return;}
       manualTarget=null;
+      cityUI.toggle(false);
       changeMode('intro',points[0]);
     }
     $('walk').addEventListener('click',()=>changeMode('walk',walkStart()));
@@ -7079,6 +7898,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
     $('market-close').addEventListener('click',()=>stallDialog.close());
     $('encounter-action').addEventListener('click',storyInteract);
     $('car-action').addEventListener('click',()=>state==='drive'?leaveCar():enterCar());
+    $('city-action').addEventListener('click',cityInteract);
     $('home').addEventListener('click',returnTitle);
     $('map-home').addEventListener('click',returnTitle);
     if(storyMode) {
@@ -7193,13 +8013,21 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         } else if(!$('credits').hidden) {
           $('credits').hidden=true;
           $('credits-toggle').setAttribute('aria-expanded','false');
-        } else if(state!=='intro') setMap(true);
+        } else if(cityUI.visible()) cityUI.toggle(false);
+        else if(state!=='intro') setMap(true);
         return;
       }
       if(event.code==='KeyM' && !event.repeat) { game.classList.remove('hud-free'); setMap(!expanded); return; }
       if(!event.repeat && modeKeys[key] && !expanded) { selectMode(modeKeys[key]); return; }
       if(!event.repeat && key==='KeyF' && !expanded) { selectMode(state==='fly'?'walk':'fly'); return; }
       if(state==='intro' || expanded) return;
+      if(key==='KeyL' && !event.repeat) {
+        game.classList.remove('hud-free');
+        $('help').hidden=true;
+        $('help-toggle').setAttribute('aria-expanded','false');
+        cityUI.toggle();
+        return;
+      }
       if(state!=='ride' && ['KeyW','KeyS','KeyA','KeyD','KeyC','Space','ShiftLeft','ShiftRight'].includes(key)) {
         if(key==='Space' && state==='walk') return;
         event.preventDefault();
@@ -7210,6 +8038,7 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
         if(state==='ride' || state==='walk' && engine.transit.platformAt(x,z)) busAction();
         else if(stall) browseMarket(stall);
         else if(story && (seated || storyNearby())) storyInteract();
+        else if(cityOffer()) cityInteract();
         else if(story && state==='drive') leaveCar();
         else if(story && state==='walk' && carNear()) enterCar();
         else if(story) return;
@@ -7277,10 +8106,15 @@ window.MADISON = {"origin":[-89.38412,43.07469],"meters":[81315.2565613432,11113
       engine.advanceTraffic(0,null);
       if(storyMode) restoreCar();
       bind();
+      const watchSite=watchQuery && engine.city.snapshot().activities.find(row=>row.id===watchQuery);
       if(openingStop) {
         if(query.get('platform')==='1') visitPlatform(openingStop);
         else changeMode('walk',openingStop);
       } else if(story) changeMode('walk',storyStart());
+      else if(watchSite) {
+        changeMode('walk',watchSite.watch);
+        cityUI.toggle(true);
+      }
       else if(engine.market) changeMode('walk',engine.market.start);
       setCamera(0,0);
       engine.render(0,state==='intro'?null:[x,z,0]);

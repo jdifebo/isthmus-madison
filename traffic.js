@@ -4,7 +4,7 @@
   const T=THREE;
   const avenue='East Washington Avenue';
   const cycle=44, green=18.5, yellow=21;
-  const signalPhase=(signal,axis,time)=>(time+signal.phase+axis*cycle/2)%cycle;
+  const signalPhase=(signal,axis,time)=>signal.cityHold?cycle-1:(time+signal.phase+axis*cycle/2)%cycle;
 
   function corridor(roads,direction) {
     const edges=roads.filter(([name,kind,width,,line])=>name===avenue && kind<=1 && width>=7.5 &&
@@ -197,7 +197,7 @@
     return stops.sort((a,b)=>a.s-b.s);
   }
 
-  function updateRoute(route,dt,time,obstacles) {
+  function updateRoute(route,dt,time,obstacles,city) {
     const {vehicles,line,stations,signals}=route;
     vehicles.sort((a,b)=>b.s-a.s);
     for(let index=0;index<vehicles.length;index++) {
@@ -246,6 +246,7 @@
       if(station && station.s-car.s<.12 && station.s<=barrier+.01) {
         car.s=station.s;
         car.speed=0;
+        car.dwellTime=car.baseDwell+(city?.serve(car,route,car.stop) || 0);
         car.dwell=car.dwellTime;
       }
     }
@@ -561,7 +562,7 @@
     return {bus,car,parked};
   }
 
-  function create(scene,geo,layout,routes,parking) {
+  function create(scene,geo,layout,routes,parking,city) {
     const models=vehicleModels(scene,geo);
     if(parking) models.parked(parking.parked);
     const rng=geo.random(421433);
@@ -582,8 +583,10 @@
         const stop=route.stations.findIndex(marker=>marker.s>=target-.015);
         const cruise=route.kind==='local'?7.6+rng()*2.5:bus?11.7+rng()*2.5:12.2+rng()*3.7;
         const dwellTime=docked?10.4:6.3+rng()*2.7;
-        route.vehicles.push({...actor,bus,s:target,stop:stop<0?route.stations.length:stop,cruise,
-          speed:docked?0:cruise*(.59+rng()*.29),dwell:docked?dwellTime:0,dwellTime,braking:Boolean(docked)});
+        const vehicle={...actor,bus,s:target,stop:stop<0?route.stations.length:stop,cruise,baseDwell:dwellTime,
+          speed:docked?0:cruise*(.59+rng()*.29),dwell:docked?dwellTime:0,dwellTime,braking:Boolean(docked)};
+        if(docked && city) vehicle.dwell=vehicle.dwellTime=dwellTime+city.serve(vehicle,route,stop);
+        route.vehicles.push(vehicle);
       }
     }
     const canvas=document.createElement('canvas');
@@ -636,7 +639,7 @@
         const obstacles=[];
         if(player && !(onPlatform && route.kind==='bus')) obstacles.push(line.project(player[0],player[1]));
         if(parked) obstacles.push(line.project(parked.x,parked.z));
-        for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),obstacles);
+        for(let step=0;step<steps;step++) updateRoute(route,elapsed/steps,time-elapsed*(1-(step+1)/steps),obstacles,city);
         if(route.kind!=='bus') continue;
         for(const actor of vehicles) {
           const [x,z,dx,dz]=line.sample(actor.s-8);
@@ -757,10 +760,17 @@
 
     function dock(actor,route,index) {
       const stop=route.stations[index];
+      const alreadyHere=actor.stop===index && actor.dwell>0;
       actor.stop=index;
       actor.s=stop.s;
-      actor.dwellTime=12;
-      actor.dwell=10;
+      if(alreadyHere) {
+        actor.dwellTime=Math.max(actor.dwellTime,actor.dwell+1.2);
+        actor.dwell=Math.max(1.7,actor.dwell);
+      } else {
+        const extra=city?.serve(actor,route,index) || 0;
+        actor.dwellTime=12+extra;
+        actor.dwell=10+extra;
+      }
       actor.speed=0;
       actor.braking=true;
     }
@@ -772,7 +782,9 @@
       if(index<0 || index>=route.stations.length-1) return null;
       const station=route.stations[index];
       const sorted=route.vehicles.slice().sort((a,b)=>Math.abs(a.s-station.s)-Math.abs(b.s-station.s));
-      const actor=sorted[0] && Math.abs(sorted[0].s-station.s)<28?sorted[0]:sorted.at(-1);
+      const outside=sorted.filter(a=>Math.abs(a.s-station.s)>=28);
+      const empty=outside.filter(a=>!a.riders?.length).at(-1);
+      const actor=sorted[0] && Math.abs(sorted[0].s-station.s)<28?sorted[0]:empty || sorted.at(-1);
       if(!actor) return null;
       dock(actor,route,index);
       passenger={actor,route,station:station.name};
@@ -821,7 +833,7 @@
         y:cabin.y+1.94+Math.sin(cabin.slope)*seatAlong,
         z:cabin.z+cabin.dz*seatAlong-cabin.dx*seatAcross,yaw:Math.atan2(cabin.dx,-cabin.dz),
         direction:route.direction>0?'Eastbound':'Westbound',station:stopped?current.name:null,next:next?.name,
-        final,open};
+        final,open,riders:actor.riders?.length || 0};
     }
 
     function exit() {
@@ -840,10 +852,34 @@
       const offer=boardingAt(x,z);
       const info=layout.stops.find(stop=>stop[5]?.id===platform.id)?.[5];
       const direction=offer?.route.direction || info?.direction;
-      return {name:platform.name,boarding:Boolean(offer),direction:direction?direction>0?'Eastbound':'Westbound':null};
+      return {name:platform.name,boarding:Boolean(offer),direction:direction?direction>0?'Eastbound':'Westbound':null,
+        waiting:city?.status(platform.id) || 0};
     }
 
-    return {advance,render,blocked,buses,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release,
+    const crossLanes=new WeakMap();
+    function crossingClear(a,b,playerCar,parked) {
+      const occupied=(x,z,range)=>geo.segmentDistance(x,z,a.x,a.z,b.x,b.z)<range*range;
+      if(playerCar && occupied(playerCar[0],playerCar[1],3.65) || parked && occupied(parked.x,parked.z,3.05)) return false;
+      if(!crossLanes.has(a)) {
+        const x=(a.x+b.x)*.5,z=(a.z+b.z)*.5,radius=Math.hypot(b.x-a.x,b.z-a.z)*.53+3;
+        crossLanes.set(a,routes.flatMap(route=>{
+          const hit=route.line.project(x,z);
+          return hit.distance<radius?[{route,at:hit.s,radius}]:[];
+        }));
+      }
+      for(const {route,at,radius} of crossLanes.get(a)) for(const actor of route.vehicles) {
+        const front=actor.s+(actor.bus?0:actor.length*.5),back=front-actor.length;
+        if(back>at+radius || front<at-radius) continue;
+        const probes=actor.bus?8:3;
+        for(let i=0;i<=probes;i++) {
+          const [x,z]=route.line.sample(back+actor.length*i/probes);
+          if(occupied(x,z,actor.bus?1.88:1.55)) return false;
+        }
+      }
+      return true;
+    }
+
+    return {advance,render,blocked,buses,crossingClear,transit:{platformAt,platformStart,stationStatus,board,ride,exit,release,
       services,summon,destinations,express}};
   }
 
